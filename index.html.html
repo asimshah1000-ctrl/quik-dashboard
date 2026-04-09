@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QUIK — Transport Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Firebase CDN — no installation needed -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<!-- XLSX for file upload parsing -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0B1120;--bg2:#111827;--bg3:#1E293B;--border:#1E2D45;
+  --blue:#3B82F6;--blue-dim:#1D4ED8;--orange:#F97316;--green:#22C55E;
+  --red:#EF4444;--purple:#A855F7;--text:#F1F5F9;--muted:#64748B;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:58px;position:sticky;top:0;z-index:100}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:19px;color:#fff}.logo span{color:var(--orange)}
+.hmeta{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+.ldot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+nav{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;overflow-x:auto}
+.tab{padding:12px 15px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;letter-spacing:.4px;text-transform:uppercase}
+.tab:hover{color:var(--text)}.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+main{padding:20px 24px;max-width:1500px;margin:0 auto}
+.panel{display:none}.panel.active{display:block}
+.section-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+@media(max-width:1050px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+.kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:16px;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.kpi-card.blue::before{background:linear-gradient(90deg,var(--blue),#60A5FA)}
+.kpi-card.orange::before{background:linear-gradient(90deg,var(--orange),#FCD34D)}
+.kpi-card.green::before{background:linear-gradient(90deg,var(--green),#86EFAC)}
+.kpi-card.purple::before{background:linear-gradient(90deg,var(--purple),#C084FC)}
+.kpi-card.red::before{background:linear-gradient(90deg,var(--red),#FCA5A5)}
+.kpi-label{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.kpi-value{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;line-height:1}
+.kpi-sub{font-size:10px;color:var(--muted);margin-top:5px;font-family:'DM Mono',monospace}
+.bgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+@media(max-width:900px){.bgrid{grid-template-columns:1fr}}
+.bcard{background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:16px}
+.bc-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.bc-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700}
+.bc-badge{padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700}
+.bc-badge.own{background:#1D4ED820;color:#60A5FA;border:1px solid #1D4ED8}
+.bc-badge.tpl{background:#7C3AED20;color:#C084FC;border:1px solid #7C3AED}
+.bc-badge.adhoc{background:#EA580C20;color:#FCD34D;border:1px solid #EA580C}
+.brow{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:10px}
+.brow:last-child{border-bottom:none}
+.brow-l{color:var(--muted)}.brow-v{font-family:'DM Mono',monospace;font-size:11px}
+.ubar{margin-top:8px}.ubar-lbl{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:4px}
+.ubar-track{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.ubar-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.twrap{background:var(--bg2);border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:20px}
+.ttbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px}
+.ttitle{font-family:'Syne',sans-serif;font-size:13px;font-weight:700}
+.tfiltrow{display:flex;gap:5px;flex-wrap:wrap}
+.tfbtn{padding:4px 10px;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text);transition:all .2s}
+.tfbtn:hover,.tfbtn.act{border-color:var(--blue);color:var(--blue)}
+table{width:100%;border-collapse:collapse}
+thead th{padding:8px 10px;text-align:left;font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);background:var(--bg3);border-bottom:1px solid var(--border);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border);transition:background .15s}
+tbody tr:hover{background:var(--bg3)}
+tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertical-align:middle}
+.sbadge{padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700;font-family:'Inter',sans-serif}
+.s-Completed{background:#16A34A20;color:#4ADE80;border:1px solid #16A34A40}
+.s-InTransit{background:#2563EB20;color:#60A5FA;border:1px solid #2563EB40}
+.s-Delayed{background:#DC262620;color:#F87171;border:1px solid #DC262640}
+.s-Partial{background:#D9770620;color:#FCD34D;border:1px solid #D9770640}
+.wpill{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600;font-family:'Inter',sans-serif}
+.wh-own{background:#1D4ED820;color:#60A5FA}.wh-3pl{background:#7C3AED20;color:#C084FC}
+.vt-Own{background:#16A34A20;color:#4ADE80}.vt-3PL{background:#7C3AED20;color:#C084FC}.vt-Adhoc{background:#EA580C20;color:#FCD34D}
+.ttag{display:inline-block;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 5px;font-size:9px;font-family:'DM Mono',monospace}
+.ttag.warn{border-color:#F9731660;color:#FCD34D;background:#F9731610}
+.ttag.ok{border-color:#16A34A60;color:#4ADE80;background:#16A34A10}
+.ttag.late{border-color:#DC262660;color:#F87171;background:#DC262610}
+.delbtn{background:transparent;border:1px solid #DC262640;color:#F87171;border-radius:4px;padding:3px 7px;font-size:9px;font-weight:700;cursor:pointer;transition:all .2s}
+.delbtn:hover{background:#DC262620;border-color:var(--red)}
+.ecell{cursor:pointer;border-radius:3px;padding:2px 3px;transition:background .15s;display:inline-block}
+.ecell:hover{background:var(--bg3);outline:1px dashed var(--border)}
+.einput{background:var(--bg2);border:1px solid var(--blue);border-radius:4px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:2px 5px;outline:none;width:82px}
+.fsec{background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:20px;margin-bottom:20px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.flabel{display:block;font-size:9px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.finput,.fselect{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:11px;font-family:'Inter',sans-serif;outline:none;transition:border-color .2s}
+.finput:focus,.fselect:focus{border-color:var(--blue)}
+.fselect option{background:var(--bg2)}
+.btn-p{padding:9px 20px;background:var(--blue);border:none;border-radius:7px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s}
+.btn-p:hover{background:var(--blue-dim)}
+.btn-s{padding:9px 18px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer}
+.btn-s:hover{border-color:var(--muted);color:var(--text)}
+.spwrap{position:relative;grid-column:1/-1}
+.spinput{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:11px;font-family:'Inter',sans-serif;outline:none}
+.spinput:focus{border-color:var(--blue)}
+.spdrop{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg2);border:1px solid var(--blue);border-radius:8px;max-height:180px;overflow-y:auto;z-index:60;display:none;box-shadow:0 8px 24px rgba(0,0,0,.6)}
+.spdrop.open{display:block}
+.spopt{padding:7px 10px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:7px}
+.spopt:hover,.spopt.hi{background:var(--bg3)}
+.spopt.sel{color:var(--blue)}
+.spchk{width:13px;height:13px;border-radius:3px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:8px;flex-shrink:0}
+.spopt.sel .spchk{background:var(--blue);border-color:var(--blue);color:#fff}
+.sptags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.sptag{background:var(--blue-dim);color:#fff;border-radius:4px;padding:2px 7px;font-size:9px;font-weight:600;display:flex;align-items:center;gap:4px}
+.sptag .rx{cursor:pointer;opacity:.7;font-size:11px}.sptag .rx:hover{opacity:1}
+.scnt{background:var(--blue);color:#fff;border-radius:10px;font-size:9px;font-weight:700;padding:1px 6px;margin-left:5px}
+.dinfo{margin-top:8px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:9px 11px;display:none}
+.dinfo.show{display:block}
+.dinfo-title{font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--orange);margin-bottom:7px}
+.drow{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:10px;flex-wrap:wrap}
+.drow:last-child{border-bottom:none}
+.dsn{font-family:'DM Mono',monospace;font-weight:600;width:138px;flex-shrink:0}
+.dtime{font-family:'DM Mono',monospace;color:var(--orange)}
+.dwin{font-family:'DM Mono',monospace;color:var(--muted);font-size:9px}
+.ttogwrap{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:12px 14px;background:var(--bg3);border-radius:9px;border:1px solid var(--border)}
+.ttog-lbl{font-size:12px;font-weight:600}.ttog-sub{font-size:9px;color:var(--muted);margin-top:2px}
+.togswitch{position:relative;width:38px;height:21px;flex-shrink:0;margin-left:auto;cursor:pointer}
+.togslider{position:absolute;inset:0;background:var(--border);border-radius:11px;transition:.3s}
+.togslider::before{content:'';position:absolute;width:15px;height:15px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.3s}
+.togswitch.on .togslider{background:var(--orange)}
+.togswitch.on .togslider::before{transform:translateX(17px)}
+.tdiv{border:none;border-top:2px dashed var(--border);margin:16px 0}
+.tsect{font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--orange);margin-bottom:10px}
+.wh-filter{display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.whbtn{padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:var(--bg3);color:var(--muted);transition:all .2s}
+.whbtn:not(:last-child){border-right:1px solid var(--border)}
+.whbtn.a-all{background:var(--blue);color:#fff}
+.whbtn.a-own{background:#16A34A;color:#fff}
+.whbtn.a-3pl{background:#7C3AED;color:#fff}
+.whbanner{display:flex;align-items:center;gap:8px;padding:8px 13px;border-radius:8px;margin-bottom:16px;font-size:12px;font-weight:600}
+.whbanner.all{background:#1D4ED810;border:1px solid #1D4ED840;color:#60A5FA}
+.whbanner.own{background:#16A34A10;border:1px solid #16A34A40;color:#4ADE80}
+.whbanner.tpl{background:#7C3AED10;border:1px solid #7C3AED40;color:#C084FC}
+.syncbar{display:flex;align-items:center;gap:10px;padding:8px 13px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:14px;font-size:11px;flex-wrap:wrap}
+.syncbanner{display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:8px;margin-bottom:14px;font-size:11px;font-weight:600;background:#052E1680;border:1px solid #16A34A40;color:#4ADE80}
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-ov.show{opacity:1;pointer-events:all}
+.modal-box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:24px;width:370px;max-width:92vw;transform:scale(.95);transition:transform .2s;text-align:center}
+.modal-ov.show .modal-box{transform:scale(1)}
+.modal-icon{font-size:32px;margin-bottom:10px}
+.modal-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:5px}
+.modal-sub{font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px}
+.modal-info{background:var(--bg3);border-radius:7px;padding:10px;margin-bottom:14px;font-size:10px;font-family:'DM Mono',monospace;text-align:left;line-height:1.9}
+.modal-acts{display:flex;gap:8px;justify-content:center}
+.mcancel{padding:8px 18px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer}
+.mconfirm{padding:8px 18px;background:var(--red);border:none;border-radius:7px;color:#fff;font-size:11px;font-weight:700;cursor:pointer}
+.nameov{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:300;display:flex;align-items:center;justify-content:center}
+.namebox{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;width:340px;max-width:92vw;text-align:center}
+.namebox h2{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;margin-bottom:6px}
+.namebox p{font-size:11px;color:var(--muted);margin-bottom:18px;line-height:1.6}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--green);color:#fff;padding:10px 15px;border-radius:8px;font-size:12px;font-weight:600;opacity:0;transform:translateY(20px);transition:all .3s;pointer-events:none;z-index:999}
+.toast.show{opacity:1;transform:translateY(0)}
+.schgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(305px,1fr));gap:8px;margin-bottom:16px}
+.schrow{background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:9px 12px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.schn{font-family:'DM Mono',monospace;font-size:10px;font-weight:600;width:138px;flex-shrink:0}
+.schinput{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:4px 6px;color:var(--text);font-size:10px;font-family:'DM Mono',monospace;outline:none;width:74px}
+.schinput:focus{border-color:var(--blue)}
+.schlbl{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+/* Upload */
+.upzone{border:2px dashed var(--border);border-radius:11px;padding:2.5rem 1rem;text-align:center;cursor:pointer;margin-bottom:14px;transition:border-color .2s}
+.upzone:hover{border-color:var(--blue)}
+.upsummary{display:flex;gap:18px;flex-wrap:wrap;background:var(--bg3);border-radius:7px;padding:10px 14px;margin-bottom:10px;font-size:12px}
+.uperr{background:#450A0A;border:1px solid #EF444440;border-radius:8px;padding:11px 14px;margin-bottom:8px;font-size:11px;color:#FCA5A5;line-height:1.9}
+.upwarn{background:#431407;border:1px solid #F9731640;border-radius:8px;padding:11px 14px;margin-bottom:8px;font-size:11px;color:#FCD34D;line-height:1.9}
+.updone{background:#052E16;border:1px solid #16A34A60;border-radius:10px;padding:18px 22px;margin-bottom:14px}
+.t2badge{background:#F9731620;color:#FCD34D;border:1px solid #F9731640;border-radius:3px;font-size:8px;padding:1px 4px;font-weight:700;margin-left:3px}
+.t1badge{background:#3B82F620;color:#60A5FA;border:1px solid #3B82F640;border-radius:3px;font-size:8px;padding:1px 4px;font-weight:700;margin-left:3px}
+</style>
+</head>
+<body>
+
+<div id="nameov" class="nameov">
+  <div class="namebox">
+    <div style="font-size:32px;margin-bottom:10px">👤</div>
+    <h2>Aapka naam?</h2>
+    <p>Apna naam daalo taake team ko pata chale kaunse changes aapne kiye.</p>
+    <input id="nameinp" class="finput" type="text" placeholder="e.g. Ahmed Ali" maxlength="30" style="margin-bottom:10px;font-size:13px;padding:10px 12px">
+    <button onclick="confirmName()" class="btn-p" style="width:100%;font-size:13px;padding:11px">Continue ➜</button>
+  </div>
+</div>
+
+<div id="delov" class="modal-ov">
+  <div class="modal-box">
+    <div class="modal-icon">🗑️</div>
+    <div class="modal-title">Delete This Trip?</div>
+    <div class="modal-sub">Cannot be undone. KPIs will recalculate instantly.</div>
+    <div class="modal-info" id="del-info"></div>
+    <div class="modal-acts">
+      <button class="mcancel" onclick="closeDelModal()">Cancel</button>
+      <button class="mconfirm" onclick="confirmDelete()">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<header>
+  <div class="logo">QUIK <span>⬡</span> Transport</div>
+  <div class="hmeta">
+    <div class="ldot"></div>
+    <span id="sync-txt">Connecting…</span>
+    &nbsp;|&nbsp;
+    <span id="live-time"></span>
+    &nbsp;|&nbsp;
+    <span id="uname-hdr" style="color:var(--orange)"></span>
+  </div>
+</header>
+
+<nav id="nav"></nav>
+<main id="main"></main>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  FIREBASE INIT
+// ═══════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyDcyoPRjE0Fcr4bJOD9h8B_Me3zb5IdQKg",
+  authDomain: "quik-transport.firebaseapp.com",
+  databaseURL: "https://quik-transport-default-rtdb.firebaseio.com",
+  projectId: "quik-transport",
+  storageBucket: "quik-transport.firebasestorage.app",
+  messagingSenderId: "860154002421",
+  appId: "1:860154002421:web:315c836dbded51a73d3ebc"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ═══════════════════════════════════════════════════════
+//  STORE SCHEDULE
+// ═══════════════════════════════════════════════════════
+let storeSchedule = {
+  QUIK_ALQUOZ:{dispatch:"05:30",ws:"05:30",we:"07:30"},QUIK_ALQUSAIS:{dispatch:"05:45",ws:"05:45",we:"07:45"},
+  QUIK_ARJAN:{dispatch:"06:00",ws:"06:00",we:"08:00"},QUIK_BANIYAS:{dispatch:"06:15",ws:"06:15",we:"08:15"},
+  QUIK_BARSHA:{dispatch:"06:00",ws:"06:00",we:"08:00"},QUIK_BB:{dispatch:"05:30",ws:"05:30",we:"07:30"},
+  QUIK_BB2:{dispatch:"05:45",ws:"05:45",we:"07:45"},QUIK_BB3:{dispatch:"06:00",ws:"06:00",we:"08:00"},
+  QUIK_CITYLAND:{dispatch:"06:30",ws:"06:30",we:"08:30"},QUIK_DEIRA:{dispatch:"05:30",ws:"05:30",we:"07:30"},
+  QUIK_DFC:{dispatch:"07:00",ws:"07:00",we:"09:00"},QUIK_DFP:{dispatch:"07:00",ws:"07:00",we:"09:00"},
+  QUIK_DIP1:{dispatch:"06:45",ws:"06:45",we:"08:45"},QUIK_DSO:{dispatch:"07:00",ws:"07:00",we:"09:00"},
+  QUIK_DUBAILAND:{dispatch:"07:15",ws:"07:15",we:"09:15"},QUIK_DWTC:{dispatch:"07:00",ws:"07:00",we:"09:00"},
+  QUIK_ETISALAT:{dispatch:"06:30",ws:"06:30",we:"08:30"},QUIK_INTERNETC:{dispatch:"06:45",ws:"06:45",we:"08:45"},
+  QUIK_JADDAF:{dispatch:"06:30",ws:"06:30",we:"08:30"},QUIK_JLT:{dispatch:"06:15",ws:"06:15",we:"08:15"},
+  QUIK_JVC:{dispatch:"06:30",ws:"06:30",we:"08:30"},QUIK_JVC_PLAZA:{dispatch:"06:45",ws:"06:45",we:"08:45"},
+  QUIK_JVT:{dispatch:"06:30",ws:"06:30",we:"08:30"},QUIK_MAJAN:{dispatch:"07:00",ws:"07:00",we:"09:00"},
+  QUIK_MARINA:{dispatch:"06:00",ws:"06:00",we:"08:00"},QUIK_MARINA2:{dispatch:"06:15",ws:"06:15",we:"08:15"},
+  QUIK_MBZ:{dispatch:"07:30",ws:"07:30",we:"09:30"},QUIK_MEYDAN:{dispatch:"06:45",ws:"06:45",we:"08:45"},
+  QUIK_MIRDIFF:{dispatch:"07:00",ws:"07:00",we:"09:00"},QUIK_MOTORC:{dispatch:"06:30",ws:"06:30",we:"08:30"},
+  QUIK_MURJAN:{dispatch:"06:00",ws:"06:00",we:"08:00"},QUIK_RAFFA:{dispatch:"05:45",ws:"05:45",we:"07:45"},
+  QUIK_RAHA:{dispatch:"07:45",ws:"07:45",we:"09:45"},QUIK_REEM:{dispatch:"08:00",ws:"08:00",we:"10:00"},
+  QUIK_SAFA:{dispatch:"06:00",ws:"06:00",we:"08:00"},QUIK_SHAMKHA:{dispatch:"08:00",ws:"08:00",we:"10:00"},
+  QUIK_SPORTSCITY:{dispatch:"06:30",ws:"06:30",we:"08:30"},QUIK_UMS:{dispatch:"06:15",ws:"06:15",we:"08:15"},
+  QUIK_WAHA:{dispatch:"06:45",ws:"06:45",we:"08:45"},QUIK_WASL:{dispatch:"05:45",ws:"05:45",we:"07:45"},
+};
+const STORE_NAMES = Object.keys(storeSchedule);
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let trips = [];
+let currentTab = 'overview';
+let currentUser = localStorage.getItem('quik_user') || '';
+let whFilter = 'all';
+let tripFilter = 'all';
+let schedFilter = 'all';
+let dualTrip = false;
+let pendingDeleteId = null;
+let selectedStores = {1:[], 2:[]};
+let uploadTab = 'trips';
+let uploadRows = null;
+let uploadErrs = [], uploadWarns = [];
+let uploadStatus = 'idle';
+
+// ═══════════════════════════════════════════════════════
+//  FIREBASE LISTENERS
+// ═══════════════════════════════════════════════════════
+const SAMPLE = [
+  {date:"2025-04-01",wh:"Own Warehouse",vt:"Own Fleet",vid:"DXB-T-001",driver:"Ahmed Ali",trip2:false,
+   storeNames:["QUIK_ALQUSAIS","QUIK_DEIRA","QUIK_BB","QUIK_RAFFA"],
+   storeTimes:{QUIK_ALQUSAIS:{arr:"06:10",dep:"06:45"},QUIK_DEIRA:{arr:"07:00",dep:"07:30"},QUIK_BB:{arr:"05:40",dep:"06:00"},QUIK_RAFFA:{arr:"06:05",dep:"06:25"}},
+   qty:2800,pallets:12,capacity:14,cost:420,dispatch:"05:20",status:"Completed",remarks:""},
+  {date:"2025-04-01",wh:"3PL Warehouse",vt:"3PL Fleet",vid:"3PL-V-011",driver:"Hassan Omar",trip2:false,
+   storeNames:["QUIK_MIRDIFF","QUIK_DSO","QUIK_DUBAILAND"],
+   storeTimes:{QUIK_MIRDIFF:{arr:"07:20",dep:"07:50"},QUIK_DSO:{arr:"08:10",dep:"08:40"},QUIK_DUBAILAND:{arr:"09:00",dep:"09:25"}},
+   qty:3200,pallets:13,capacity:16,cost:520,dispatch:"07:00",status:"Completed",remarks:""},
+  {date:"2025-04-02",wh:"Own Warehouse",vt:"Own Fleet",vid:"DXB-T-002",driver:"Ravi Kumar",trip2:false,
+   storeNames:["QUIK_MARINA","QUIK_JLT","QUIK_BARSHA"],
+   storeTimes:{QUIK_MARINA:{arr:"06:20",dep:"06:50"},QUIK_JLT:{arr:"07:05",dep:"07:35"},QUIK_BARSHA:{arr:"08:00",dep:"08:30"}},
+   qty:2100,pallets:9,capacity:14,cost:390,dispatch:"06:00",status:"Completed",remarks:""},
+  {date:"2025-04-02",wh:"Own Warehouse",vt:"Adhoc/Rental",vid:"ADHOC-001",driver:"Vijay Singh",trip2:false,
+   storeNames:["QUIK_MBZ","QUIK_SHAMKHA"],
+   storeTimes:{QUIK_MBZ:{arr:"08:10",dep:"08:40"},QUIK_SHAMKHA:{arr:"09:15",dep:"09:45"}},
+   qty:1400,pallets:6,capacity:10,cost:650,dispatch:"07:30",status:"Completed",remarks:"Rush order"},
+  {date:"2025-04-03",wh:"Own Warehouse",vt:"Own Fleet",vid:"DXB-T-001",driver:"Ahmed Ali",trip2:true,
+   storeNames:["QUIK_ALQUOZ","QUIK_DIP1","QUIK_MEYDAN"],
+   storeTimes:{QUIK_ALQUOZ:{arr:"11:10",dep:"11:40"},QUIK_DIP1:{arr:"11:55",dep:"12:20"},QUIK_MEYDAN:{arr:"11:20",dep:"11:50"}},
+   qty:1800,pallets:8,capacity:14,cost:420,dispatch:"10:30",status:"Completed",remarks:"2nd trip"},
+];
+
+db.ref('trips').on('value', snap => {
+  const data = snap.val();
+  if (data) {
+    trips = Object.entries(data).map(([id,v])=>({...v,_id:id}));
+    trips.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  } else {
+    SAMPLE.forEach(t => db.ref('trips').push(t));
+  }
+  setSyncStatus('live');
+  renderAll();
+});
+
+db.ref('schedule').on('value', snap => {
+  const d = snap.val();
+  if (d) storeSchedule = {...storeSchedule, ...d};
+});
+
+// Live checkins listener
+let liveCheckins = [];
+db.ref('checkins').orderByChild('ts').limitToLast(100).on('value', snap => {
+  const data = snap.val() || {};
+  liveCheckins = Object.entries(data)
+    .map(([id,v]) => ({...v, _id:id}))
+    .sort((a,b) => (b.ts||0) - (a.ts||0));
+  if(currentTab === 'live') renderMain();
+  // Flash notification badge
+  const badge = document.getElementById('live-badge');
+  if(badge && liveCheckins.length > 0){
+    badge.style.display='inline';
+    badge.textContent = liveCheckins.filter(c => c.date === new Date().toISOString().split('T')[0]).length;
+  }
+});
+
+db.ref('meta').on('value', snap => {
+  const d = snap.val();
+  if (d) setSyncStatus('live', `Last edit: ${d.lastUser||''} at ${d.lastTime||''}`);
+});
+
+// ═══════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════
+function setSyncStatus(s, msg) {
+  const el = document.getElementById('sync-txt');
+  if (!el) return;
+  if (s==='live') el.textContent = msg || 'Live — Firebase connected';
+  else if (s==='syncing') el.textContent = 'Syncing…';
+  else el.textContent = 'Offline';
+}
+setSyncStatus('syncing');
+
+function updateTime(){
+  const n=new Date();
+  const el=document.getElementById('live-time');
+  if(el) el.textContent=n.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+' '+n.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+setInterval(updateTime,1000); updateTime();
+
+function showToast(msg,bg='#22C55E'){
+  const t=document.getElementById('toast');t.textContent=msg;t.style.background=bg;
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);
+}
+function toMins(t){if(!t)return null;const[h,m]=t.split(':').map(Number);return h*60+m;}
+function isOnTime(store,dispatch){
+  const s=storeSchedule[store];if(!s||!dispatch)return null;
+  return toMins(dispatch)<=toMins(s.we)?'on':'late';
+}
+function utilColor(u){return u>=85?'#22C55E':u>=60?'#F97316':'#EF4444';}
+function recordMeta(){
+  const time=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  db.ref('meta').set({lastUser:currentUser||'Unknown',lastTime:time});
+}
+function tripBadge(t2){return t2?`<span class="t2badge">2nd</span>`:`<span class="t1badge">1st</span>`;}
+function ttag(v,cls=''){return `<span class="ttag ${cls}">${v||'—'}</span>`;}
+function statusBadge(s){const k=(s||'').replace(/\s/g,'');return `<span class="sbadge s-${k}">${s||'—'}</span>`;}
+
+// ═══════════════════════════════════════════════════════
+//  USER NAME
+// ═══════════════════════════════════════════════════════
+if(!currentUser) document.getElementById('nameov').style.display='flex';
+else {document.getElementById('nameov').style.display='none'; document.getElementById('uname-hdr').textContent='👤 '+currentUser;}
+
+function confirmName(){
+  const v=document.getElementById('nameinp').value.trim();
+  if(!v){document.getElementById('nameinp').style.borderColor='var(--red)';return;}
+  currentUser=v;localStorage.setItem('quik_user',v);
+  document.getElementById('nameov').style.display='none';
+  document.getElementById('uname-hdr').textContent='👤 '+v;
+  showToast('Welcome, '+v+'! 👋');
+}
+document.getElementById('nameinp').addEventListener('keydown',e=>{if(e.key==='Enter')confirmName();});
+
+// ═══════════════════════════════════════════════════════
+//  NAV
+// ═══════════════════════════════════════════════════════
+const TABS = [['overview','📊 Overview'],['wh','🏭 Warehouse'],['trips','📋 Trip Log'],['schedule','🕐 Driver Schedule'],['live','🟢 Live Check-ins'],['add','➕ Add Trip'],['upload','📤 Upload'],['store-times','⚙️ Store Times']];
+
+function renderNav(){
+  document.getElementById('nav').innerHTML = TABS.map(([id,label])=>
+    `<div class="tab ${currentTab===id?'active':''}" onclick="switchTab('${id}')">${label}</div>`
+  ).join('');
+}
+
+function switchTab(t){currentTab=t;renderNav();renderMain();}
+
+// ═══════════════════════════════════════════════════════
+//  KPI BUILDER
+// ═══════════════════════════════════════════════════════
+function buildKpis(data,cid){
+  const n=data.length,u=data.reduce((a,t)=>a+(t.qty||0),0),p=data.reduce((a,t)=>a+(t.pallets||0),0),c=data.reduce((a,t)=>a+(t.cost||0),0);
+  const util=n?(data.reduce((a,t)=>a+((t.pallets||0)/(t.capacity||14)),0)/n*100).toFixed(1):0;
+  const dual=data.filter(t=>t.trip2).length;
+  const cards=[
+    {l:'Total Trips',v:n,s:`${data.filter(t=>t.status==='Completed').length} done · ${dual} 2nd-runs`,c:'blue'},
+    {l:'Units Delivered',v:u.toLocaleString(),s:'FMCG units',c:'purple'},
+    {l:'Pallets Loaded',v:p.toLocaleString(),s:'all vehicles',c:'orange'},
+    {l:'Total Cost (AED)',v:'AED '+c.toLocaleString(),s:'incl. adhoc',c:'red'},
+    {l:'Avg Utilization',v:util+'%',s:'vehicle capacity',c:'green'},
+  ];
+  document.getElementById(cid).innerHTML=cards.map(k=>
+    `<div class="kpi-card ${k.c}"><div class="kpi-label">${k.l}</div><div class="kpi-value">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  BREAKDOWN CARD BUILDER
+// ═══════════════════════════════════════════════════════
+function bcard(title,badge,data,color){
+  const n=data.length,u=data.reduce((a,t)=>a+(t.qty||0),0),p=data.reduce((a,t)=>a+(t.pallets||0),0),c=data.reduce((a,t)=>a+(t.cost||0),0);
+  const util=n?(data.reduce((a,t)=>a+((t.pallets||0)/(t.capacity||14)),0)/n*100).toFixed(1):0;
+  const cpp=p?(c/p).toFixed(2):'0.00';
+  const bl=badge==='own'?'OWN WH':badge==='tpl'?'3PL WH':'ADHOC';
+  return `<div class="bcard">
+    <div class="bc-hdr"><div class="bc-title">${title}</div><div class="bc-badge ${badge}">${bl}</div></div>
+    <div class="brow"><span class="brow-l">Trips</span><span class="brow-v">${n}</span></div>
+    <div class="brow"><span class="brow-l">Units</span><span class="brow-v">${u.toLocaleString()}</span></div>
+    <div class="brow"><span class="brow-l">Pallets</span><span class="brow-v">${p}</span></div>
+    <div class="brow"><span class="brow-l">Total Cost</span><span class="brow-v">AED ${c.toLocaleString()}</span></div>
+    <div class="brow"><span class="brow-l">Cost/Pallet</span><span class="brow-v">AED ${cpp}</span></div>
+    <div class="ubar">
+      <div class="ubar-lbl"><span>Utilization</span><span>${util}%</span></div>
+      <div class="ubar-track"><div class="ubar-fill" style="width:${util}%;background:${color}"></div></div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  STORE PICKER
+// ═══════════════════════════════════════════════════════
+let spHighlight={1:-1,2:-1};
+function spRender(n){
+  const q=(document.getElementById('spinp-'+n)||{}).value||'';
+  const vis=STORE_NAMES.filter(s=>s.toLowerCase().includes(q.toLowerCase()));
+  const dd=document.getElementById('spdrop-'+n);
+  if(!dd)return;
+  dd.innerHTML=vis.map(s=>`<div class="spopt ${selectedStores[n].includes(s)?'sel':''}" onclick="spToggle(${n},'${s}')"><div class="spchk">${selectedStores[n].includes(s)?'✓':''}</div>${s}</div>`).join('');
+}
+function spOpen(n){const dd=document.getElementById('spdrop-'+n);if(dd){spRender(n);dd.classList.add('open');}}
+function spClose(n){const dd=document.getElementById('spdrop-'+n);if(dd)dd.classList.remove('open');}
+function spToggle(n,store){
+  const idx=selectedStores[n].indexOf(store);
+  if(idx>=0)selectedStores[n].splice(idx,1);else selectedStores[n].push(store);
+  spRender(n);renderTags(n);renderDispInfo(n);renderStoreTimeInputs(n);
+}
+function renderTags(n){
+  const el=document.getElementById('sptags-'+n),cnt=document.getElementById('spcnt-'+n);
+  if(!el)return;
+  cnt&&(cnt.textContent=selectedStores[n].length);
+  el.innerHTML=selectedStores[n].map(s=>`<span class="sptag">${s}<span class="rx" onclick="spToggle(${n},'${s}')">×</span></span>`).join('');
+}
+function renderDispInfo(n){
+  const box=document.getElementById('dinfo-'+n),rows=document.getElementById('drows-'+n);
+  if(!box)return;
+  if(!selectedStores[n].length){box.classList.remove('show');return;}
+  box.classList.add('show');
+  rows.innerHTML=selectedStores[n].map(s=>{
+    const sch=storeSchedule[s]||{};
+    return `<div class="drow"><div class="dsn">${s}</div><div class="dtime">🕐 ${sch.dispatch||'—'}</div><div class="dwin">Window: ${sch.ws||'—'} – ${sch.we||'—'}</div></div>`;
+  }).join('');
+}
+function renderStoreTimeInputs(n){
+  const wrap=document.getElementById('sttimes-wrap-'+n),con=document.getElementById('sttimes-'+n);
+  if(!wrap)return;
+  if(!selectedStores[n].length){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  con.innerHTML=selectedStores[n].map(s=>`
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:9px 11px">
+      <div style="font-size:9px;font-weight:700;color:var(--orange);margin-bottom:6px;font-family:'DM Mono',monospace">${s} <span style="color:var(--muted);font-weight:400">Sched: ${storeSchedule[s]?.dispatch||'—'}</span></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div><label class="flabel">Arrival</label><input class="schinput" type="time" id="sta-${n}-${s}" style="width:88px"></div>
+        <div><label class="flabel">Depart</label><input class="schinput" type="time" id="std-${n}-${s}" style="width:88px"></div>
+      </div>
+    </div>`).join('');
+}
+function spKey(e,n){
+  const vis=STORE_NAMES.filter(s=>s.toLowerCase().includes((document.getElementById('spinp-'+n)||{}).value||''));
+  if(e.key==='ArrowDown'){e.preventDefault();spHighlight[n]=Math.min(spHighlight[n]+1,vis.length-1);}
+  else if(e.key==='ArrowUp'){e.preventDefault();spHighlight[n]=Math.max(spHighlight[n]-1,0);}
+  else if(e.key==='Enter'&&spHighlight[n]>=0){e.preventDefault();spToggle(n,vis[spHighlight[n]]);}
+  else if(e.key==='Escape'){spClose(n);return;}
+  document.querySelectorAll(`#spdrop-${n} .spopt`).forEach((el,i)=>el.classList.toggle('hi',i===spHighlight[n]));
+}
+document.addEventListener('click',e=>{
+  [1,2].forEach(n=>{const w=document.getElementById('spwrap-'+n);if(w&&!w.contains(e.target))spClose(n);});
+});
+function spHTML(n){
+  return `<div class="spwrap" id="spwrap-${n}">
+    <label class="flabel">Store Names <span class="scnt" id="spcnt-${n}">0</span></label>
+    <input class="spinput" id="spinp-${n}" placeholder="Search & select stores…" autocomplete="off"
+      oninput="spRender(${n})" onfocus="spOpen(${n})" onkeydown="spKey(event,${n})">
+    <div class="spdrop" id="spdrop-${n}"></div>
+    <div class="sptags" id="sptags-${n}"></div>
+    <div class="dinfo" id="dinfo-${n}">
+      <div class="dinfo-title">📅 Scheduled Dispatch Times</div>
+      <div id="drows-${n}"></div>
+    </div>
+  </div>
+  <div style="grid-column:1/-1;display:none" id="sttimes-wrap-${n}">
+    <label class="flabel" style="margin-bottom:7px">Actual Arrival & Depart per Store</label>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px" id="sttimes-${n}"></div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  DELETE
+// ═══════════════════════════════════════════════════════
+function openDelModal(id){
+  pendingDeleteId=id;
+  const t=trips.find(x=>x._id===id)||{};
+  document.getElementById('del-info').innerHTML=
+    `📅 ${t.date} | 👤 ${t.driver}${t.trip2?' (2nd)':''}<br>🏭 ${t.wh} | 🚛 ${t.vt}<br>📦 ${t.qty?.toLocaleString()||0} units | 💰 AED ${t.cost||0}<br>🏪 ${(t.storeNames||[]).join(', ')||'—'}`;
+  document.getElementById('delov').classList.add('show');
+}
+function closeDelModal(){pendingDeleteId=null;document.getElementById('delov').classList.remove('show');}
+function confirmDelete(){
+  if(!pendingDeleteId)return;
+  db.ref('trips/'+pendingDeleteId).remove();
+  recordMeta();closeDelModal();showToast('🗑️ Trip deleted','#EF4444');
+}
+document.getElementById('delov').addEventListener('click',function(e){if(e.target===this)closeDelModal();});
+
+// ═══════════════════════════════════════════════════════
+//  INLINE EDIT (Driver Schedule)
+// ═══════════════════════════════════════════════════════
+function startEdit(td,tripId,store,field){
+  const t=trips.find(x=>x._id===tripId)||{};
+  let curVal='';
+  if(field==='dispatch')curVal=t.dispatch||'';
+  else{const st=(t.storeTimes&&t.storeTimes[store])||{};curVal=st[field]||'';}
+  td.innerHTML=`<input class="einput" type="time" value="${curVal}"
+    onblur="commitEdit('${tripId}','${store}','${field}',this.value)"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){event.target.value='${curVal}';this.blur();}"
+    autofocus>`;
+  td.querySelector('input').focus();
+}
+function commitEdit(tripId,store,field,val){
+  if(field==='dispatch'){
+    db.ref('trips/'+tripId+'/dispatch').set(val);
+  } else {
+    db.ref('trips/'+tripId+'/storeTimes/'+store+'/'+field).set(val);
+  }
+  recordMeta();showToast('✏️ Saved','#3B82F6');
+}
+
+// ═══════════════════════════════════════════════════════
+//  ADD TRIP
+// ═══════════════════════════════════════════════════════
+function toggleDualTrip(){
+  dualTrip=!dualTrip;
+  const el=document.getElementById('togswitch');
+  if(el)el.classList.toggle('on',dualTrip);
+  const sec=document.getElementById('trip2-sec');
+  if(sec)sec.style.display=dualTrip?'block':'none';
+  if(dualTrip){
+    const d=document.getElementById('f-date'),d2=document.getElementById('f2-date');
+    if(d&&d2)d2.value=d.value;
+    syncDriver();
+  }
+}
+function syncDriver(){
+  const d=document.getElementById('f-driver'),d2=document.getElementById('f2-driver');
+  if(d&&d2)d2.value=d.value;
+}
+function getStoreTimes(n){
+  const obj={};
+  selectedStores[n].forEach(s=>{
+    const a=document.getElementById('sta-'+n+'-'+s),dp=document.getElementById('std-'+n+'-'+s);
+    obj[s]={arr:a?a.value:'',dep:dp?dp.value:''};
+  });
+  return obj;
+}
+function gv(id){const el=document.getElementById(id);return el?el.value:'';}
+function buildTripObj(prefix,n,t2){
+  const sn=selectedStores[n];
+  return {
+    date:gv(prefix+'date')||new Date().toISOString().split('T')[0],
+    wh:gv(prefix+'wh'),vt:gv(prefix+'vt'),
+    vid:gv(prefix+'vid')||'—',
+    driver:t2?gv('f-driver'):gv(prefix+'driver'),
+    trip2:t2,storeNames:sn,storeTimes:getStoreTimes(n),
+    qty:+gv(prefix+'qty')||0,pallets:+gv(prefix+'pallets')||0,
+    capacity:+gv(prefix+'capacity')||14,cost:+gv(prefix+'cost')||0,
+    dispatch:gv(prefix+'dispatch'),status:gv(prefix+'status')||'Completed',
+    remarks:gv(prefix+'remarks'),
+  };
+}
+function addTrip(){
+  const t1=buildTripObj('f-',1,false);
+  if(!t1.wh||!t1.vt){showToast('Warehouse & Vehicle Type select karo','#EF4444');return;}
+  db.ref('trips').push(t1);
+  if(dualTrip){
+    const t2=buildTripObj('f2-',2,true);
+    if(t2.wh&&t2.vt){db.ref('trips').push(t2);showToast(`✓ 2 trips added for ${t1.driver}`);}
+    else showToast('Trip 1 added — Trip 2 skipped (missing fields)','#F97316');
+  } else showToast('✓ Trip added!');
+  recordMeta();resetForm();
+}
+function resetForm(){
+  ['f-date','f-wh','f-vt','f-vid','f-driver','f-qty','f-pallets','f-capacity','f-cost','f-dispatch','f-status','f-remarks',
+   'f2-date','f2-wh','f2-vt','f2-vid','f2-qty','f2-pallets','f2-capacity','f2-cost','f2-dispatch','f2-status','f2-remarks']
+    .forEach(id=>{const el=document.getElementById(id);if(el&&!el.readOnly)el.value='';});
+  selectedStores={1:[],2:[]};
+  [1,2].forEach(n=>{renderTags(n);renderDispInfo(n);renderStoreTimeInputs(n);const s=document.getElementById('spinp-'+n);if(s)s.value='';});
+  dualTrip=false;
+  const d=document.getElementById('f-date');if(d)d.value=new Date().toISOString().split('T')[0];
+  const tog=document.getElementById('togswitch');if(tog)tog.classList.remove('on');
+  const sec=document.getElementById('trip2-sec');if(sec)sec.style.display='none';
+}
+
+// ═══════════════════════════════════════════════════════
+//  UPLOAD
+// ═══════════════════════════════════════════════════════
+const TRIP_REQ=['date','warehouse','vehicle_type','driver','qty','pallets','cost_aed','status'];
+const STORE_REQ=['store_name','dispatch_time','window_start','window_end'];
+const DATE_RE=/^\d{4}-\d{2}-\d{2}$/,TIME_RE=/^\d{1,2}:\d{2}$/;
+const VALID_WH=['own warehouse','3pl warehouse'],VALID_VT=['own fleet','3pl fleet','adhoc/rental'];
+const VALID_ST=['completed','in transit','delayed','partial'];
+
+// Map of friendly column header variations → internal key
+// Handles headers like "Date\n(YYYY-MM-DD)", "Warehouse Type\n(Own/3PL)", etc.
+const HEADER_MAP = {
+  date:['date'],
+  warehouse:['warehouse','warehouse type','warehouse_type'],
+  vehicle_type:['vehicle type','vehicle_type','veh type'],
+  vehicle_id:['vehicle id','vehicle_id','plate','vehicle id / plate'],
+  driver:['driver','driver name','driver_name'],
+  trip_number:['trip number','trip_number','trip','trip no'],
+  qty:['qty','qty (units)','units','quantity'],
+  pallets:['pallets','pallets loaded','pallets_loaded'],
+  capacity:['capacity','vehicle capacity','vehicle_capacity'],
+  cost_aed:['cost','cost_aed','cost (aed)','trip cost (aed)','trip cost','cost aed'],
+  dispatch_time:['dispatch time','dispatch_time','dispatch time from wh (hh:mm)','dispatch'],
+  status:['status','delivery status','delivery_status'],
+  store_names:['store names','store_names','stores','store names (comma separated)'],
+  remarks:['remarks','notes'],
+  // Store Times sheet
+  store_name:['store name','store_name'],
+  window_start:['window start','window_start','ws'],
+  window_end:['window end','window_end','we'],
+};
+
+function cleanHeader(h){
+  // Remove newlines, brackets, asterisks, extra whitespace
+  return String(h).replace(/\n/g,' ').replace(/\s*\(.*?\)\s*/g,' ').replace(/\*/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+}
+
+function mapHeader(raw){
+  const clean = cleanHeader(raw);
+  for(const [key, variants] of Object.entries(HEADER_MAP)){
+    if(variants.some(v => clean.includes(v) || v.includes(clean))) return key;
+  }
+  // fallback: basic normalize
+  return clean.replace(/[\s\-/]+/g,'_');
+}
+
+function cleanCellValue(val){
+  if(val===null||val===undefined) return '';
+  // Excel date object (JS Date)
+  if(val instanceof Date){
+    const y=val.getFullYear(),m=String(val.getMonth()+1).padStart(2,'0'),d=String(val.getDate()).padStart(2,'0');
+    return `${y}-${m}-${d}`;
+  }
+  const s = String(val).trim();
+  // Excel time string like "5:25 AM" or "08:10 AM" → HH:MM 24h
+  const ampm = s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if(ampm){
+    let h=parseInt(ampm[1]),min=ampm[2],period=ampm[3].toUpperCase();
+    if(period==='AM'&&h===12)h=0;
+    if(period==='PM'&&h!==12)h+=12;
+    return String(h).padStart(2,'0')+':'+min;
+  }
+  // Already HH:MM format
+  if(TIME_RE.test(s)){
+    const parts=s.split(':');
+    return String(parseInt(parts[0])).padStart(2,'0')+':'+parts[1];
+  }
+  return s;
+}
+
+function normRow(row){
+  const out={};
+  Object.keys(row).forEach(k=>{
+    const mappedKey = mapHeader(k);
+    out[mappedKey] = cleanCellValue(row[k]);
+  });
+  return out;
+}
+
+function processUploadFile(file){
+  const isCSV=file.name.toLowerCase().endsWith('.csv');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      let rows;
+      if(isCSV){
+        const lines=e.target.result.split(/\r?\n/).filter(l=>l.trim());
+        if(lines.length<2){setUploadState('error','File is empty.');return;}
+        const hdrs=lines[0].split(',').map(h=>h.trim());
+        rows=lines.slice(1).map(line=>{
+          const vals=line.split(',').map(v=>v.trim()),obj={};
+          hdrs.forEach((h,i)=>{obj[h]=vals[i]||'';});return obj;
+        });
+      } else {
+        const wb=XLSX.read(e.target.result,{type:'array',raw:false,cellDates:true});
+        // Find right sheet
+        const sn=wb.SheetNames.find(n=>uploadTab==='trips'?n.toLowerCase().includes('trip'):n.toLowerCase().includes('store'))||wb.SheetNames[0];
+        const ws=wb.Sheets[sn];
+        // Skip title/subtitle rows — find the actual header row (contains 'date' or 'store')
+        const allRows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false,header:1});
+        let headerRowIdx=0;
+        for(let i=0;i<Math.min(5,allRows.length);i++){
+          const rowStr=allRows[i].join('').toLowerCase();
+          if(rowStr.includes('date')||rowStr.includes('store_name')||rowStr.includes('store name')){
+            headerRowIdx=i; break;
+          }
+        }
+        const headers=allRows[headerRowIdx];
+        rows=[];
+        for(let i=headerRowIdx+1;i<allRows.length;i++){
+          const r=allRows[i];
+          if(!r||!r.some(v=>v!==''&&v!==null&&v!==undefined)) continue;
+          const obj={};
+          headers.forEach((h,j)=>{if(h)obj[h]=r[j]??'';});
+          rows.push(obj);
+        }
+      }
+      rows=rows.map(normRow);
+      // Remove totally empty rows
+      rows=rows.filter(r=>Object.values(r).some(v=>v!==''));
+      if(!rows.length){setUploadState('error','No data rows found. Make sure you are using the Trips sheet.');return;}
+      const req=uploadTab==='trips'?TRIP_REQ:STORE_REQ;
+      const cols=Object.keys(rows[0]);
+      const miss=req.filter(r=>!cols.includes(r));
+      if(miss.length){setUploadState('error','Missing required columns: '+miss.join(', ')+'. Please use the provided template.');return;}
+      const errs=[],warns=[];
+      rows.forEach((row,i)=>{
+        const rn=i+2;
+        if(uploadTab==='trips'){
+          if(!DATE_RE.test(row.date)) errs.push({row:rn,col:'date',val:row.date,msg:'Must be YYYY-MM-DD (got: '+row.date+')'});
+          if(!row.driver) errs.push({row:rn,col:'driver',val:'',msg:'Cannot be empty'});
+          if(isNaN(+row.qty)||+row.qty<0) errs.push({row:rn,col:'qty',val:row.qty,msg:'Must be number ≥ 0'});
+          if(isNaN(+row.cost_aed)||+row.cost_aed<0) errs.push({row:rn,col:'cost_aed',val:row.cost_aed,msg:'Must be number ≥ 0'});
+          if(row.warehouse&&!VALID_WH.includes(row.warehouse.toLowerCase())) warns.push({row:rn,col:'warehouse',val:row.warehouse,msg:'Expected Own Warehouse or 3PL Warehouse'});
+          if(row.vehicle_type&&!VALID_VT.includes(row.vehicle_type.toLowerCase())) warns.push({row:rn,col:'vehicle_type',val:row.vehicle_type,msg:'Expected Own Fleet/3PL Fleet/Adhoc/Rental'});
+          if(row.status&&!VALID_ST.includes(row.status.toLowerCase())) warns.push({row:rn,col:'status',val:row.status,msg:'Expected Completed/In Transit/Delayed/Partial'});
+        } else {
+          if(!row.store_name) errs.push({row:rn,col:'store_name',val:'',msg:'Cannot be empty'});
+          ['dispatch_time','window_start','window_end'].forEach(f=>{
+            if(row[f]&&!TIME_RE.test(row[f])) errs.push({row:rn,col:f,val:row[f],msg:'Must be HH:MM'});
+          });
+        }
+      });
+      uploadRows=rows;uploadErrs=errs;uploadWarns=warns;
+      setUploadState('preview');
+    }catch(err){setUploadState('error','File read failed: '+err.message);}
+  };
+  if(isCSV)reader.readAsText(file);else reader.readAsArrayBuffer(file);
+}
+function setUploadState(s,msg){
+  uploadStatus=s;
+  if(msg)document.getElementById('up-errbox')&&(document.getElementById('up-errbox').textContent=msg);
+  renderUploadPanel();
+}
+function doConfirmUpload(){
+  if(!uploadRows)return;
+  uploadStatus='pushing';renderUploadPanel();
+  try{
+    if(uploadTab==='trips'){
+      uploadRows.forEach(row=>{
+        const sn=row.store_names?row.store_names.split(',').map(s=>s.trim()).filter(Boolean):[];
+        db.ref('trips').push({
+          date:row.date||'',wh:row.warehouse||'',vt:row.vehicle_type||'',
+          vid:row.vehicle_id||'—',driver:row.driver||'—',trip2:row.trip_number==='2',
+          storeNames:sn,storeTimes:{},qty:+row.qty||0,pallets:+row.pallets||0,
+          capacity:+row.capacity||14,cost:+row.cost_aed||0,dispatch:row.dispatch_time||'',
+          status:row.status||'Completed',remarks:row.remarks||'',
+        });
+      });
+      uploadStatus='done';
+      document.getElementById('up-donemsg').textContent=`✅ ${uploadRows.length} trips imported to Firebase!`;
+    } else {
+      const updates={};
+      uploadRows.forEach(row=>{
+        if(row.store_name) updates['schedule/'+row.store_name]={dispatch:row.dispatch_time||'',ws:row.window_start||'',we:row.window_end||''};
+      });
+      db.ref().update(updates);
+      uploadStatus='done';
+      document.getElementById('up-donemsg')&&(document.getElementById('up-donemsg').textContent=`✅ ${uploadRows.length} store schedules updated!`);
+    }
+    recordMeta();renderUploadPanel();showToast(`✅ Import successful!`);
+  }catch(e){uploadStatus='error';document.getElementById('up-errbox')&&(document.getElementById('up-errbox').textContent='Firebase error: '+e.message);renderUploadPanel();}
+}
+function resetUpload(){uploadRows=null;uploadErrs=[];uploadWarns=[];uploadStatus='idle';renderUploadPanel();}
+function setUploadTab(t){uploadTab=t;resetUpload();}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER — UPLOAD PANEL
+// ═══════════════════════════════════════════════════════
+function renderUploadPanel(){
+  const container=document.getElementById('upload-inner');
+  if(!container)return;
+  const previewCols=uploadTab==='trips'?['date','warehouse','vehicle_type','driver','trip_number','qty','pallets','cost_aed','dispatch_time','status','store_names']:['store_name','dispatch_time','window_start','window_end'];
+  const errRows=new Set((uploadErrs||[]).map(e=>e.row)),warnRows=new Set((uploadWarns||[]).map(w=>w.row));
+  let h='';
+  if(uploadStatus==='idle'||uploadStatus==='error'){
+    h+=`<div class="upzone" id="upzone" ondragover="event.preventDefault()" ondrop="event.preventDefault();processUploadFile(event.dataTransfer.files[0])" onclick="document.getElementById('ufile').click()">
+      <div style="font-size:28px;margin-bottom:8px">📂</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px">Drop file here ya click karke browse karo</div>
+      <div style="font-size:11px;color:var(--muted)">.xlsx ya .csv — koi bhi format chalega</div>
+      <input id="ufile" type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="processUploadFile(this.files[0])">
+    </div>`;
+    if(uploadStatus==='error') h+=`<div class="uperr" id="up-errbox">Upload failed</div>`;
+  }
+  if(uploadStatus==='preview'&&uploadRows){
+    h+=`<div class="upsummary">
+      <span><strong style="color:var(--text)">${uploadRows.length}</strong> <span style="color:var(--muted)">rows</span></span>
+      <span><strong style="color:${uploadErrs.length?'#F87171':'#4ADE80'}">${uploadErrs.length}</strong> <span style="color:var(--muted)">errors</span></span>
+      <span><strong style="color:${uploadWarns.length?'#FCD34D':'#4ADE80'}">${uploadWarns.length}</strong> <span style="color:var(--muted)">warnings</span></span>
+      <span><strong style="color:#4ADE80">${uploadRows.length-errRows.size}</strong> <span style="color:var(--muted)">rows ready</span></span>
+    </div>`;
+    if(uploadErrs.length) h+=`<div class="uperr"><strong>${uploadErrs.length} Error(s) — fix karo pehle:</strong><ul style="margin:7px 0 0 16px">${uploadErrs.map(e=>`<li>Row ${e.row} · ${e.col} = "${e.val}" — ${e.msg}</li>`).join('')}</ul></div>`;
+    if(uploadWarns.length) h+=`<div class="upwarn"><strong>${uploadWarns.length} Warning(s) — check karo:</strong><ul style="margin:7px 0 0 16px">${uploadWarns.map(w=>`<li>Row ${w.row} · ${w.col} = "${w.val}" — ${w.msg}</li>`).join('')}</ul></div>`;
+    h+=`<div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600">Preview — first ${Math.min(uploadRows.length,8)} rows</div>
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:7px;margin-bottom:14px">
+      <table style="font-size:10px;font-family:'DM Mono',monospace">
+        <thead><tr>${previewCols.map(c=>`<th style="padding:6px 9px;background:var(--bg3);border-bottom:1px solid var(--border);color:var(--muted);font-size:9px;text-align:left;white-space:nowrap">${c}</th>`).join('')}</tr></thead>
+        <tbody>${uploadRows.slice(0,8).map((row,i)=>{
+          const rn=i+2,rbg=errRows.has(rn)?'#450A0A':warnRows.has(rn)?'#431407':'transparent';
+          return `<tr style="background:${rbg};border-bottom:1px solid var(--border)">${previewCols.map(c=>`<td style="padding:5px 9px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis">${row[c]||''}</td>`).join('')}</tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
+    h+=`<div style="display:flex;gap:9px;flex-wrap:wrap">
+      ${!uploadErrs.length?`<button onclick="doConfirmUpload()" class="btn-p" style="background:#16A34A">✅ Confirm & Import ${uploadRows.length} rows to Firebase</button>`:''}
+      <button onclick="resetUpload()" class="btn-s">${uploadErrs.length?'Upload Fixed File':'Cancel'}</button>
+    </div>`;
+  }
+  if(uploadStatus==='pushing') h=`<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px"><div style="font-size:28px;margin-bottom:10px">⏳</div>Firebase mein save ho raha hai…</div>`;
+  if(uploadStatus==='done') h=`<div class="updone">
+    <div style="font-size:24px;margin-bottom:8px">🎉</div>
+    <div style="font-size:14px;font-weight:700;color:#4ADE80;margin-bottom:6px">Import successful!</div>
+    <div id="up-donemsg" style="font-size:12px;color:#86EFAC;line-height:1.7"></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Dashboard automatically update ho gaya.</div>
+  </div>
+  <div style="display:flex;gap:9px">
+    <button onclick="resetUpload()" class="btn-p">Upload Another File</button>
+    <button onclick="switchTab('trips')" class="btn-s">View Trip Log →</button>
+  </div>`;
+  container.innerHTML=h;
+  if(uploadStatus==='done'){
+    const dm=document.getElementById('up-donemsg');
+    if(dm&&uploadRows) dm.textContent=`✅ ${uploadRows.length} ${uploadTab==='trips'?'trips':'store schedules'} imported to Firebase!`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  MAIN RENDER
+// ═══════════════════════════════════════════════════════
+function renderMain(){
+  const m=document.getElementById('main');
+  if(!m)return;
+
+  const whTrips=whFilter==='all'?trips:whFilter==='own'?trips.filter(t=>t.wh==='Own Warehouse'):trips.filter(t=>t.wh==='3PL Warehouse');
+  const filtTrips=tripFilter==='all'?trips:tripFilter==='Adhoc/Rental'?trips.filter(t=>t.vt===tripFilter):trips.filter(t=>t.wh===tripFilter);
+
+  // ── OVERVIEW ──
+  if(currentTab==='overview'){
+    m.innerHTML=`<div class="panel active" id="p-overview">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">Operations Overview</span>
+      </div>
+      <div class="kpi-grid" id="kpi-main"></div>
+      <div class="section-title">By Warehouse <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div class="bgrid" id="bg-wh"></div>
+      <div class="section-title">By Vehicle Type <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div class="bgrid" id="bg-vt"></div>
+    </div>`;
+    buildKpis(trips,'kpi-main');
+    const own=trips.filter(t=>t.wh==='Own Warehouse'),tpl=trips.filter(t=>t.wh==='3PL Warehouse');
+    const of=trips.filter(t=>t.vt==='Own Fleet'),tf=trips.filter(t=>t.vt==='3PL Fleet'),ad=trips.filter(t=>t.vt==='Adhoc/Rental');
+    document.getElementById('bg-wh').innerHTML=bcard('Own Warehouse','own',own,'#3B82F6')+bcard('3PL Warehouse','tpl',tpl,'#A855F7')+
+      `<div class="bcard" style="display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
+        <div style="font-size:26px">📊</div><div style="font-weight:700;color:var(--text)">Combined</div>
+        <div>Trips: ${trips.length}</div><div>Units: ${trips.reduce((a,t)=>a+(t.qty||0),0).toLocaleString()}</div>
+        <div>Cost: AED ${trips.reduce((a,t)=>a+(t.cost||0),0).toLocaleString()}</div></div>`;
+    document.getElementById('bg-vt').innerHTML=bcard('Own Fleet','own',of,'#22C55E')+bcard('3PL Fleet','tpl',tf,'#A855F7')+bcard('Adhoc/Rental','adhoc',ad,'#F97316');
+  }
+
+  // ── WAREHOUSE DASHBOARD ──
+  else if(currentTab==='wh'){
+    const bmap={'all':'📦 Showing: All Warehouses','own':'🏢 Showing: Own Warehouse Only','tpl':'🏭 Showing: 3PL Warehouse Only'};
+    m.innerHTML=`<div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px">
+        <span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">Warehouse Dashboard</span>
+        <div class="wh-filter">
+          <button class="whbtn ${whFilter==='all'?'a-all':''}" onclick="whFilter='all';renderMain()">All</button>
+          <button class="whbtn ${whFilter==='own'?'a-own':''}" onclick="whFilter='own';renderMain()">Own Warehouse</button>
+          <button class="whbtn ${whFilter==='3pl'?'a-3pl':''}" onclick="whFilter='3pl';renderMain()">3PL Warehouse</button>
+        </div>
+      </div>
+      <div class="whbanner ${whFilter}">${bmap[whFilter]}</div>
+      <div class="kpi-grid" id="kpi-wh"></div>
+      <div class="section-title">By Vehicle Type <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div class="bgrid" id="bg-wh-vt"></div>
+      <div class="section-title">Trip Log <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div class="twrap"><div style="overflow-x:auto"><table>
+        <thead><tr>${['Date','Warehouse','Veh Type','Driver','Trip','Stores','QTY','Pallets','Util%','Dispatch','Cost','Status'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>${whTrips.map(t=>{const u=((t.pallets||0)/(t.capacity||14)*100).toFixed(0);return `<tr>
+          <td>${t.date}</td><td><span class="wpill wh-${t.wh==='Own Warehouse'?'own':'3pl'}">${t.wh==='Own Warehouse'?'Own':'3PL'}</span></td>
+          <td>${t.vt}</td><td>${t.driver}${tripBadge(t.trip2)}</td>
+          <td style="text-align:center">${t.trip2?'2':'1'}</td>
+          <td style="text-align:center">${(t.storeNames||[]).length}</td>
+          <td>${(t.qty||0).toLocaleString()}</td><td style="text-align:center">${t.pallets||0}/${t.capacity||14}</td>
+          <td><span style="color:${utilColor(+u)}">${u}%</span></td>
+          <td>${ttag(t.dispatch,'warn')}</td><td>AED ${t.cost||0}</td>
+          <td>${statusBadge(t.status)}</td></tr>`}).join('')}</tbody>
+      </table></div></div>
+    </div>`;
+    buildKpis(whTrips,'kpi-wh');
+    const of=whTrips.filter(t=>t.vt==='Own Fleet'),tf=whTrips.filter(t=>t.vt==='3PL Fleet'),ad=whTrips.filter(t=>t.vt==='Adhoc/Rental');
+    document.getElementById('bg-wh-vt').innerHTML=bcard('Own Fleet','own',of,'#22C55E')+bcard('3PL Fleet','tpl',tf,'#A855F7')+bcard('Adhoc/Rental','adhoc',ad,'#F97316');
+  }
+
+  // ── TRIP LOG ──
+  else if(currentTab==='trips'){
+    m.innerHTML=`<div class="twrap">
+      <div class="ttbar">
+        <div class="ttitle">Full Trip Log</div>
+        <div class="tfiltrow">
+          ${[['all','All'],['Own Warehouse','Own WH'],['3PL Warehouse','3PL WH'],['Adhoc/Rental','Adhoc']].map(([f,l])=>
+            `<button class="tfbtn ${tripFilter===f?'act':''}" onclick="tripFilter='${f}';renderMain()">${l}</button>`).join('')}
+        </div>
+      </div>
+      <div style="overflow-x:auto"><table>
+        <thead><tr>${['Date','WH','Veh','Plate','Driver','Trip','#','Store Names','QTY','Pallets','Util','Dispatch','1st Arr','Last Dep','Cost','Cost/Plt','Status',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>${filtTrips.map(t=>{
+          const u=((t.pallets||0)/(t.capacity||14)*100).toFixed(0);
+          const cpp=(t.pallets&&t.cost)?(t.cost/t.pallets).toFixed(2):'0.00';
+          const times=Object.values(t.storeTimes||{});
+          const arrs=times.map(x=>x.arr).filter(Boolean).sort();
+          const deps=times.map(x=>x.dep).filter(Boolean).sort();
+          const sn=(t.storeNames||[]).join(', ')||'—';
+          return `<tr>
+            <td>${t.date}</td>
+            <td><span class="wpill wh-${t.wh==='Own Warehouse'?'own':'3pl'}">${t.wh==='Own Warehouse'?'Own':'3PL'}</span></td>
+            <td>${t.vt}</td><td>${t.vid||'—'}</td>
+            <td>${t.driver}${tripBadge(t.trip2)}</td>
+            <td style="text-align:center">${t.trip2?'Trip 2':'Trip 1'}</td>
+            <td style="text-align:center">${(t.storeNames||[]).length}</td>
+            <td style="max-width:140px;white-space:normal;font-size:9px;color:var(--muted)">${sn}</td>
+            <td>${(t.qty||0).toLocaleString()}</td><td style="text-align:center">${t.pallets||0}/${t.capacity||14}</td>
+            <td><span style="color:${utilColor(+u)}">${u}%</span></td>
+            <td>${ttag(t.dispatch,'warn')}</td>
+            <td>${ttag(arrs[0])}</td><td>${ttag(deps[deps.length-1])}</td>
+            <td>AED ${t.cost||0}</td><td>AED ${cpp}</td>
+            <td>${statusBadge(t.status)}</td>
+            <td><button class="delbtn" onclick="openDelModal('${t._id}')">✕</button></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>
+    </div>`;
+  }
+
+  // ── DRIVER SCHEDULE ──
+  else if(currentTab==='schedule'){
+    const rows=[];
+    trips.forEach(t=>{
+      if(schedFilter==='trip1'&&t.trip2)return;
+      if(schedFilter==='trip2'&&!t.trip2)return;
+      (t.storeNames||[]).forEach(store=>{
+        const sch=storeSchedule[store]||{};
+        const st=(t.storeTimes&&t.storeTimes[store])||{};
+        const ot=isOnTime(store,t.dispatch);
+        const otTag=ot==='on'?ttag('✓ On Time','ok'):ot==='late'?ttag('⚠ Late','late'):'<span style="color:var(--muted);font-size:9px">—</span>';
+        rows.push(`<tr>
+          <td>${t.date}</td><td>${t.driver}</td><td>${tripBadge(t.trip2)}</td>
+          <td style="font-weight:600;font-family:'DM Mono',monospace;font-size:10px">${store}</td>
+          <td>${ttag(sch.dispatch)}</td>
+          <td>${ttag((sch.ws||'—')+' – '+(sch.we||'—'))}</td>
+          <td><span class="ecell" onclick="startEdit(this,'${t._id}','${store}','dispatch')" title="Click to edit">${ttag(t.dispatch,'warn')} <span style="font-size:8px;color:var(--muted)">✏</span></span></td>
+          <td><span class="ecell" onclick="startEdit(this,'${t._id}','${store}','arr')" title="Click to edit">${ttag(st.arr)} <span style="font-size:8px;color:var(--muted)">✏</span></span></td>
+          <td><span class="ecell" onclick="startEdit(this,'${t._id}','${store}','dep')" title="Click to edit">${ttag(st.dep)} <span style="font-size:8px;color:var(--muted)">✏</span></span></td>
+          <td>${otTag}</td>
+          <td><span class="wpill wh-${t.wh==='Own Warehouse'?'own':'3pl'}">${t.wh==='Own Warehouse'?'Own':'3PL'}</span></td>
+        </tr>`);
+      });
+    });
+    m.innerHTML=`<div>
+      <div class="syncbanner">✅ Firebase live — koi bhi edit kare sabko instantly dikhe ga &nbsp;·&nbsp; <span style="font-weight:400;color:#86EFAC">Click ✏ cell to edit inline</span></div>
+      <div class="twrap">
+        <div class="ttbar">
+          <div><div class="ttitle">🕐 Driver Store Dispatch Schedule</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Click any ✏ time cell to edit inline — saves to Firebase instantly</div></div>
+          <div class="tfiltrow">
+            ${[['all','All'],['trip1','Trip 1'],['trip2','Trip 2']].map(([f,l])=>
+              `<button class="tfbtn ${schedFilter===f?'act':''}" onclick="schedFilter='${f}';renderMain()">${l}</button>`).join('')}
+          </div>
+        </div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr>${['Date','Driver','Trip','Store','Sched Dispatch','Window','Actual Dispatch ✏','Actual Arrival ✏','Actual Depart ✏','On Time?','WH'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+          <tbody>${rows.join('')}</tbody>
+        </table></div>
+      </div>
+    </div>`;
+  }
+
+  // ── ADD TRIP ──
+  else if(currentTab==='add'){
+    const sf=n=>`<select class="fselect" id="f${n>1?n+'-':''}status"><option value="">Select…</option>${['Completed','In Transit','Delayed','Partial'].map(s=>`<option>${s}</option>`).join('')}</select>`;
+    const wf=n=>`<select class="fselect" id="f${n>1?n+'-':''}wh"><option value="">Select…</option><option>Own Warehouse</option><option>3PL Warehouse</option></select>`;
+    const vtf=n=>`<select class="fselect" id="f${n>1?n+'-':''}vt"><option value="">Select…</option><option>Own Fleet</option><option>3PL Fleet</option><option>Adhoc/Rental</option></select>`;
+    m.innerHTML=`<div>
+      <div class="fsec">
+        <div class="section-title">Add New Trip Entry <div style="flex:1;height:1px;background:var(--border)"></div></div>
+        <div class="ttogwrap">
+          <div><div class="ttog-lbl">Driver doing 2 trips today?</div><div class="ttog-sub">Enable to log Trip 1 and Trip 2 for same driver</div></div>
+          <div class="togswitch ${dualTrip?'on':''}" id="togswitch" onclick="toggleDualTrip()"><div class="togslider"></div></div>
+        </div>
+        <div class="tsect">🚛 TRIP 1</div>
+        <div class="fgrid">
+          <div><label class="flabel">Date</label><input class="finput" type="date" id="f-date" value="${new Date().toISOString().split('T')[0]}"></div>
+          <div><label class="flabel">Warehouse Type</label>${wf(1)}</div>
+          <div><label class="flabel">Vehicle Type</label>${vtf(1)}</div>
+          <div><label class="flabel">Vehicle ID / Plate</label><input class="finput" type="text" id="f-vid" placeholder="e.g. DXB-T-001"></div>
+          <div><label class="flabel">Driver Name</label><input class="finput" type="text" id="f-driver" placeholder="Driver name" oninput="syncDriver()"></div>
+          <div><label class="flabel">QTY (Units)</label><input class="finput" type="number" id="f-qty" min="0" placeholder="0"></div>
+          <div><label class="flabel">Pallets Loaded</label><input class="finput" type="number" id="f-pallets" min="0" placeholder="0"></div>
+          <div><label class="flabel">Vehicle Capacity</label><input class="finput" type="number" id="f-capacity" min="0" placeholder="14"></div>
+          <div><label class="flabel">Trip Cost (AED)</label><input class="finput" type="number" id="f-cost" min="0" placeholder="0"></div>
+          <div><label class="flabel">Dispatch Time (from WH)</label><input class="finput" type="time" id="f-dispatch"></div>
+          <div><label class="flabel">Delivery Status</label>${sf(1)}</div>
+          <div><label class="flabel">Remarks</label><input class="finput" type="text" id="f-remarks" placeholder="Optional"></div>
+          ${spHTML(1)}
+        </div>
+        <div id="trip2-sec" style="display:${dualTrip?'block':'none'}">
+          <hr class="tdiv">
+          <div class="tsect">🚛 TRIP 2 — Same Driver</div>
+          <div class="fgrid">
+            <div><label class="flabel">Date</label><input class="finput" type="date" id="f2-date"></div>
+            <div><label class="flabel">Warehouse Type</label>${wf(2)}</div>
+            <div><label class="flabel">Vehicle Type</label>${vtf(2)}</div>
+            <div><label class="flabel">Vehicle ID / Plate</label><input class="finput" type="text" id="f2-vid" placeholder="e.g. DXB-T-001"></div>
+            <div><label class="flabel">Driver Name</label><input class="finput" type="text" id="f2-driver" readonly style="opacity:.5"></div>
+            <div><label class="flabel">QTY (Units)</label><input class="finput" type="number" id="f2-qty" min="0" placeholder="0"></div>
+            <div><label class="flabel">Pallets Loaded</label><input class="finput" type="number" id="f2-pallets" min="0" placeholder="0"></div>
+            <div><label class="flabel">Vehicle Capacity</label><input class="finput" type="number" id="f2-capacity" min="0" placeholder="14"></div>
+            <div><label class="flabel">Trip Cost (AED)</label><input class="finput" type="number" id="f2-cost" min="0" placeholder="0"></div>
+            <div><label class="flabel">Dispatch Time (from WH)</label><input class="finput" type="time" id="f2-dispatch"></div>
+            <div><label class="flabel">Delivery Status</label>${sf(2)}</div>
+            <div><label class="flabel">Remarks</label><input class="finput" type="text" id="f2-remarks" placeholder="Optional"></div>
+            ${spHTML(2)}
+          </div>
+        </div>
+        <div style="display:flex;gap:9px;justify-content:flex-end;margin-top:16px">
+          <button onclick="resetForm()" class="btn-s">Clear</button>
+          <button onclick="addTrip()" class="btn-p">Add Trip(s) ➜</button>
+        </div>
+      </div>
+    </div>`;
+    [1,2].forEach(n=>{renderTags(n);renderDispInfo(n);renderStoreTimeInputs(n);});
+  }
+
+  // ── UPLOAD ──
+  else if(currentTab==='upload'){
+    m.innerHTML=`<div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">Data Upload</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">Excel (.xlsx) ya CSV (.csv) upload karo — preview ke baad Firebase mein save hoga</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button onclick="setUploadTab('trips');renderMain()" style="padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;border:none;background:${uploadTab==='trips'?'var(--blue)':'var(--bg3)'};color:${uploadTab==='trips'?'#fff':'var(--muted)'};transition:all .2s">🚛 Trip Data</button>
+        <button onclick="setUploadTab('stores');renderMain()" style="padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;border:none;background:${uploadTab==='stores'?'var(--blue)':'var(--bg3)'};color:${uploadTab==='stores'?'#fff':'var(--muted)'};transition:all .2s">🕐 Store Times</button>
+      </div>
+      <div class="fsec" style="margin-bottom:14px">
+        <div style="font-size:11px;color:var(--muted);line-height:1.9">
+          <strong style="color:var(--text)">Required columns:</strong> &nbsp;
+          ${(uploadTab==='trips'?['date','warehouse','vehicle_type','driver','qty','pallets','cost_aed','status']:['store_name','dispatch_time','window_start','window_end'])
+            .map(c=>`<code style="background:var(--bg3);padding:1px 5px;border-radius:3px;font-size:10px;margin-right:3px;font-family:'DM Mono',monospace">${c}</code>`).join('')}
+        </div>
+      </div>
+      <div id="upload-inner"></div>
+    </div>`;
+    renderUploadPanel();
+  }
+
+  // ── LIVE CHECK-INS ──
+  else if(currentTab==='live'){
+    const today = new Date().toISOString().split('T')[0];
+    const todayCheckins = liveCheckins.filter(c => c.date === today);
+    const allCheckins = liveCheckins;
+
+    const actionColor = { arrived:'#3B82F6', departed:'#F97316', completed:'#22C55E' };
+    const actionIcon  = { arrived:'📍', departed:'🚛', completed:'✅' };
+    const actionLabel = { arrived:'Arrived at store', departed:'Departed store', completed:'Delivery completed' };
+
+    // Build store-level summary for today
+    const storeSummary = {};
+    todayCheckins.forEach(c => {
+      if(!storeSummary[c.store]) storeSummary[c.store] = { arrived:null, departed:null, completed:null, driver:'' };
+      storeSummary[c.store][c.action] = c.time;
+      if(c.driver) storeSummary[c.store].driver = c.driver;
+    });
+
+    m.innerHTML = `<div>
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">🟢 Live Driver Check-ins</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">Real-time updates jab driver QR scan kare</div>
+        </div>
+        <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--green);background:#16A34A15;border:1px solid #16A34A40;padding:5px 12px;border-radius:6px">
+          🔴 LIVE — Auto refreshing
+        </div>
+      </div>
+
+      <!-- Today's summary stats -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+        ${[
+          ['Total Scans Today', todayCheckins.length, '#3B82F6'],
+          ['Arrived', todayCheckins.filter(c=>c.action==='arrived').length, '#3B82F6'],
+          ['Departed', todayCheckins.filter(c=>c.action==='departed').length, '#F97316'],
+          ['Completed', todayCheckins.filter(c=>c.action==='completed').length, '#22C55E'],
+        ].map(([l,v,color])=>`
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+            <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${l}</div>
+            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:${color}">${v}</div>
+          </div>`).join('')}
+      </div>
+
+      <!-- Store status grid for today -->
+      ${Object.keys(storeSummary).length > 0 ? `
+      <div class="section-title">Today's Store Status <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px">
+        ${Object.entries(storeSummary).map(([store, s]) => {
+          const done = s.completed, dep = s.departed, arr = s.arrived;
+          const statusColor = done ? '#22C55E' : dep ? '#F97316' : arr ? '#3B82F6' : '#64748B';
+          const statusLabel = done ? '✅ Completed' : dep ? '🚛 Departed' : arr ? '📍 Arrived' : '⏳ Pending';
+          return `<div style="background:var(--bg2);border:1px solid ${statusColor}40;border-radius:10px;padding:12px;border-left:3px solid ${statusColor}">
+            <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;margin-bottom:6px">${store.replace('QUIK_','')}</div>
+            <div style="font-size:11px;font-weight:600;color:${statusColor};margin-bottom:4px">${statusLabel}</div>
+            ${s.driver?`<div style="font-size:10px;color:var(--muted)">👤 ${s.driver}</div>`:''}
+            <div style="font-size:9px;color:var(--muted);margin-top:4px">
+              ${arr?`📍 ${arr}`:''}${arr&&dep?' · ':''}${dep?`🚛 ${dep}`:''}${dep&&done?' · ':''}${done?`✅ ${s.completed}`:''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>` : `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:24px;text-align:center;margin-bottom:20px;color:var(--muted);font-size:13px">
+        📭 Aaj koi check-in nahi hua abhi tak. Drivers QR scan karein ge toh yahan live dikhe ga.
+      </div>`}
+
+      <!-- Live feed -->
+      <div class="section-title">Live Feed <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div class="twrap">
+        <div style="overflow-x:auto"><table>
+          <thead><tr>
+            ${['Time','Date','Driver','Store','Action','Trip ID'].map(h=>`<th>${h}</th>`).join('')}
+          </tr></thead>
+          <tbody>
+          ${allCheckins.length ? allCheckins.slice(0,50).map(c => {
+            const color = actionColor[c.action] || '#64748B';
+            const icon  = actionIcon[c.action]  || '🔔';
+            const label = actionLabel[c.action]  || c.action;
+            const isToday = c.date === today;
+            return `<tr style="${isToday?'background:#16A34A08':''}">
+              <td><span style="font-family:'DM Mono',monospace;color:${color};font-weight:600">${c.time||'—'}</span></td>
+              <td style="color:${isToday?'var(--green)':'var(--muted)'}">${isToday?'Today':c.date}</td>
+              <td>${c.driver||'—'}</td>
+              <td style="font-family:'DM Mono',monospace;font-weight:600">${(c.store||'').replace('QUIK_','')}</td>
+              <td><span style="background:${color}20;color:${color};border:1px solid ${color}40;border-radius:20px;font-size:9px;font-weight:700;padding:2px 8px">${icon} ${label}</span></td>
+              <td style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">${(c.tripId||'').slice(0,8)}…</td>
+            </tr>`;
+          }).join('') : `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">Koi check-in nahi hua abhi tak</td></tr>`}
+          </tbody>
+        </table></div>
+      </div>
+    </div>`;
+  }
+  else if(currentTab==='store-times'){
+    m.innerHTML=`<div class="fsec">
+      <div class="section-title">Store Dispatch Schedule — Edit Times <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.7">Sab users ke liye times update honge Firebase ke through — team ko instantly naye times dikhengy.</p>
+      <div class="schgrid" id="sch-grid"></div>
+      <div style="display:flex;justify-content:flex-end">
+        <button onclick="saveScheduleAll()" class="btn-p">💾 Save All Times (All Users)</button>
+      </div>
+    </div>`;
+    document.getElementById('sch-grid').innerHTML=STORE_NAMES.map(s=>{
+      const sch=storeSchedule[s]||{};
+      return `<div class="schrow">
+        <div class="schn">${s}</div>
+        <span class="schlbl">Dispatch</span><input class="schinput" type="time" id="sd-${s}" value="${sch.dispatch||''}">
+        <span style="font-size:9px;color:var(--muted)">|</span>
+        <span class="schlbl">Window</span><input class="schinput" type="time" id="sw-${s}" value="${sch.ws||''}">
+        <span style="font-size:9px;color:var(--muted)">–</span>
+        <input class="schinput" type="time" id="se-${s}" value="${sch.we||''}">
+      </div>`;
+    }).join('');
+  }
+}
+
+function saveScheduleAll(){
+  const updates={};
+  STORE_NAMES.forEach(s=>{
+    const d=document.getElementById('sd-'+s),ws=document.getElementById('sw-'+s),we=document.getElementById('se-'+s);
+    if(d&&ws&&we){
+      storeSchedule[s]={dispatch:d.value,ws:ws.value,we:we.value};
+      updates['schedule/'+s]={dispatch:d.value,ws:ws.value,we:we.value};
+    }
+  });
+  db.ref().update(updates);
+  recordMeta();showToast('✅ Store schedules saved for all users!');
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER ALL
+// ═══════════════════════════════════════════════════════
+function renderAll(){renderNav();renderMain();}
+renderAll();
+</script>
+</body>
+</html>
