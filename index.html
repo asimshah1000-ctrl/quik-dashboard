@@ -521,6 +521,7 @@ const STORE_NAMES = Object.keys(storeSchedule);
 // ═══════════════════════════════════════════════════════
 let trips = [];
 let liveCheckins = [];
+let whCheckins = [];
 let currentTab = 'overview';
 let currentUser = '';
 let whFilter = 'all';
@@ -593,6 +594,14 @@ function startDBListeners() {
     const d = snap.val();
     if (d) setSyncStatus('live', `Last edit: ${d.lastUser||''} at ${d.lastTime||''}`);
   });
+
+  db.ref('wh_checkins').orderByChild('ts').limitToLast(200).on('value', snap => {
+    const data = snap.val() || {};
+    whCheckins = Object.entries(data)
+      .map(([id,v]) => ({...v, _id:id}))
+      .sort((a,b) => (b.ts||0) - (a.ts||0));
+    if (currentTab === 'wh-live') renderMain();
+  });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -642,6 +651,7 @@ function getNavTabs() {
     ['trips','📋 Trip Log'],
     ['schedule','🕐 Driver Schedule'],
     ['live','🟢 Live Check-ins'],
+    ['wh-live','🏭 WH Activity'],
   ];
   if (canEdit()) all.push(['add','➕ Add Trip'], ['upload','📤 Upload']);
   if (canAdmin()) all.push(['users-tab','👥 Users']);
@@ -1256,7 +1266,7 @@ function renderMain(){
             <td>${ttag(arrs[0])}</td><td>${ttag(deps[deps.length-1])}</td>
             <td>AED ${t.cost||0}</td><td>AED ${cpp}</td>
             <td>${statusBadge(t.status)}</td>
-            <td>${canEdit()?`<button class="delbtn" onclick="openDelModal('${t._id}')">✕</button>`:''}</td>
+            <td>${canEdit()?`<button class="delbtn" onclick="openDelModal('${t._id}')">✕</button>`:''} <button onclick="printTripQR('${t._id}','${t.driver||''}','${t.vid||''}')" style="background:transparent;border:1px solid #3B82F640;color:#60A5FA;border-radius:4px;padding:3px 7px;font-size:9px;font-weight:700;cursor:pointer;margin-left:3px">🖨 QR</button></td>
           </tr>`;
         }).join('')}</tbody>
       </table></div>
@@ -1478,6 +1488,7 @@ function renderMain(){
       </div>
     </div>`;
   }
+  else if(currentTab==='wh-live'){ renderWHActivity(); }
   else if(currentTab==='store-times'){
     m.innerHTML=`<div class="fsec">
       <div class="section-title">Store Dispatch Schedule — Edit Times <div style="flex:1;height:1px;background:var(--border)"></div></div>
@@ -1499,6 +1510,135 @@ function renderMain(){
       </div>`;
     }).join('');
   }
+}
+
+// ── PRINT TRIP QR ────────────────────────────────────────────
+function printTripQR(tripId, driver, vid) {
+  const url = `https://asimshah1000-ctrl.github.io/quik-checkin/warehouse.html?mode=trip&trip=${tripId}`;
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Trip QR — ${driver}</title>
+  <style>
+    body{font-family:Arial,sans-serif;background:#0B1120;color:#F1F5F9;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+    .card{background:#111827;border:2px solid #1E2D45;border-radius:16px;padding:28px;text-align:center;max-width:320px;width:90%}
+    h2{font-size:22px;font-weight:800;margin-bottom:6px}
+    .sub{font-size:12px;color:#64748B;margin-bottom:18px}
+    .info{background:#1E293B;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;line-height:2}
+    .steps{text-align:left;font-size:12px;line-height:2.2;color:#94A3B8;margin-bottom:16px}
+    .url{font-size:9px;color:#64748B;word-break:break-all;margin-top:10px}
+    @media print{body{background:#fff;color:#000}.card{border-color:#ccc;background:#fff}.info{background:#f5f5f5}.sub,.url{color:#666}.steps{color:#444}}
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></sc` + `ript>
+  </head><body>
+  <div class="card">
+    <h2>📦 Loading QR</h2>
+    <div class="sub">Saman load karne ke baad scan karo</div>
+    <div class="info">
+      👤 <strong>${driver||'—'}</strong><br>
+      🚛 <strong>${vid||'—'}</strong><br>
+      🗓️ <strong>${new Date().toLocaleDateString('en-GB')}</strong>
+    </div>
+    <div id="qrcode" style="display:flex;justify-content:center;margin-bottom:14px"></div>
+    <div class="steps">
+      1. 🏭 Warehouse entrance pe Arrived scan karo<br>
+      2. 📦 Saman load karo<br>
+      3. Ye QR scan karo — Loaded mark karo<br>
+      4. 🚛 Wapas entrance pe Departed scan karo
+    </div>
+    <div class="url">${url}</div>
+  </div>
+  <script>
+    new QRCode(document.getElementById('qrcode'), {
+      text: '${url}', width:200, height:200,
+      colorDark:'#1E3A5F', colorLight:'#FFFFFF'
+    });
+    setTimeout(() => window.print(), 800);
+  </sc` + `ript>
+  </body></html>`);
+  win.document.close();
+}
+
+// ── WH ACTIVITY TAB ──────────────────────────────────────────
+function renderWHActivity() {
+  const today = new Date().toISOString().split('T')[0];
+  const todayWH = whCheckins.filter(c => c.date === today);
+  const actionColor = { arrived:'#3B82F6', loaded:'#A855F7', departed:'#F97316' };
+  const actionIcon  = { arrived:'🏭', loaded:'📦', departed:'🚛' };
+  const actionLabel = { arrived:'Arrived at WH', loaded:'Vehicle Loaded', departed:'Departed WH' };
+
+  // Build driver summary for today
+  const driverMap = {};
+  todayWH.forEach(c => {
+    const key = c.tripId || c.driver;
+    if (!driverMap[key]) driverMap[key] = { driver:c.driver||'—', arrived:null, loaded:null, departed:null, tripId:c.tripId };
+    driverMap[key][c.action] = c.time;
+  });
+
+  const m = document.getElementById('main');
+  m.innerHTML = `<div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">🏭 Warehouse Activity</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">Driver warehouse arrivals, loading, aur departures</div>
+      </div>
+      <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--green);background:#16A34A15;border:1px solid #16A34A40;padding:5px 12px;border-radius:6px">🔴 LIVE</div>
+    </div>
+
+    <!-- KPIs -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+      ${[
+        ['WH Arrivals', todayWH.filter(c=>c.action==='arrived').length, '#3B82F6'],
+        ['Vehicles Loaded', todayWH.filter(c=>c.action==='loaded').length, '#A855F7'],
+        ['Departed', todayWH.filter(c=>c.action==='departed').length, '#F97316'],
+        ['Pending Depart', Object.values(driverMap).filter(d=>d.arrived&&!d.departed).length, '#EF4444'],
+      ].map(([l,v,color])=>`
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${l}</div>
+          <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:${color}">${v}</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- Driver status grid -->
+    ${Object.keys(driverMap).length > 0 ? `
+    <div class="section-title">Today's Driver Status <div style="flex:1;height:1px;background:var(--border)"></div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px">
+      ${Object.values(driverMap).map(d => {
+        const done = d.departed, loaded = d.loaded, arrived = d.arrived;
+        const color = done?'#22C55E':loaded?'#A855F7':arrived?'#3B82F6':'#64748B';
+        const label = done?'✅ Departed':loaded?'📦 Loaded':arrived?'🏭 At WH':'⏳ Not arrived';
+        return `<div style="background:var(--bg2);border:1px solid ${color}40;border-radius:10px;padding:12px;border-left:3px solid ${color}">
+          <div style="font-size:12px;font-weight:700;margin-bottom:5px">👤 ${d.driver}</div>
+          <div style="font-size:11px;font-weight:600;color:${color};margin-bottom:4px">${label}</div>
+          <div style="font-size:9px;color:var(--muted)">
+            ${arrived?`🏭 ${arrived}`:''}${arrived&&loaded?' · ':''}${loaded?`📦 ${loaded}`:''}${loaded&&done?' · ':''}${done?`🚛 ${done}`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:24px;text-align:center;margin-bottom:20px;color:var(--muted);font-size:13px">
+      📭 Aaj koi warehouse activity nahi hua abhi tak.
+    </div>`}
+
+    <!-- Full log -->
+    <div class="section-title">Full Activity Log <div style="flex:1;height:1px;background:var(--border)"></div></div>
+    <div class="twrap">
+      <div style="overflow-x:auto"><table>
+        <thead><tr>${['Time','Date','Driver','Action','Trip ID'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>
+        ${whCheckins.length ? whCheckins.slice(0,50).map(c => {
+          const color = actionColor[c.action]||'#64748B';
+          const isToday = c.date===today;
+          return `<tr style="${isToday?'background:#3B82F608':''}">
+            <td style="font-family:'DM Mono',monospace;color:${color};font-weight:600">${c.time||'—'}</td>
+            <td style="color:${isToday?'var(--green)':'var(--muted)'}">${isToday?'Today':c.date}</td>
+            <td>${c.driver||'—'}</td>
+            <td><span style="background:${color}20;color:${color};border:1px solid ${color}40;border-radius:20px;font-size:9px;font-weight:700;padding:2px 8px">${actionIcon[c.action]||''} ${actionLabel[c.action]||c.action}</span></td>
+            <td style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">${(c.tripId||'').slice(0,8)}…</td>
+          </tr>`;
+        }).join('') : `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Koi activity nahi</td></tr>`}
+        </tbody>
+      </table></div>
+    </div>
+  </div>`;
 }
 
 function saveScheduleAll(){
