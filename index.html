@@ -9,6 +9,7 @@
 <!-- Firebase CDN — no installation needed -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <!-- XLSX for file upload parsing -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -172,17 +173,95 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 .updone{background:#052E16;border:1px solid #16A34A60;border-radius:10px;padding:18px 22px;margin-bottom:14px}
 .t2badge{background:#F9731620;color:#FCD34D;border:1px solid #F9731640;border-radius:3px;font-size:8px;padding:1px 4px;font-weight:700;margin-left:3px}
 .t1badge{background:#3B82F620;color:#60A5FA;border:1px solid #3B82F640;border-radius:3px;font-size:8px;padding:1px 4px;font-weight:700;margin-left:3px}
+/* AUTH */
+.authov{position:fixed;inset:0;background:rgba(0,0,0,.92);backdrop-filter:blur(8px);z-index:400;display:flex;align-items:center;justify-content:center}
+.authbox{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:32px 28px;width:380px;max-width:94vw;text-align:center}
+.authbox h2{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;margin-bottom:6px}
+.authbox p{font-size:12px;color:var(--muted);margin-bottom:22px;line-height:1.6}
+.auth-tabs{display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:20px}
+.auth-tab{flex:1;padding:8px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:var(--bg3);color:var(--muted);transition:all .2s}
+.auth-tab.active{background:var(--blue);color:#fff}
+.auth-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 13px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none;margin-bottom:10px;transition:border-color .2s}
+.auth-input:focus{border-color:var(--blue)}
+.auth-btn{width:100%;padding:11px;background:var(--blue);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:10px;transition:all .2s}
+.auth-btn:hover{background:var(--blue-dim)}
+.google-btn{width:100%;padding:11px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s}
+.google-btn:hover{border-color:var(--blue)}
+.auth-divider{display:flex;align-items:center;gap:10px;margin:12px 0;color:var(--muted);font-size:11px}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.auth-err{background:#450A0A;border:1px solid #EF444440;border-radius:7px;padding:9px 12px;font-size:11px;color:#FCA5A5;margin-bottom:10px;display:none}
+.role-badge{padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700}
+.role-admin{background:#F9731620;color:#FCD34D;border:1px solid #F9731640}
+.role-manager{background:#3B82F620;color:#60A5FA;border:1px solid #3B82F640}
+.role-viewer{background:#1E293B;color:var(--muted);border:1px solid var(--border)}
+/* User management */
+.umov{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);z-index:300;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.umov.show{opacity:1;pointer-events:all}
+.umbox{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:24px;width:520px;max-width:94vw;max-height:85vh;overflow-y:auto}
+.umbox h3{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:16px}
+.urow{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:8px;flex-wrap:wrap}
+.uemail{font-family:'DM Mono',monospace;font-size:11px;flex:1;min-width:160px}
+.urole-sel{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--text);font-size:11px;outline:none;cursor:pointer}
+.uremove{background:transparent;border:1px solid #DC262640;color:#F87171;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer}
+/* Lock overlay for no-access */
+.lock-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+.lock-msg{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px 28px;text-align:center;font-size:13px;color:var(--muted)}
 </style>
 </head>
 <body>
 
-<div id="nameov" class="nameov">
-  <div class="namebox">
-    <div style="font-size:32px;margin-bottom:10px">👤</div>
-    <h2>Aapka naam?</h2>
-    <p>Apna naam daalo taake team ko pata chale kaunse changes aapne kiye.</p>
-    <input id="nameinp" class="finput" type="text" placeholder="e.g. Ahmed Ali" maxlength="30" style="margin-bottom:10px;font-size:13px;padding:10px 12px">
-    <button onclick="confirmName()" class="btn-p" style="width:100%;font-size:13px;padding:11px">Continue ➜</button>
+<!-- AUTH OVERLAY -->
+<div id="authov" class="authov">
+  <div class="authbox">
+    <div style="font-size:34px;margin-bottom:10px">🔐</div>
+    <h2>QUIK Transport</h2>
+    <p>Login karo dashboard access karne ke liye</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="setAuthTab('login')">Login</button>
+      <button class="auth-tab" onclick="setAuthTab('register')">Register</button>
+    </div>
+    <div class="auth-err" id="auth-err"></div>
+    <input class="auth-input" id="auth-email" type="email" placeholder="Email address">
+    <input class="auth-input" id="auth-pass" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')doEmailAuth()">
+    <div id="auth-name-wrap" style="display:none">
+      <input class="auth-input" id="auth-name" type="text" placeholder="Aapka naam (e.g. Ahmed Ali)">
+    </div>
+    <button class="auth-btn" id="auth-submit-btn" onclick="doEmailAuth()">Login ➜</button>
+    <div class="auth-divider">ya</div>
+    <button class="google-btn" onclick="doGoogleAuth()">
+      <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Google se login karo
+    </button>
+    <div style="font-size:10px;color:var(--muted);margin-top:14px;line-height:1.7">
+      Naya account admin se approve hoga — pehli baar register karo, phir admin aapko access dega.
+    </div>
+  </div>
+</div>
+
+<!-- USER MANAGEMENT MODAL -->
+<div id="umov" class="umov">
+  <div class="umbox">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3>👥 User Management</h3>
+      <button onclick="closeUM()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
+    </div>
+    <!-- Invite new user -->
+    <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Naya User Add Karo</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input class="finput" id="inv-email" type="email" placeholder="Email address" style="flex:1;min-width:180px;font-size:12px;padding:8px 10px">
+        <select class="fselect" id="inv-role" style="font-size:12px;padding:8px 10px;width:130px">
+          <option value="manager">Manager</option>
+          <option value="viewer">Viewer</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button onclick="inviteUser()" class="btn-p" style="padding:8px 14px;font-size:11px">Add ➜</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px">User pehle register kare — phir aap yahan access do</div>
+    </div>
+    <div id="users-list">
+      <div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">Loading users…</div>
+    </div>
   </div>
 </div>
 
@@ -210,6 +289,9 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
     <span id="live-time"></span>
     &nbsp;|&nbsp;
     <span id="uname-hdr" style="color:var(--orange)"></span>
+    <span id="role-hdr"></span>
+    <button id="um-btn" onclick="openUM()" style="display:none;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:10px;font-weight:600;cursor:pointer;margin-left:6px">👥 Users</button>
+    <button onclick="doLogout()" style="padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:10px;cursor:pointer;margin-left:4px">Logout</button>
   </div>
 </header>
 
@@ -230,7 +312,207 @@ const firebaseConfig = {
   appId: "1:860154002421:web:315c836dbded51a73d3ebc"
 };
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+const db   = firebase.database();
+const auth = firebase.auth();
+
+// ═══════════════════════════════════════════════════════
+//  AUTH STATE
+// ═══════════════════════════════════════════════════════
+// YOUR admin email — change this to your own Gmail/email
+const ADMIN_EMAIL = 'asimshah1000@gmail.com';
+
+let currentUserObj  = null;  // Firebase auth user
+let currentRole     = null;  // 'admin' | 'manager' | 'viewer' | null
+let authTab         = 'login';
+
+// Role helpers
+const canEdit   = () => currentRole === 'admin' || currentRole === 'manager';
+const canAdmin  = () => currentRole === 'admin';
+
+// Auth UI helpers
+function setAuthTab(t) {
+  authTab = t;
+  document.querySelectorAll('.auth-tab').forEach((el,i) => el.classList.toggle('active', (i===0&&t==='login')||(i===1&&t==='register')));
+  document.getElementById('auth-name-wrap').style.display = t==='register' ? 'block' : 'none';
+  document.getElementById('auth-submit-btn').textContent  = t==='register' ? 'Register ➜' : 'Login ➜';
+  document.getElementById('auth-err').style.display = 'none';
+}
+
+function showAuthErr(msg) {
+  const el = document.getElementById('auth-err');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+async function doEmailAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-pass').value;
+  const name  = (document.getElementById('auth-name')?.value||'').trim();
+  if (!email||!pass) { showAuthErr('Email aur password daalo'); return; }
+  document.getElementById('auth-submit-btn').textContent = 'Please wait…';
+  document.getElementById('auth-submit-btn').disabled = true;
+  try {
+    if (authTab === 'login') {
+      await auth.signInWithEmailAndPassword(email, pass);
+    } else {
+      if (!name) { showAuthErr('Apna naam daalo'); return; }
+      const cred = await auth.createUserWithEmailAndPassword(email, pass);
+      await cred.user.updateProfile({ displayName: name });
+      // Register in users node — pending approval unless admin email
+      const role = email.toLowerCase() === ADMIN_EMAIL.toLowerCase() ? 'admin' : 'pending';
+      await db.ref('users/'+cred.user.uid).set({ email, name, role, createdAt: Date.now() });
+    }
+  } catch(e) {
+    const msgs = {
+      'auth/wrong-password':'Wrong password',
+      'auth/user-not-found':'Email registered nahi hai — pehle register karo',
+      'auth/email-already-in-use':'Ye email already registered hai — login karo',
+      'auth/weak-password':'Password kam se kam 6 characters ka hona chahiye',
+      'auth/invalid-email':'Valid email daalo',
+      'auth/invalid-credential':'Email ya password galat hai',
+    };
+    showAuthErr(msgs[e.code] || e.message);
+    document.getElementById('auth-submit-btn').textContent = authTab==='login'?'Login ➜':'Register ➜';
+    document.getElementById('auth-submit-btn').disabled = false;
+  }
+}
+
+function doGoogleAuth() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).then(async result => {
+    const u = result.user;
+    // Check if user exists in DB
+    const snap = await db.ref('users/'+u.uid).once('value');
+    if (!snap.exists()) {
+      const role = u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase() ? 'admin' : 'pending';
+      await db.ref('users/'+u.uid).set({ email:u.email, name:u.displayName||u.email, role, createdAt:Date.now() });
+    }
+  }).catch(e => showAuthErr(e.message));
+}
+
+function doLogout() {
+  auth.signOut();
+}
+
+// Auth state observer
+auth.onAuthStateChanged(async user => {
+  if (!user) {
+    // Not logged in — show auth screen
+    currentUserObj = null; currentRole = null;
+    document.getElementById('authov').style.display = 'flex';
+    document.getElementById('auth-submit-btn').textContent = 'Login ➜';
+    document.getElementById('auth-submit-btn').disabled = false;
+    return;
+  }
+  // Logged in
+  document.getElementById('authov').style.display = 'none';
+  currentUserObj = user;
+
+  // Get role from DB
+  const snap = await db.ref('users/'+user.uid).once('value');
+  let userData = snap.val();
+
+  // Auto-set admin for admin email
+  if (!userData) {
+    const role = user.email.toLowerCase()===ADMIN_EMAIL.toLowerCase()?'admin':'pending';
+    userData = { email:user.email, name:user.displayName||user.email, role, createdAt:Date.now() };
+    await db.ref('users/'+user.uid).set(userData);
+  }
+  if (user.email.toLowerCase()===ADMIN_EMAIL.toLowerCase() && userData.role!=='admin') {
+    await db.ref('users/'+user.uid+'/role').set('admin');
+    userData.role = 'admin';
+  }
+
+  currentRole = userData.role;
+  currentUser = userData.name || user.email;
+
+  // Pending users — show waiting screen
+  if (currentRole === 'pending') {
+    document.getElementById('authov').style.display = 'none';
+    document.getElementById('main').innerHTML = `
+      <div style="text-align:center;padding:60px 20px">
+        <div style="font-size:48px;margin-bottom:16px">⏳</div>
+        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:10px">Access Pending</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:20px">
+          Aapka account register ho gaya hai.<br>
+          Admin se request karo ke aapko access de.<br>
+          <strong style="color:var(--text)">${user.email}</strong>
+        </div>
+        <button onclick="doLogout()" style="padding:10px 24px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer">Logout</button>
+      </div>`;
+    document.getElementById('nav').innerHTML = '';
+    return;
+  }
+
+  // Update header
+  const roleLabels = { admin:'👑 Admin', manager:'📝 Manager', viewer:'👁️ Viewer' };
+  const roleColors = { admin:'#F97316', manager:'#3B82F6', viewer:'#64748B' };
+  document.getElementById('uname-hdr').textContent = '👤 ' + currentUser;
+  document.getElementById('role-hdr').innerHTML = `<span class="role-badge role-${currentRole}" style="margin-left:6px">${roleLabels[currentRole]||currentRole}</span>`;
+  if (canAdmin()) document.getElementById('um-btn').style.display = 'inline-block';
+
+  // Listen to real-time DB
+  startDBListeners();
+  renderAll();
+});
+
+// ═══════════════════════════════════════════════════════
+//  USER MANAGEMENT
+// ═══════════════════════════════════════════════════════
+function openUM() {
+  if (!canAdmin()) return;
+  document.getElementById('umov').classList.add('show');
+  loadUsers();
+}
+function closeUM() { document.getElementById('umov').classList.remove('show'); }
+
+async function loadUsers() {
+  const snap = await db.ref('users').once('value');
+  const users = snap.val() || {};
+  const roleLabels = { admin:'👑 Admin', manager:'📝 Manager', viewer:'👁️ Viewer', pending:'⏳ Pending' };
+  const rows = Object.entries(users).map(([uid, u]) => {
+    const isSelf = currentUserObj && currentUserObj.uid === uid;
+    return `<div class="urow">
+      <div style="font-size:10px;color:var(--muted);width:20px">${isSelf?'★':''}</div>
+      <div class="uemail">${u.email}<br><span style="font-size:9px;color:var(--muted)">${u.name||''}</span></div>
+      <select class="urole-sel" onchange="changeRole('${uid}',this.value)" ${isSelf?'disabled':''}>
+        ${['admin','manager','viewer','pending'].map(r=>`<option value="${r}" ${u.role===r?'selected':''}>${roleLabels[r]}</option>`).join('')}
+      </select>
+      ${!isSelf?`<button class="uremove" onclick="removeUser('${uid}','${u.email}')">Remove</button>`:'<span style="font-size:10px;color:var(--muted)">You</span>'}
+    </div>`;
+  }).join('');
+  document.getElementById('users-list').innerHTML = rows || '<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">No users yet</div>';
+}
+
+async function changeRole(uid, role) {
+  await db.ref('users/'+uid+'/role').set(role);
+  showToast('✅ Role updated!');
+  loadUsers();
+}
+
+async function removeUser(uid, email) {
+  if (!confirm(`Remove ${email}?`)) return;
+  await db.ref('users/'+uid+'/role').set('pending');
+  showToast('User access revoked', '#EF4444');
+  loadUsers();
+}
+
+async function inviteUser() {
+  const email = document.getElementById('inv-email').value.trim().toLowerCase();
+  const role  = document.getElementById('inv-role').value;
+  if (!email) { showToast('Email daalo', '#EF4444'); return; }
+  // Find user by email
+  const snap = await db.ref('users').orderByChild('email').equalTo(email).once('value');
+  const data = snap.val();
+  if (!data) {
+    showToast('User nahi mila — pehle register kare', '#F97316');
+    return;
+  }
+  const uid = Object.keys(data)[0];
+  await db.ref('users/'+uid+'/role').set(role);
+  document.getElementById('inv-email').value = '';
+  showToast(`✅ ${email} ko ${role} access diya!`);
+  loadUsers();
+}
 
 // ═══════════════════════════════════════════════════════
 //  STORE SCHEDULE
@@ -263,8 +545,9 @@ const STORE_NAMES = Object.keys(storeSchedule);
 //  STATE
 // ═══════════════════════════════════════════════════════
 let trips = [];
+let liveCheckins = [];
 let currentTab = 'overview';
-let currentUser = localStorage.getItem('quik_user') || '';
+let currentUser = '';
 let whFilter = 'all';
 let tripFilter = 'all';
 let schedFilter = 'all';
@@ -302,43 +585,40 @@ const SAMPLE = [
    qty:1800,pallets:8,capacity:14,cost:420,dispatch:"10:30",status:"Completed",remarks:"2nd trip"},
 ];
 
-db.ref('trips').on('value', snap => {
-  const data = snap.val();
-  if (data) {
-    trips = Object.entries(data).map(([id,v])=>({...v,_id:id}));
-    trips.sort((a,b)=>new Date(b.date)-new Date(a.date));
-  } else {
-    SAMPLE.forEach(t => db.ref('trips').push(t));
-  }
-  setSyncStatus('live');
-  renderAll();
-});
+// ═══════════════════════════════════════════════════════
+//  DB LISTENERS — called after auth
+// ═══════════════════════════════════════════════════════
+function startDBListeners() {
+  db.ref('trips').on('value', snap => {
+    const data = snap.val();
+    if (data) {
+      trips = Object.entries(data).map(([id,v])=>({...v,_id:id}));
+      trips.sort((a,b)=>new Date(b.date)-new Date(a.date));
+    } else {
+      if (canEdit()) SAMPLE.forEach(t => db.ref('trips').push(t));
+    }
+    setSyncStatus('live');
+    renderAll();
+  });
 
-db.ref('schedule').on('value', snap => {
-  const d = snap.val();
-  if (d) storeSchedule = {...storeSchedule, ...d};
-});
+  db.ref('schedule').on('value', snap => {
+    const d = snap.val();
+    if (d) storeSchedule = {...storeSchedule, ...d};
+  });
 
-// Live checkins listener
-let liveCheckins = [];
-db.ref('checkins').orderByChild('ts').limitToLast(100).on('value', snap => {
-  const data = snap.val() || {};
-  liveCheckins = Object.entries(data)
-    .map(([id,v]) => ({...v, _id:id}))
-    .sort((a,b) => (b.ts||0) - (a.ts||0));
-  if(currentTab === 'live') renderMain();
-  // Flash notification badge
-  const badge = document.getElementById('live-badge');
-  if(badge && liveCheckins.length > 0){
-    badge.style.display='inline';
-    badge.textContent = liveCheckins.filter(c => c.date === new Date().toISOString().split('T')[0]).length;
-  }
-});
+  db.ref('checkins').orderByChild('ts').limitToLast(100).on('value', snap => {
+    const data = snap.val() || {};
+    liveCheckins = Object.entries(data)
+      .map(([id,v]) => ({...v, _id:id}))
+      .sort((a,b) => (b.ts||0) - (a.ts||0));
+    if(currentTab === 'live') renderMain();
+  });
 
-db.ref('meta').on('value', snap => {
-  const d = snap.val();
-  if (d) setSyncStatus('live', `Last edit: ${d.lastUser||''} at ${d.lastTime||''}`);
-});
+  db.ref('meta').on('value', snap => {
+    const d = snap.val();
+    if (d) setSyncStatus('live', `Last edit: ${d.lastUser||''} at ${d.lastTime||''}`);
+  });
+}
 
 // ═══════════════════════════════════════════════════════
 //  UTILS
@@ -378,33 +658,36 @@ function ttag(v,cls=''){return `<span class="ttag ${cls}">${v||'—'}</span>`;}
 function statusBadge(s){const k=(s||'').replace(/\s/g,'');return `<span class="sbadge s-${k}">${s||'—'}</span>`;}
 
 // ═══════════════════════════════════════════════════════
-//  USER NAME
+//  NAV — permission aware
 // ═══════════════════════════════════════════════════════
-if(!currentUser) document.getElementById('nameov').style.display='flex';
-else {document.getElementById('nameov').style.display='none'; document.getElementById('uname-hdr').textContent='👤 '+currentUser;}
-
-function confirmName(){
-  const v=document.getElementById('nameinp').value.trim();
-  if(!v){document.getElementById('nameinp').style.borderColor='var(--red)';return;}
-  currentUser=v;localStorage.setItem('quik_user',v);
-  document.getElementById('nameov').style.display='none';
-  document.getElementById('uname-hdr').textContent='👤 '+v;
-  showToast('Welcome, '+v+'! 👋');
+function getNavTabs() {
+  const all = [
+    ['overview','📊 Overview'],
+    ['wh','🏭 Warehouse'],
+    ['trips','📋 Trip Log'],
+    ['schedule','🕐 Driver Schedule'],
+    ['live','🟢 Live Check-ins'],
+  ];
+  if (canEdit()) all.push(['add','➕ Add Trip'], ['upload','📤 Upload']);
+  if (canAdmin()) all.push(['users-tab','👥 Users']);
+  all.push(['store-times','⚙️ Store Times']);
+  return all;
 }
-document.getElementById('nameinp').addEventListener('keydown',e=>{if(e.key==='Enter')confirmName();});
-
-// ═══════════════════════════════════════════════════════
-//  NAV
-// ═══════════════════════════════════════════════════════
-const TABS = [['overview','📊 Overview'],['wh','🏭 Warehouse'],['trips','📋 Trip Log'],['schedule','🕐 Driver Schedule'],['live','🟢 Live Check-ins'],['add','➕ Add Trip'],['upload','📤 Upload'],['store-times','⚙️ Store Times']];
 
 function renderNav(){
-  document.getElementById('nav').innerHTML = TABS.map(([id,label])=>
+  const tabs = getNavTabs();
+  document.getElementById('nav').innerHTML = tabs.map(([id,label])=>
     `<div class="tab ${currentTab===id?'active':''}" onclick="switchTab('${id}')">${label}</div>`
   ).join('');
 }
 
-function switchTab(t){currentTab=t;renderNav();renderMain();}
+function switchTab(t){
+  // Permission check
+  if ((t==='add'||t==='upload') && !canEdit()) { showToast('Access nahi hai — Admin se request karo','#EF4444'); return; }
+  if (t==='users-tab' && !canAdmin()) return;
+  if (t==='users-tab') { openUM(); return; }
+  currentTab=t; renderNav(); renderMain();
+}
 
 // ═══════════════════════════════════════════════════════
 //  KPI BUILDER
@@ -536,6 +819,7 @@ function openDelModal(id){
 }
 function closeDelModal(){pendingDeleteId=null;document.getElementById('delov').classList.remove('show');}
 function confirmDelete(){
+  if(!canEdit()){showToast('Access nahi hai','#EF4444');closeDelModal();return;}
   if(!pendingDeleteId)return;
   db.ref('trips/'+pendingDeleteId).remove();
   recordMeta();closeDelModal();showToast('🗑️ Trip deleted','#EF4444');
@@ -557,6 +841,7 @@ function startEdit(td,tripId,store,field){
   td.querySelector('input').focus();
 }
 function commitEdit(tripId,store,field,val){
+  if(!canEdit()){showToast('Access nahi hai','#EF4444');renderMain();return;}
   if(field==='dispatch'){
     db.ref('trips/'+tripId+'/dispatch').set(val);
   } else {
@@ -595,26 +880,44 @@ function getStoreTimes(n){
 function gv(id){const el=document.getElementById(id);return el?el.value:'';}
 function buildTripObj(prefix,n,t2){
   const sn=selectedStores[n];
+  // Try both prefix formats for compatibility
+  const getVal = (field) => {
+    return gv(prefix+field) || gv('f-'+field) || '';
+  };
+  const whVal  = gv(prefix+'wh');
+  const vtVal  = gv(prefix+'vt');
   return {
     date:gv(prefix+'date')||new Date().toISOString().split('T')[0],
-    wh:gv(prefix+'wh'),vt:gv(prefix+'vt'),
+    wh:whVal, vt:vtVal,
     vid:gv(prefix+'vid')||'—',
     driver:t2?gv('f-driver'):gv(prefix+'driver'),
-    trip2:t2,storeNames:sn,storeTimes:getStoreTimes(n),
-    qty:+gv(prefix+'qty')||0,pallets:+gv(prefix+'pallets')||0,
-    capacity:+gv(prefix+'capacity')||14,cost:+gv(prefix+'cost')||0,
-    dispatch:gv(prefix+'dispatch'),status:gv(prefix+'status')||'Completed',
+    trip2:t2, storeNames:sn, storeTimes:getStoreTimes(n),
+    qty:+gv(prefix+'qty')||0, pallets:+gv(prefix+'pallets')||0,
+    capacity:+gv(prefix+'capacity')||14, cost:+gv(prefix+'cost')||0,
+    dispatch:gv(prefix+'dispatch'), status:gv(prefix+'status')||'Completed',
     remarks:gv(prefix+'remarks'),
   };
 }
 function addTrip(){
+  if(!canEdit()){showToast('Access nahi hai','#EF4444');return;}
   const t1=buildTripObj('f-',1,false);
-  if(!t1.wh||!t1.vt){showToast('Warehouse & Vehicle Type select karo','#EF4444');return;}
+  // Debug: log what we got
+  console.log('wh:', t1.wh, 'vt:', t1.vt);
+  // More lenient check — accept if either field has value
+  const whEl = document.getElementById('f-wh');
+  const vtEl = document.getElementById('f-vt');
+  const whVal = whEl ? whEl.value : t1.wh;
+  const vtVal = vtEl ? vtEl.value : t1.vt;
+  if(!whVal||!vtVal){showToast('Warehouse & Vehicle Type select karo','#EF4444');return;}
+  t1.wh = whVal; t1.vt = vtVal;
   db.ref('trips').push(t1);
   if(dualTrip){
     const t2=buildTripObj('f2-',2,true);
-    if(t2.wh&&t2.vt){db.ref('trips').push(t2);showToast(`✓ 2 trips added for ${t1.driver}`);}
-    else showToast('Trip 1 added — Trip 2 skipped (missing fields)','#F97316');
+    const wh2El=document.getElementById('f2-wh'),vt2El=document.getElementById('f2-vt');
+    if(wh2El&&vt2El&&wh2El.value&&vt2El.value){
+      t2.wh=wh2El.value;t2.vt=vt2El.value;t2.driver=t1.driver;
+      db.ref('trips').push(t2);showToast(`✓ 2 trips added for ${t1.driver}`);
+    } else showToast('Trip 1 added — Trip 2 skipped','#F97316');
   } else showToast('✓ Trip added!');
   recordMeta();resetForm();
 }
@@ -785,6 +1088,7 @@ function setUploadState(s,msg){
   renderUploadPanel();
 }
 function doConfirmUpload(){
+  if(!canEdit()){showToast('Access nahi hai','#EF4444');return;}
   if(!uploadRows)return;
   uploadStatus='pushing';renderUploadPanel();
   try{
@@ -977,7 +1281,7 @@ function renderMain(){
             <td>${ttag(arrs[0])}</td><td>${ttag(deps[deps.length-1])}</td>
             <td>AED ${t.cost||0}</td><td>AED ${cpp}</td>
             <td>${statusBadge(t.status)}</td>
-            <td><button class="delbtn" onclick="openDelModal('${t._id}')">✕</button></td>
+            <td>${canEdit()?`<button class="delbtn" onclick="openDelModal('${t._id}')">✕</button>`:''}</td>
           </tr>`;
         }).join('')}</tbody>
       </table></div>
@@ -1000,9 +1304,9 @@ function renderMain(){
           <td style="font-weight:600;font-family:'DM Mono',monospace;font-size:10px">${store}</td>
           <td>${ttag(sch.dispatch)}</td>
           <td>${ttag((sch.ws||'—')+' – '+(sch.we||'—'))}</td>
-          <td><span class="ecell" onclick="startEdit(this,'${t._id}','${store}','dispatch')" title="Click to edit">${ttag(t.dispatch,'warn')} <span style="font-size:8px;color:var(--muted)">✏</span></span></td>
-          <td><span class="ecell" onclick="startEdit(this,'${t._id}','${store}','arr')" title="Click to edit">${ttag(st.arr)} <span style="font-size:8px;color:var(--muted)">✏</span></span></td>
-          <td><span class="ecell" onclick="startEdit(this,'${t._id}','${store}','dep')" title="Click to edit">${ttag(st.dep)} <span style="font-size:8px;color:var(--muted)">✏</span></span></td>
+          <td>${canEdit()?`<span class="ecell" onclick="startEdit(this,'${t._id}','${store}','dispatch')" title="Click to edit">${ttag(t.dispatch,'warn')} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:ttag(t.dispatch,'warn')}</td>
+          <td>${canEdit()?`<span class="ecell" onclick="startEdit(this,'${t._id}','${store}','arr')" title="Click to edit">${ttag(st.arr)} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:ttag(st.arr)}</td>
+          <td>${canEdit()?`<span class="ecell" onclick="startEdit(this,'${t._id}','${store}','dep')" title="Click to edit">${ttag(st.dep)} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:ttag(st.dep)}</td>
           <td>${otTag}</td>
           <td><span class="wpill wh-${t.wh==='Own Warehouse'?'own':'3pl'}">${t.wh==='Own Warehouse'?'Own':'3PL'}</span></td>
         </tr>`);
@@ -1028,9 +1332,9 @@ function renderMain(){
 
   // ── ADD TRIP ──
   else if(currentTab==='add'){
-    const sf=n=>`<select class="fselect" id="f${n>1?n+'-':''}status"><option value="">Select…</option>${['Completed','In Transit','Delayed','Partial'].map(s=>`<option>${s}</option>`).join('')}</select>`;
-    const wf=n=>`<select class="fselect" id="f${n>1?n+'-':''}wh"><option value="">Select…</option><option>Own Warehouse</option><option>3PL Warehouse</option></select>`;
-    const vtf=n=>`<select class="fselect" id="f${n>1?n+'-':''}vt"><option value="">Select…</option><option>Own Fleet</option><option>3PL Fleet</option><option>Adhoc/Rental</option></select>`;
+    const sf=n=>`<select class="fselect" id="${n===1?'f':'f2'}-status"><option value="">Select…</option>${['Completed','In Transit','Delayed','Partial'].map(s=>`<option>${s}</option>`).join('')}</select>`;
+    const wf=n=>`<select class="fselect" id="${n===1?'f':'f2'}-wh"><option value="">Select…</option><option>Own Warehouse</option><option>3PL Warehouse</option></select>`;
+    const vtf=n=>`<select class="fselect" id="${n===1?'f':'f2'}-vt"><option value="">Select…</option><option>Own Fleet</option><option>3PL Fleet</option><option>Adhoc/Rental</option></select>`;
     m.innerHTML=`<div>
       <div class="fsec">
         <div class="section-title">Add New Trip Entry <div style="flex:1;height:1px;background:var(--border)"></div></div>
@@ -1223,6 +1527,7 @@ function renderMain(){
 }
 
 function saveScheduleAll(){
+  if(!canAdmin()){showToast('Sirf Admin ye change kar sakta hai','#EF4444');return;}
   const updates={};
   STORE_NAMES.forEach(s=>{
     const d=document.getElementById('sd-'+s),ws=document.getElementById('sw-'+s),we=document.getElementById('se-'+s);
