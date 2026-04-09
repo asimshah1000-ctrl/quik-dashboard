@@ -271,6 +271,46 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
   </div>
 </div>
 
+<!-- EDIT TRIP MODAL -->
+<div id="editov" class="modal-ov">
+  <div class="modal-box" style="width:480px;max-width:95vw;text-align:left">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">✏️ Edit Trip</div>
+      <button onclick="closeEditModal()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><label class="flabel">Date</label><input class="finput" id="e-date" type="date" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Driver</label><input class="finput" id="e-driver" type="text" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Warehouse</label>
+        <select class="fselect" id="e-wh" style="font-size:12px;padding:8px 10px">
+          <option>Own Warehouse</option><option>3PL Warehouse</option>
+        </select>
+      </div>
+      <div><label class="flabel">Vehicle Type</label>
+        <select class="fselect" id="e-vt" style="font-size:12px;padding:8px 10px">
+          <option>Own Fleet</option><option>3PL Fleet</option><option>Adhoc/Rental</option>
+        </select>
+      </div>
+      <div><label class="flabel">Vehicle ID</label><input class="finput" id="e-vid" type="text" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Dispatch Time</label><input class="finput" id="e-dispatch" type="time" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">QTY (Units)</label><input class="finput" id="e-qty" type="number" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Pallets</label><input class="finput" id="e-pallets" type="number" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Capacity</label><input class="finput" id="e-capacity" type="number" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Cost (AED)</label><input class="finput" id="e-cost" type="number" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Status</label>
+        <select class="fselect" id="e-status" style="font-size:12px;padding:8px 10px">
+          <option>Completed</option><option>In Transit</option><option>Delayed</option><option>Partial</option>
+        </select>
+      </div>
+      <div><label class="flabel">Remarks</label><input class="finput" id="e-remarks" type="text" style="font-size:12px;padding:8px 10px"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeEditModal()" class="btn-s" style="font-size:12px">Cancel</button>
+      <button onclick="saveEditTrip()" class="btn-p" style="font-size:12px">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <header>
@@ -809,6 +849,53 @@ function confirmDelete(){
   db.ref('trips/'+pendingDeleteId).remove();
   recordMeta();closeDelModal();showToast('🗑️ Trip deleted','#EF4444');
 }
+
+// ── EDIT TRIP ────────────────────────────────────────────────
+let editTripId = null;
+function openEditModal(id) {
+  if(!canEdit()){showToast('Access nahi hai','#EF4444');return;}
+  editTripId = id;
+  const t = trips.find(x=>x._id===id)||{};
+  document.getElementById('e-date').value     = t.date||'';
+  document.getElementById('e-driver').value   = t.driver||'';
+  document.getElementById('e-wh').value       = t.wh||'Own Warehouse';
+  document.getElementById('e-vt').value       = t.vt||'Own Fleet';
+  document.getElementById('e-vid').value      = t.vid||'';
+  document.getElementById('e-dispatch').value = t.dispatch||'';
+  document.getElementById('e-qty').value      = t.qty||0;
+  document.getElementById('e-pallets').value  = t.pallets||0;
+  document.getElementById('e-capacity').value = t.capacity||14;
+  document.getElementById('e-cost').value     = t.cost||0;
+  document.getElementById('e-status').value   = t.status||'Completed';
+  document.getElementById('e-remarks').value  = t.remarks||'';
+  document.getElementById('editov').classList.add('show');
+}
+function closeEditModal(){
+  editTripId=null;
+  document.getElementById('editov').classList.remove('show');
+}
+async function saveEditTrip(){
+  if(!editTripId) return;
+  const updates = {
+    date:     document.getElementById('e-date').value,
+    driver:   document.getElementById('e-driver').value,
+    wh:       document.getElementById('e-wh').value,
+    vt:       document.getElementById('e-vt').value,
+    vid:      document.getElementById('e-vid').value,
+    dispatch: document.getElementById('e-dispatch').value,
+    qty:      +document.getElementById('e-qty').value||0,
+    pallets:  +document.getElementById('e-pallets').value||0,
+    capacity: +document.getElementById('e-capacity').value||14,
+    cost:     +document.getElementById('e-cost').value||0,
+    status:   document.getElementById('e-status').value,
+    remarks:  document.getElementById('e-remarks').value,
+  };
+  await db.ref('trips/'+editTripId).update(updates);
+  recordMeta();
+  closeEditModal();
+  showToast('✅ Trip updated!');
+}
+document.getElementById('editov').addEventListener('click',function(e){if(e.target===this)closeEditModal();});
 document.getElementById('delov').addEventListener('click',function(e){if(e.target===this)closeDelModal();});
 
 // ═══════════════════════════════════════════════════════
@@ -1216,7 +1303,7 @@ function renderMain(){
       <div class="bgrid" id="bg-wh-vt"></div>
       <div class="section-title">Trip Log <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div class="twrap"><div style="overflow-x:auto"><table>
-        <thead><tr>${['Date','Warehouse','Veh Type','Driver','Trip','Stores','QTY','Pallets','Util%','Dispatch','Cost','Status'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['Date','Warehouse','Veh Type','Driver','Trip','Stores','QTY','Pallets','Util%','Dispatch','Cost','Status',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>${whTrips.map(t=>{const u=((t.pallets||0)/(t.capacity||14)*100).toFixed(0);return `<tr>
           <td>${t.date}</td><td><span class="wpill wh-${t.wh==='Own Warehouse'?'own':'3pl'}">${t.wh==='Own Warehouse'?'Own':'3PL'}</span></td>
           <td>${t.vt}</td><td>${t.driver}${tripBadge(t.trip2)}</td>
@@ -1225,7 +1312,9 @@ function renderMain(){
           <td>${(t.qty||0).toLocaleString()}</td><td style="text-align:center">${t.pallets||0}/${t.capacity||14}</td>
           <td><span style="color:${utilColor(+u)}">${u}%</span></td>
           <td>${ttag(t.dispatch,'warn')}</td><td>AED ${t.cost||0}</td>
-          <td>${statusBadge(t.status)}</td></tr>`}).join('')}</tbody>
+          <td>${statusBadge(t.status)}</td>
+          <td>${canEdit()?`<button class="delbtn" onclick="openEditModal('${t._id}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button><button class="delbtn" onclick="openDelModal('${t._id}')">✕</button>`:''}</td>
+          </tr>`}).join('')}</tbody>
       </table></div></div>
     </div>`;
     buildKpis(whTrips,'kpi-wh');
@@ -1266,7 +1355,11 @@ function renderMain(){
             <td>${ttag(arrs[0])}</td><td>${ttag(deps[deps.length-1])}</td>
             <td>AED ${t.cost||0}</td><td>AED ${cpp}</td>
             <td>${statusBadge(t.status)}</td>
-            <td>${canEdit()?`<button class="delbtn" onclick="openDelModal('${t._id}')">✕</button>`:''} <button onclick="printTripQR('${t._id}','${t.driver||''}','${t.vid||''}')" style="background:transparent;border:1px solid #3B82F640;color:#60A5FA;border-radius:4px;padding:3px 7px;font-size:9px;font-weight:700;cursor:pointer;margin-left:3px">🖨 QR</button></td>
+            <td>
+            ${canEdit()?`<button class="delbtn" onclick="openEditModal('${t._id}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:4px">✏️</button>`:''}
+            ${canEdit()?`<button class="delbtn" onclick="openDelModal('${t._id}')">✕</button>`:''}
+            <button onclick="printTripQR('${t._id}','${t.driver||''}','${t.vid||''}')" style="background:transparent;border:1px solid #3B82F640;color:#60A5FA;border-radius:4px;padding:3px 7px;font-size:9px;font-weight:700;cursor:pointer;margin-left:3px">🖨 QR</button>
+          </td>
           </tr>`;
         }).join('')}</tbody>
       </table></div>
