@@ -575,6 +575,88 @@ let uploadRows = null;
 let uploadErrs = [], uploadWarns = [];
 let uploadStatus = 'idle';
 
+// Date filter state
+let dateFilterMode = 'today';   // 'today' | 'yesterday' | 'week' | 'month' | 'all' | 'custom'
+let dateFilterFrom = '';
+let dateFilterTo   = '';
+
+// ── Date filter helpers ───────────────────────────────────────
+function getToday()     { return new Date().toISOString().split('T')[0]; }
+function getYesterday() { const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().split('T')[0]; }
+function getWeekStart() { const d=new Date();d.setDate(d.getDate()-6);return d.toISOString().split('T')[0]; }
+function getMonthStart(){ const d=new Date();d.setDate(1);return d.toISOString().split('T')[0]; }
+
+function applyDateFilter(tripList) {
+  const today = getToday();
+  switch(dateFilterMode) {
+    case 'today':     return tripList.filter(t => t.date === today);
+    case 'yesterday': return tripList.filter(t => t.date === getYesterday());
+    case 'week':      return tripList.filter(t => t.date >= getWeekStart() && t.date <= today);
+    case 'month':     return tripList.filter(t => t.date >= getMonthStart() && t.date <= today);
+    case 'all':       return tripList;
+    case 'custom':
+      const from = dateFilterFrom || '2000-01-01';
+      const to   = dateFilterTo   || today;
+      return tripList.filter(t => t.date >= from && t.date <= to);
+    default: return tripList;
+  }
+}
+
+function setDateFilter(mode) {
+  dateFilterMode = mode;
+  renderMain();
+}
+
+function dateFilterBar() {
+  const btns = [
+    ['today','Today'], ['yesterday','Yesterday'], ['week','Last 7 Days'],
+    ['month','This Month'], ['all','All Time'], ['custom','Custom']
+  ];
+  return `<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+    <span style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-right:4px">📅 Date:</span>
+    ${btns.map(([m,l])=>`<button onclick="setDateFilter('${m}')" style="padding:5px 11px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${dateFilterMode===m?'var(--blue)':'var(--border)'};background:${dateFilterMode===m?'var(--blue)':'var(--bg3)'};color:${dateFilterMode===m?'#fff':'var(--muted)'};transition:all .2s">${l}</button>`).join('')}
+    ${dateFilterMode==='custom'?`
+      <input type="date" value="${dateFilterFrom}" onchange="dateFilterFrom=this.value;renderMain()"
+        style="background:var(--bg3);border:1px solid var(--blue);border-radius:6px;padding:4px 8px;color:var(--text);font-size:11px;outline:none">
+      <span style="color:var(--muted);font-size:11px">to</span>
+      <input type="date" value="${dateFilterTo}" onchange="dateFilterTo=this.value;renderMain()"
+        style="background:var(--bg3);border:1px solid var(--blue);border-radius:6px;padding:4px 8px;color:var(--text);font-size:11px;outline:none">
+    `:''}
+  </div>`;
+}
+
+// ── On-Time Dispatch calculator ───────────────────────────────
+function calcOnTime(tripList) {
+  // Uses whCheckin.departed vs trip.dispatch
+  const results = tripList.map(t => {
+    const scheduled = t.dispatch;
+    const actual    = t.whCheckin?.departed;
+    if (!scheduled || !actual) return { ...t, ontimeStatus: 'unknown', delayMins: null };
+    const diff = toMins(actual) - toMins(scheduled);
+    return {
+      ...t,
+      ontimeStatus: diff <= 0 ? 'ontime' : 'late',
+      delayMins: diff,
+    };
+  });
+  const withData   = results.filter(t => t.ontimeStatus !== 'unknown');
+  const ontime     = withData.filter(t => t.ontimeStatus === 'ontime').length;
+  const late       = withData.filter(t => t.ontimeStatus === 'late').length;
+  const pct        = withData.length ? Math.round(ontime / withData.length * 100) : null;
+  const delays     = withData.filter(t => t.delayMins > 0).map(t => t.delayMins);
+  const avgDelay   = delays.length ? Math.round(delays.reduce((a,b)=>a+b,0)/delays.length) : 0;
+
+  // Per driver
+  const driverMap  = {};
+  withData.forEach(t => {
+    if (!driverMap[t.driver]) driverMap[t.driver] = { ontime:0, late:0, totalDelay:0 };
+    driverMap[t.driver][t.ontimeStatus]++;
+    if (t.delayMins > 0) driverMap[t.driver].totalDelay += t.delayMins;
+  });
+
+  return { results, ontime, late, pct, avgDelay, driverMap, total: withData.length };
+}
+
 // ═══════════════════════════════════════════════════════
 //  FIREBASE LISTENERS
 // ═══════════════════════════════════════════════════════
@@ -1260,36 +1342,100 @@ function renderMain(){
   if(!m)return;
 
   const whTrips=whFilter==='all'?trips:whFilter==='own'?trips.filter(t=>t.wh==='Own Warehouse'):trips.filter(t=>t.wh==='3PL Warehouse');
-  const filtTrips=tripFilter==='all'?trips:tripFilter==='Adhoc/Rental'?trips.filter(t=>t.vt===tripFilter):trips.filter(t=>t.wh===tripFilter);
+  // Apply date filter to trips
+  const dateFilteredTrips = applyDateFilter(trips);
+  const whTripsFiltered   = whFilter==='all'?dateFilteredTrips:whFilter==='own'?dateFilteredTrips.filter(t=>t.wh==='Own Warehouse'):dateFilteredTrips.filter(t=>t.wh==='3PL Warehouse');
+  const filtTrips = tripFilter==='all'?trips:tripFilter==='Adhoc/Rental'?trips.filter(t=>t.vt===tripFilter):trips.filter(t=>t.wh===tripFilter);
 
   // ── OVERVIEW ──
   if(currentTab==='overview'){
-    m.innerHTML=`<div class="panel active" id="p-overview">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+    const ot = calcOnTime(dateFilteredTrips);
+    const pctColor = ot.pct===null?'#64748B':ot.pct>=90?'#22C55E':ot.pct>=70?'#F97316':'#EF4444';
+
+    m.innerHTML=`<div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
         <span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">Operations Overview</span>
+        <span style="font-size:11px;color:var(--muted)">${dateFilteredTrips.length} trips</span>
       </div>
+      ${dateFilterBar()}
       <div class="kpi-grid" id="kpi-main"></div>
+
+      <!-- On-Time Dispatch Section -->
+      <div class="section-title">⏱️ On-Time Dispatch <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px">
+        <div class="kpi-card ${ot.pct>=90?'green':ot.pct>=70?'orange':'red'}" style="grid-column:span 1">
+          <div class="kpi-label">On-Time Rate</div>
+          <div class="kpi-value" style="color:${pctColor}">${ot.pct!==null?ot.pct+'%':'—'}</div>
+          <div class="kpi-sub">${ot.ontime} on-time · ${ot.late} late · ${ot.total} tracked</div>
+        </div>
+        <div class="kpi-card orange">
+          <div class="kpi-label">Avg Delay</div>
+          <div class="kpi-value">${ot.avgDelay?'+'+ot.avgDelay+' min':'—'}</div>
+          <div class="kpi-sub">Late trips average delay</div>
+        </div>
+        ${Object.keys(ot.driverMap).length>0?`
+        <div class="kpi-card blue" style="grid-column:span 1">
+          <div class="kpi-label">Best Driver</div>
+          <div class="kpi-value" style="font-size:15px">${
+            Object.entries(ot.driverMap).sort((a,b)=>(b[1].ontime/(b[1].ontime+b[1].late||1))-(a[1].ontime/(a[1].ontime+a[1].late||1)))[0]?.[0]||'—'
+          }</div>
+          <div class="kpi-sub">Highest on-time rate</div>
+        </div>`:''}
+      </div>
+
+      <!-- Per-driver on-time table -->
+      ${Object.keys(ot.driverMap).length>0?`
+      <div class="twrap" style="margin-bottom:20px">
+        <div class="ttbar"><div class="ttitle">Driver On-Time Performance</div></div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr>${['Driver','On-Time','Late','On-Time %','Avg Delay'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+          <tbody>${Object.entries(ot.driverMap).map(([driver,d])=>{
+            const total=d.ontime+d.late;
+            const pct=total?Math.round(d.ontime/total*100):0;
+            const color=pct>=90?'#22C55E':pct>=70?'#F97316':'#EF4444';
+            return `<tr>
+              <td style="font-weight:600">${driver}</td>
+              <td><span style="color:#22C55E;font-weight:700">${d.ontime}</span></td>
+              <td><span style="color:#EF4444;font-weight:700">${d.late}</span></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;min-width:60px">
+                    <div style="width:${pct}%;height:100%;background:${color};border-radius:3px"></div>
+                  </div>
+                  <span style="color:${color};font-weight:700;font-family:'DM Mono',monospace;font-size:11px">${pct}%</span>
+                </div>
+              </td>
+              <td style="color:${d.totalDelay>0?'#F97316':'#22C55E'};font-family:'DM Mono',monospace">
+                ${d.totalDelay>0&&d.late>0?'+'+Math.round(d.totalDelay/d.late)+' min':'✓ On time'}
+              </td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>
+      </div>`:''}
+
       <div class="section-title">By Warehouse <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div class="bgrid" id="bg-wh"></div>
       <div class="section-title">By Vehicle Type <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div class="bgrid" id="bg-vt"></div>
     </div>`;
-    buildKpis(trips,'kpi-main');
-    const own=trips.filter(t=>t.wh==='Own Warehouse'),tpl=trips.filter(t=>t.wh==='3PL Warehouse');
-    const of=trips.filter(t=>t.vt==='Own Fleet'),tf=trips.filter(t=>t.vt==='3PL Fleet'),ad=trips.filter(t=>t.vt==='Adhoc/Rental');
+
+    buildKpis(dateFilteredTrips,'kpi-main');
+    const own=dateFilteredTrips.filter(t=>t.wh==='Own Warehouse'),tpl=dateFilteredTrips.filter(t=>t.wh==='3PL Warehouse');
+    const of=dateFilteredTrips.filter(t=>t.vt==='Own Fleet'),tf=dateFilteredTrips.filter(t=>t.vt==='3PL Fleet'),ad=dateFilteredTrips.filter(t=>t.vt==='Adhoc/Rental');
     document.getElementById('bg-wh').innerHTML=bcard('Own Warehouse','own',own,'#3B82F6')+bcard('3PL Warehouse','tpl',tpl,'#A855F7')+
       `<div class="bcard" style="display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
         <div style="font-size:26px">📊</div><div style="font-weight:700;color:var(--text)">Combined</div>
-        <div>Trips: ${trips.length}</div><div>Units: ${trips.reduce((a,t)=>a+(t.qty||0),0).toLocaleString()}</div>
-        <div>Cost: AED ${trips.reduce((a,t)=>a+(t.cost||0),0).toLocaleString()}</div></div>`;
+        <div>Trips: ${dateFilteredTrips.length}</div><div>Units: ${dateFilteredTrips.reduce((a,t)=>a+(t.qty||0),0).toLocaleString()}</div>
+        <div>Cost: AED ${dateFilteredTrips.reduce((a,t)=>a+(t.cost||0),0).toLocaleString()}</div></div>`;
     document.getElementById('bg-vt').innerHTML=bcard('Own Fleet','own',of,'#22C55E')+bcard('3PL Fleet','tpl',tf,'#A855F7')+bcard('Adhoc/Rental','adhoc',ad,'#F97316');
   }
 
   // ── WAREHOUSE DASHBOARD ──
   else if(currentTab==='wh'){
     const bmap={'all':'📦 Showing: All Warehouses','own':'🏢 Showing: Own Warehouse Only','tpl':'🏭 Showing: 3PL Warehouse Only'};
+    const ot = calcOnTime(whTripsFiltered);
     m.innerHTML=`<div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
         <span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">Warehouse Dashboard</span>
         <div class="wh-filter">
           <button class="whbtn ${whFilter==='all'?'a-all':''}" onclick="whFilter='all';renderMain()">All</button>
@@ -1297,28 +1443,62 @@ function renderMain(){
           <button class="whbtn ${whFilter==='3pl'?'a-3pl':''}" onclick="whFilter='3pl';renderMain()">3PL Warehouse</button>
         </div>
       </div>
+      ${dateFilterBar()}
       <div class="whbanner ${whFilter}">${bmap[whFilter]}</div>
       <div class="kpi-grid" id="kpi-wh"></div>
+
+      <!-- On-Time strip -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px">
+        <div style="background:var(--bg2);border:1px solid ${ot.pct>=90?'#22C55E40':ot.pct>=70?'#F9731640':'#EF444440'};border-radius:10px;padding:13px;text-align:center">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.7px;margin-bottom:5px">On-Time Rate</div>
+          <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:${ot.pct>=90?'#22C55E':ot.pct>=70?'#F97316':'#EF4444'}">${ot.pct!==null?ot.pct+'%':'—'}</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:13px;text-align:center">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.7px;margin-bottom:5px">On-Time</div>
+          <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#22C55E">${ot.ontime}</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:13px;text-align:center">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.7px;margin-bottom:5px">Late</div>
+          <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#EF4444">${ot.late}</div>
+        </div>
+      </div>
+
       <div class="section-title">By Vehicle Type <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div class="bgrid" id="bg-wh-vt"></div>
       <div class="section-title">Trip Log <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div class="twrap"><div style="overflow-x:auto"><table>
-        <thead><tr>${['Date','Warehouse','Veh Type','Driver','Trip','Stores','QTY','Pallets','Util%','Dispatch','Cost','Status',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-        <tbody>${whTrips.map(t=>{const u=((t.pallets||0)/(t.capacity||14)*100).toFixed(0);return `<tr>
-          <td>${t.date}</td><td><span class="wpill wh-${t.wh==='Own Warehouse'?'own':'3pl'}">${t.wh==='Own Warehouse'?'Own':'3PL'}</span></td>
-          <td>${t.vt}</td><td>${t.driver}${tripBadge(t.trip2)}</td>
-          <td style="text-align:center">${t.trip2?'2':'1'}</td>
-          <td style="text-align:center">${(t.storeNames||[]).length}</td>
-          <td>${(t.qty||0).toLocaleString()}</td><td style="text-align:center">${t.pallets||0}/${t.capacity||14}</td>
-          <td><span style="color:${utilColor(+u)}">${u}%</span></td>
-          <td>${ttag(t.dispatch,'warn')}</td><td>AED ${t.cost||0}</td>
-          <td>${statusBadge(t.status)}</td>
-          <td>${canEdit()?`<button class="delbtn" onclick="openEditModal('${t._id}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button><button class="delbtn" onclick="openDelModal('${t._id}')">✕</button>`:''}</td>
-          </tr>`}).join('')}</tbody>
+        <thead><tr>${['Date','Warehouse','Veh Type','Driver','Trip','Stores','QTY','Pallets','Util%','Sched Dispatch','WH Departed','⏱️ Status','Cost','Status',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>${whTripsFiltered.map(t=>{
+          const u=((t.pallets||0)/(t.capacity||14)*100).toFixed(0);
+          const whDep = t.whCheckin?.departed||'';
+          let otBadge = '—';
+          if(t.dispatch && whDep){
+            const diff = toMins(whDep)-toMins(t.dispatch);
+            otBadge = diff<=0
+              ? `<span style="background:#16A34A20;color:#4ADE80;border:1px solid #16A34A40;border-radius:20px;font-size:9px;padding:2px 7px;font-weight:700">✅ On Time</span>`
+              : `<span style="background:#DC262620;color:#F87171;border:1px solid #DC262640;border-radius:20px;font-size:9px;padding:2px 7px;font-weight:700">⚠ +${diff}min</span>`;
+          } else if(t.dispatch && !whDep){
+            otBadge = `<span style="color:var(--muted);font-size:9px">No WH scan</span>`;
+          }
+          return `<tr>
+            <td>${t.date}</td><td><span class="wpill wh-${t.wh==='Own Warehouse'?'own':'3pl'}">${t.wh==='Own Warehouse'?'Own':'3PL'}</span></td>
+            <td>${t.vt}</td><td>${t.driver}${tripBadge(t.trip2)}</td>
+            <td style="text-align:center">${t.trip2?'2':'1'}</td>
+            <td style="text-align:center">${(t.storeNames||[]).length}</td>
+            <td>${(t.qty||0).toLocaleString()}</td><td style="text-align:center">${t.pallets||0}/${t.capacity||14}</td>
+            <td><span style="color:${utilColor(+u)}">${u}%</span></td>
+            <td>${ttag(t.dispatch,'warn')}</td>
+            <td>${ttag(whDep||'—')}</td>
+            <td>${otBadge}</td>
+            <td>AED ${t.cost||0}</td>
+            <td>${statusBadge(t.status)}</td>
+            <td>${canEdit()?`<button class="delbtn" onclick="openEditModal('${t._id}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button><button class="delbtn" onclick="openDelModal('${t._id}')">✕</button>`:''}</td>
+          </tr>`;
+        }).join('')}</tbody>
       </table></div></div>
     </div>`;
-    buildKpis(whTrips,'kpi-wh');
-    const of=whTrips.filter(t=>t.vt==='Own Fleet'),tf=whTrips.filter(t=>t.vt==='3PL Fleet'),ad=whTrips.filter(t=>t.vt==='Adhoc/Rental');
+    buildKpis(whTripsFiltered,'kpi-wh');
+    const of=whTripsFiltered.filter(t=>t.vt==='Own Fleet'),tf=whTripsFiltered.filter(t=>t.vt==='3PL Fleet'),ad=whTripsFiltered.filter(t=>t.vt==='Adhoc/Rental');
     document.getElementById('bg-wh-vt').innerHTML=bcard('Own Fleet','own',of,'#22C55E')+bcard('3PL Fleet','tpl',tf,'#A855F7')+bcard('Adhoc/Rental','adhoc',ad,'#F97316');
   }
 
@@ -1368,10 +1548,20 @@ function renderMain(){
 
   // ── DRIVER SCHEDULE ──
   else if(currentTab==='schedule'){
+    const schedTrips = applyDateFilter(trips);
     const rows=[];
-    trips.forEach(t=>{
+    schedTrips.forEach(t=>{
       if(schedFilter==='trip1'&&t.trip2)return;
       if(schedFilter==='trip2'&&!t.trip2)return;
+      // WH on-time calculation
+      const whDep = t.whCheckin?.departed||'';
+      let whOtBadge = '<span style="color:var(--muted);font-size:9px">No scan</span>';
+      if(t.dispatch && whDep){
+        const diff = toMins(whDep)-toMins(t.dispatch);
+        whOtBadge = diff<=0
+          ? `<span class="ttag ok">✅ +0 min</span>`
+          : `<span class="ttag late">⚠ +${diff}min</span>`;
+      }
       (t.storeNames||[]).forEach(store=>{
         const sch=storeSchedule[store]||{};
         const st=(t.storeTimes&&t.storeTimes[store])||{};
@@ -1383,6 +1573,8 @@ function renderMain(){
           <td>${ttag(sch.dispatch)}</td>
           <td>${ttag((sch.ws||'—')+' – '+(sch.we||'—'))}</td>
           <td>${canEdit()?`<span class="ecell" onclick="startEdit(this,'${t._id}','${store}','dispatch')" title="Click to edit">${ttag(t.dispatch,'warn')} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:ttag(t.dispatch,'warn')}</td>
+          <td>${ttag(whDep||'—')}</td>
+          <td>${whOtBadge}</td>
           <td>${canEdit()?`<span class="ecell" onclick="startEdit(this,'${t._id}','${store}','arr')" title="Click to edit">${ttag(st.arr)} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:ttag(st.arr)}</td>
           <td>${canEdit()?`<span class="ecell" onclick="startEdit(this,'${t._id}','${store}','dep')" title="Click to edit">${ttag(st.dep)} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:ttag(st.dep)}</td>
           <td>${otTag}</td>
@@ -1391,6 +1583,7 @@ function renderMain(){
       });
     });
     m.innerHTML=`<div>
+      ${dateFilterBar()}
       <div class="syncbanner">✅ Firebase live — koi bhi edit kare sabko instantly dikhe ga &nbsp;·&nbsp; <span style="font-weight:400;color:#86EFAC">Click ✏ cell to edit inline</span></div>
       <div class="twrap">
         <div class="ttbar">
@@ -1401,7 +1594,7 @@ function renderMain(){
           </div>
         </div>
         <div style="overflow-x:auto"><table>
-          <thead><tr>${['Date','Driver','Trip','Store','Sched Dispatch','Window','Actual Dispatch ✏','Actual Arrival ✏','Actual Depart ✏','On Time?','WH'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+          <thead><tr>${['Date','Driver','Trip','Store','Sched Dispatch','Window','Actual Dispatch ✏','WH Departed','WH On-Time','Arrival ✏','Depart ✏','Store On Time?','WH'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
           <tbody>${rows.join('')}</tbody>
         </table></div>
       </div>
