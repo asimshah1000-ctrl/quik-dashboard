@@ -9,6 +9,7 @@
 <!-- Firebase CDN — no installation needed -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 <!-- XLSX for file upload parsing -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -279,7 +280,8 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
       <button onclick="closeEditModal()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-      <div><label class="flabel">Date</label><input class="finput" id="e-date" type="date" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Trip Date</label><input class="finput" id="e-date" type="date" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Order Date</label><input class="finput" id="e-orderdate" type="date" style="font-size:12px;padding:8px 10px"></div>
       <div><label class="flabel">Driver</label><input class="finput" id="e-driver" type="text" style="font-size:12px;padding:8px 10px"></div>
       <div><label class="flabel">Warehouse</label>
         <select class="fselect" id="e-wh" style="font-size:12px;padding:8px 10px">
@@ -311,6 +313,96 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
   </div>
 </div>
 
+<!-- CHANGE PIN MODAL -->
+<div id="pinov" class="modal-ov">
+  <div class="modal-box" style="width:360px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">🔑 Change PIN</div>
+      <button onclick="closePinModal()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
+    </div>
+    <div id="pin-for-user" style="font-size:11px;color:var(--orange);margin-bottom:12px;font-weight:600"></div>
+    <div style="margin-bottom:10px">
+      <label class="flabel">Current PIN</label>
+      <input class="finput" id="pin-old" type="password" placeholder="Current PIN" maxlength="6" style="font-size:13px;padding:9px 11px">
+    </div>
+    <div style="margin-bottom:10px">
+      <label class="flabel">New PIN (4-6 digits)</label>
+      <input class="finput" id="pin-new" type="password" placeholder="New PIN" maxlength="6" style="font-size:13px;padding:9px 11px">
+    </div>
+    <div style="margin-bottom:14px">
+      <label class="flabel">Confirm New PIN</label>
+      <input class="finput" id="pin-confirm" type="password" placeholder="Confirm PIN" maxlength="6" style="font-size:13px;padding:9px 11px"
+        onkeydown="if(event.key==='Enter')savePin()">
+    </div>
+    <div id="pin-err" style="background:#450A0A;border:1px solid #EF444440;border-radius:7px;padding:8px 11px;font-size:11px;color:#FCA5A5;margin-bottom:10px;display:none"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closePinModal()" class="btn-s" style="font-size:12px">Cancel</button>
+      <button onclick="savePin()" class="btn-p" style="font-size:12px">💾 Save PIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT CHECKIN MODAL -->
+<div id="editckov" class="modal-ov">
+  <div class="modal-box" style="width:380px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700" id="editck-title">✏️ Edit Check-in</div>
+      <button onclick="closeEditCk()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
+    </div>
+    <div style="margin-bottom:10px">
+      <label class="flabel">Time</label>
+      <input class="finput" id="eck-time" type="time" style="font-size:13px;padding:9px 11px">
+    </div>
+    <div style="margin-bottom:10px">
+      <label class="flabel">Driver</label>
+      <input class="finput" id="eck-driver" type="text" style="font-size:13px;padding:9px 11px">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button onclick="closeEditCk()" class="btn-s" style="font-size:12px">Cancel</button>
+      <button onclick="saveEditCk()" class="btn-p" style="font-size:12px">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT DRIVER SCHEDULE MODAL -->
+<div id="editschov" class="modal-ov">
+  <div class="modal-box" style="width:520px;max-width:95vw;text-align:left;max-height:85vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">✏️ Edit Schedule Entry</div>
+      <button onclick="closeEditSch()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><label class="flabel">Driver</label>
+        <select class="fselect" id="esch-driver" style="font-size:12px;padding:8px 10px" onchange="eschDriverChange()">
+          <option value="">Select…</option>
+          ${DRIVERS.map(d=>`<option value="${d.name}">${d.name} (${d.vid})</option>`).join('')}
+          <option value="__custom">Other…</option>
+        </select>
+      </div>
+      <div id="esch-driver-custom-wrap" style="display:none">
+        <label class="flabel">Custom Driver Name</label>
+        <input class="finput" id="esch-driver-custom" type="text" style="font-size:12px;padding:8px 10px">
+      </div>
+      <div><label class="flabel">Dispatch Time</label><input class="finput" id="esch-dispatch" type="time" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Arrival Time</label><input class="finput" id="esch-arr" type="time" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Departure Time</label><input class="finput" id="esch-dep" type="time" style="font-size:12px;padding:8px 10px"></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label class="flabel">Store</label>
+      <input class="finput" id="esch-store" type="text" readonly style="font-size:12px;padding:8px 10px;opacity:.6">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeEditSch()" class="btn-s" style="font-size:12px">Cancel</button>
+      <button onclick="saveEditSch()" class="btn-p" style="font-size:12px">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- PHOTO VIEWER MODAL -->
+<div id="photov" style="position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:500;display:none;align-items:center;justify-content:center" onclick="this.style.display='none'">
+  <img id="photo-full" src="" style="max-width:90vw;max-height:90vh;border-radius:10px;object-fit:contain">
+</div>
+
 <div id="toast" class="toast"></div>
 
 <header>
@@ -324,6 +416,7 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
     <span id="uname-hdr" style="color:var(--orange)"></span>
     <span id="role-hdr"></span>
     <button id="um-btn" onclick="openUM()" style="display:none;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:10px;font-weight:600;cursor:pointer;margin-left:6px">👥 Users</button>
+    <button onclick="openPinModal(null)" style="padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:10px;cursor:pointer;margin-left:4px">🔑 PIN</button>
     <button onclick="doLogout()" style="padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:10px;cursor:pointer;margin-left:4px">Logout</button>
   </div>
 </header>
@@ -345,7 +438,25 @@ const firebaseConfig = {
   appId: "1:860154002421:web:21a4684d9d099c793d3ebc"
 };
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+const db      = firebase.database();
+const storage = firebase.storage();
+
+// ── DRIVER MASTER LIST ────────────────────────────────────────
+const DRIVERS = [
+  { name:'Awais',        vid:'22210',   vt:'Own Fleet', wh:'Own Warehouse' },
+  { name:'Azeem',        vid:'98744',   vt:'Own Fleet', wh:'Own Warehouse' },
+  { name:'Haroon',       vid:'31824',   vt:'Own Fleet', wh:'Own Warehouse' },
+  { name:'Iftikhar',     vid:'29594',   vt:'Own Fleet', wh:'Own Warehouse' },
+  { name:'Ijaz Ali',     vid:'23983',   vt:'Own Fleet', wh:'Own Warehouse' },
+  { name:'Ishtiaq',      vid:'22209',   vt:'Own Fleet', wh:'Own Warehouse' },
+  { name:'Ishtiaq Shah', vid:'33209',   vt:'Own Fleet', wh:'Own Warehouse' },
+  { name:'Tahir',        vid:'80095',   vt:'Own Fleet', wh:'Own Warehouse' },
+  { name:'Umair',        vid:'98745',   vt:'Own Fleet', wh:'Own Warehouse' },
+  { name:'Usman',        vid:'20194',   vt:'Own Fleet', wh:'Own Warehouse' },
+  { name:'Zaman',        vid:'70612',   vt:'Own Fleet', wh:'Own Warehouse' },
+  { name:'Ahmed',        vid:'13041',   vt:'Own Fleet', wh:'Own Warehouse' },
+  { name:'Ateeq',        vid:'31824-1', vt:'Own Fleet', wh:'Own Warehouse' },
+];
 
 // ═══════════════════════════════════════════════════════
 //  SIMPLE PIN AUTH — No Firebase Auth needed
@@ -497,6 +608,7 @@ async function loadUsers() {
       <select class="urole-sel" onchange="changeRole('${uid}',this.value)">
         ${['admin','manager','viewer'].map(r=>`<option value="${r}" ${u.role===r?'selected':''}>${roleLabels[r]}</option>`).join('')}
       </select>
+      <button onclick="openPinModal('${uid}')" style="padding:3px 8px;background:transparent;border:1px solid #3B82F640;color:#60A5FA;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer">🔑 PIN</button>
       <button class="uremove" onclick="removeUser('${uid}','${u.name}')">Remove</button>
     </div>`).join('');
   document.getElementById('users-list').innerHTML = rows ||
@@ -925,6 +1037,20 @@ function openDelModal(id){
   document.getElementById('delov').classList.add('show');
 }
 function closeDelModal(){pendingDeleteId=null;document.getElementById('delov').classList.remove('show');}
+function editOrderDate(tripId, current) {
+  const d = prompt('Order Date (YYYY-MM-DD):', current || new Date().toISOString().split('T')[0]);
+  if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    db.ref('trips/'+tripId+'/orderDate').set(d);
+    recordMeta();
+    showToast('✅ Order date saved!');
+  }
+}
+
+function viewPhoto(url) {
+  document.getElementById('photo-full').src = url;
+  document.getElementById('photov').style.display = 'flex';
+}
+
 function confirmDelete(){
   if(!canEdit()){showToast('Access nahi hai','#EF4444');closeDelModal();return;}
   if(!pendingDeleteId)return;
@@ -938,18 +1064,19 @@ function openEditModal(id) {
   if(!canEdit()){showToast('Access nahi hai','#EF4444');return;}
   editTripId = id;
   const t = trips.find(x=>x._id===id)||{};
-  document.getElementById('e-date').value     = t.date||'';
-  document.getElementById('e-driver').value   = t.driver||'';
-  document.getElementById('e-wh').value       = t.wh||'Own Warehouse';
-  document.getElementById('e-vt').value       = t.vt||'Own Fleet';
-  document.getElementById('e-vid').value      = t.vid||'';
-  document.getElementById('e-dispatch').value = t.dispatch||'';
-  document.getElementById('e-qty').value      = t.qty||0;
-  document.getElementById('e-pallets').value  = t.pallets||0;
-  document.getElementById('e-capacity').value = t.capacity||14;
-  document.getElementById('e-cost').value     = t.cost||0;
-  document.getElementById('e-status').value   = t.status||'Completed';
-  document.getElementById('e-remarks').value  = t.remarks||'';
+  document.getElementById('e-date').value      = t.date||'';
+  document.getElementById('e-orderdate').value = t.orderDate||'';
+  document.getElementById('e-driver').value    = t.driver||'';
+  document.getElementById('e-wh').value        = t.wh||'Own Warehouse';
+  document.getElementById('e-vt').value        = t.vt||'Own Fleet';
+  document.getElementById('e-vid').value       = t.vid||'';
+  document.getElementById('e-dispatch').value  = t.dispatch||'';
+  document.getElementById('e-qty').value       = t.qty||0;
+  document.getElementById('e-pallets').value   = t.pallets||0;
+  document.getElementById('e-capacity').value  = t.capacity||14;
+  document.getElementById('e-cost').value      = t.cost||0;
+  document.getElementById('e-status').value    = t.status||'Completed';
+  document.getElementById('e-remarks').value   = t.remarks||'';
   document.getElementById('editov').classList.add('show');
 }
 function closeEditModal(){
@@ -959,25 +1086,175 @@ function closeEditModal(){
 async function saveEditTrip(){
   if(!editTripId) return;
   const updates = {
-    date:     document.getElementById('e-date').value,
-    driver:   document.getElementById('e-driver').value,
-    wh:       document.getElementById('e-wh').value,
-    vt:       document.getElementById('e-vt').value,
-    vid:      document.getElementById('e-vid').value,
-    dispatch: document.getElementById('e-dispatch').value,
-    qty:      +document.getElementById('e-qty').value||0,
-    pallets:  +document.getElementById('e-pallets').value||0,
-    capacity: +document.getElementById('e-capacity').value||14,
-    cost:     +document.getElementById('e-cost').value||0,
-    status:   document.getElementById('e-status').value,
-    remarks:  document.getElementById('e-remarks').value,
+    date:      document.getElementById('e-date').value,
+    orderDate: document.getElementById('e-orderdate').value,
+    driver:    document.getElementById('e-driver').value,
+    wh:        document.getElementById('e-wh').value,
+    vt:        document.getElementById('e-vt').value,
+    vid:       document.getElementById('e-vid').value,
+    dispatch:  document.getElementById('e-dispatch').value,
+    qty:       +document.getElementById('e-qty').value||0,
+    pallets:   +document.getElementById('e-pallets').value||0,
+    capacity:  +document.getElementById('e-capacity').value||14,
+    cost:      +document.getElementById('e-cost').value||0,
+    status:    document.getElementById('e-status').value,
+    remarks:   document.getElementById('e-remarks').value,
   };
   await db.ref('trips/'+editTripId).update(updates);
   recordMeta();
   closeEditModal();
   showToast('✅ Trip updated!');
 }
-document.getElementById('editov').addEventListener('click',function(e){if(e.target===this)closeEditModal();});
+// ── CHANGE PIN ───────────────────────────────────────────────
+let pinTargetUid = null;
+
+function openPinModal(uid) {
+  pinTargetUid = uid; // null = self
+  const label = uid ? 'Admin: Change user PIN' : `Change your PIN (${currentUser})`;
+  document.getElementById('pin-for-user').textContent = label;
+  document.getElementById('pin-old').value = '';
+  document.getElementById('pin-new').value = '';
+  document.getElementById('pin-confirm').value = '';
+  document.getElementById('pin-err').style.display = 'none';
+  // Admin changing others PIN — no old PIN needed
+  document.getElementById('pin-old').parentElement.style.display = uid ? 'none' : 'block';
+  document.getElementById('pinov').classList.add('show');
+}
+function closePinModal() { document.getElementById('pinov').classList.remove('show'); }
+
+async function savePin() {
+  const oldPin = document.getElementById('pin-old').value.trim();
+  const newPin = document.getElementById('pin-new').value.trim();
+  const conf   = document.getElementById('pin-confirm').value.trim();
+  const errEl  = document.getElementById('pin-err');
+
+  const showErr = (msg) => { errEl.textContent=msg; errEl.style.display='block'; };
+
+  if (!newPin || !/^\d{4,6}$/.test(newPin)) { showErr('New PIN 4-6 numbers ka hona chahiye'); return; }
+  if (newPin !== conf) { showErr('PIN match nahi kiya — dobara daalo'); return; }
+
+  // Find user in DB
+  const snap = await db.ref('users').once('value');
+  const users = snap.val() || {};
+  let targetUid = null;
+
+  if (pinTargetUid) {
+    // Admin changing someone else
+    targetUid = pinTargetUid;
+  } else {
+    // Self change — verify old PIN
+    const entry = Object.entries(users).find(([,u]) => u.name?.toLowerCase()===currentUser.toLowerCase());
+    if (!entry) { showErr('User nahi mila'); return; }
+    if (entry[1].pin !== oldPin) { showErr('Current PIN galat hai'); return; }
+    targetUid = entry[0];
+  }
+
+  await db.ref('users/'+targetUid+'/pin').set(newPin);
+  localStorage.setItem('quik_pin', newPin);
+  closePinModal();
+  showToast('✅ PIN change ho gaya!');
+}
+
+// ── EDIT CHECK-IN ─────────────────────────────────────────────
+let editCkPath = null;
+let editCkType = null; // 'checkin' | 'wh_checkin'
+
+function openEditCk(path, type, title, time, driver) {
+  if (!canEdit()) { showToast('Access nahi hai','#EF4444'); return; }
+  editCkPath = path; editCkType = type;
+  document.getElementById('editck-title').textContent = '✏️ Edit — ' + title;
+  document.getElementById('eck-time').value   = time   || '';
+  document.getElementById('eck-driver').value = driver || '';
+  document.getElementById('editckov').classList.add('show');
+}
+function closeEditCk() { document.getElementById('editckov').classList.remove('show'); }
+
+async function saveEditCk() {
+  if (!editCkPath) return;
+  const time   = document.getElementById('eck-time').value;
+  const driver = document.getElementById('eck-driver').value.trim();
+  await db.ref(editCkPath+'/time').set(time);
+  await db.ref(editCkPath+'/driver').set(driver);
+  recordMeta();
+  closeEditCk();
+  showToast('✅ Saved!');
+}
+
+async function deleteCheckin(path) {
+  if (!canEdit()) { showToast('Access nahi hai','#EF4444'); return; }
+  if (!confirm('Delete this entry?')) return;
+  await db.ref(path).remove();
+  recordMeta();
+  showToast('🗑️ Deleted','#EF4444');
+}
+
+// ── EDIT DRIVER SCHEDULE ENTRY ────────────────────────────────
+let editSchTripId = null;
+let editSchStore  = null;
+
+function openEditSch(tripId, store) {
+  if (!canEdit()) { showToast('Access nahi hai','#EF4444'); return; }
+  editSchTripId = tripId; editSchStore = store;
+  const t = trips.find(x=>x._id===tripId)||{};
+  const st = (t.storeTimes&&t.storeTimes[store])||{};
+
+  // Set driver dropdown
+  const sel = document.getElementById('esch-driver');
+  const driverMatch = DRIVERS.find(d=>d.name===t.driver);
+  sel.value = driverMatch ? t.driver : (t.driver ? '__custom' : '');
+  eschDriverChange();
+  if (!driverMatch && t.driver) {
+    document.getElementById('esch-driver-custom').value = t.driver;
+  }
+
+  document.getElementById('esch-dispatch').value = t.dispatch || '';
+  document.getElementById('esch-arr').value      = st.arr || '';
+  document.getElementById('esch-dep').value      = st.dep || '';
+  document.getElementById('esch-store').value    = store;
+  document.getElementById('editschov').classList.add('show');
+}
+function closeEditSch() { document.getElementById('editschov').classList.remove('show'); }
+function eschDriverChange() {
+  const val = document.getElementById('esch-driver').value;
+  const wrap = document.getElementById('esch-driver-custom-wrap');
+  wrap.style.display = val==='__custom' ? 'block' : 'none';
+  if (val && val!=='__custom') {
+    const d = DRIVERS.find(x=>x.name===val);
+    if (d) {
+      // Auto-fill dispatch from schedule if empty
+    }
+  }
+}
+
+async function saveEditSch() {
+  if (!editSchTripId || !editSchStore) return;
+  const driverSel = document.getElementById('esch-driver').value;
+  const driver    = driverSel==='__custom' ? document.getElementById('esch-driver-custom').value.trim() : driverSel;
+  const dispatch  = document.getElementById('esch-dispatch').value;
+  const arr       = document.getElementById('esch-arr').value;
+  const dep       = document.getElementById('esch-dep').value;
+
+  const driverObj = DRIVERS.find(d=>d.name===driver);
+  const updates = {};
+  if (driver)   updates[`trips/${editSchTripId}/driver`]   = driver;
+  if (dispatch) updates[`trips/${editSchTripId}/dispatch`] = dispatch;
+  if (driverObj) {
+    updates[`trips/${editSchTripId}/vid`] = driverObj.vid;
+    updates[`trips/${editSchTripId}/vt`]  = driverObj.vt;
+    updates[`trips/${editSchTripId}/wh`]  = driverObj.wh;
+  }
+  if (arr) updates[`trips/${editSchTripId}/storeTimes/${editSchStore}/arr`] = arr;
+  if (dep) updates[`trips/${editSchTripId}/storeTimes/${editSchStore}/dep`] = dep;
+
+  await db.ref().update(updates);
+  recordMeta();
+  closeEditSch();
+  showToast('✅ Schedule updated!');
+}
+
+document.getElementById('pinov').addEventListener('click',function(e){if(e.target===this)closePinModal();});
+document.getElementById('editckov').addEventListener('click',function(e){if(e.target===this)closeEditCk();});
+document.getElementById('editschov').addEventListener('click',function(e){if(e.target===this)closeEditSch();});
 document.getElementById('delov').addEventListener('click',function(e){if(e.target===this)closeDelModal();});
 
 // ═══════════════════════════════════════════════════════
@@ -1019,9 +1296,31 @@ function toggleDualTrip(){
     syncDriver();
   }
 }
+function driverSelected(n) {
+  const sel = document.getElementById(n===1?'f-driver':'f2-driver');
+  if (!sel) return;
+  const val = sel.value;
+  const customWrap = document.getElementById(`f-driver-custom-wrap${n===2?'2':''}`);
+  if (customWrap) customWrap.style.display = val==='__custom' ? 'block' : 'none';
+  if (val && val!=='__custom') {
+    const opt = sel.options[sel.selectedIndex];
+    const vid = opt.dataset.vid, vt = opt.dataset.vt, wh = opt.dataset.wh;
+    // Auto-fill vehicle details
+    const vidEl = document.getElementById(n===1?'f-vid':'f2-vid');
+    const vtEl  = document.getElementById(n===1?'f-vt':'f2-vt');
+    const whEl  = document.getElementById(n===1?'f-wh':'f2-wh');
+    if (vidEl) vidEl.value = vid;
+    if (vtEl)  vtEl.value  = vt==='Own Fleet'?'Own Fleet':vt;
+    if (whEl)  whEl.value  = wh;
+    if (n===1) syncDriver();
+  }
+}
 function syncDriver(){
-  const d=document.getElementById('f-driver'),d2=document.getElementById('f2-driver');
-  if(d&&d2)d2.value=d.value;
+  const sel = document.getElementById('f-driver');
+  const d2  = document.getElementById('f2-driver');
+  if (sel && d2) d2.value = sel.value === '__custom'
+    ? (document.getElementById('f-driver-custom')?.value||'')
+    : sel.value;
 }
 function getStoreTimes(n){
   const obj={};
@@ -1032,19 +1331,25 @@ function getStoreTimes(n){
   return obj;
 }
 function gv(id){const el=document.getElementById(id);return el?el.value:'';}
+
+function getDriverVal(prefix) {
+  const sel = document.getElementById(prefix+'driver');
+  if (!sel) return '';
+  if (sel.tagName === 'SELECT') {
+    if (sel.value === '__custom') return (document.getElementById(prefix+'driver-custom')?.value||'').trim();
+    return sel.value;
+  }
+  return sel.value;
+}
 function buildTripObj(prefix,n,t2){
   const sn=selectedStores[n];
-  // Try both prefix formats for compatibility
-  const getVal = (field) => {
-    return gv(prefix+field) || gv('f-'+field) || '';
-  };
   const whVal  = gv(prefix+'wh');
   const vtVal  = gv(prefix+'vt');
   return {
     date:gv(prefix+'date')||new Date().toISOString().split('T')[0],
     wh:whVal, vt:vtVal,
     vid:gv(prefix+'vid')||'—',
-    driver:t2?gv('f-driver'):gv(prefix+'driver'),
+    driver:t2?getDriverVal('f-'):getDriverVal(prefix),
     trip2:t2, storeNames:sn, storeTimes:getStoreTimes(n),
     qty:+gv(prefix+'qty')||0, pallets:+gv(prefix+'pallets')||0,
     capacity:+gv(prefix+'capacity')||14, cost:+gv(prefix+'cost')||0,
@@ -1055,14 +1360,12 @@ function buildTripObj(prefix,n,t2){
 function addTrip(){
   if(!canEdit()){showToast('Access nahi hai','#EF4444');return;}
   const t1=buildTripObj('f-',1,false);
-  // Debug: log what we got
-  console.log('wh:', t1.wh, 'vt:', t1.vt);
-  // More lenient check — accept if either field has value
   const whEl = document.getElementById('f-wh');
   const vtEl = document.getElementById('f-vt');
   const whVal = whEl ? whEl.value : t1.wh;
   const vtVal = vtEl ? vtEl.value : t1.vt;
   if(!whVal||!vtVal){showToast('Warehouse & Vehicle Type select karo','#EF4444');return;}
+  if(!t1.driver){showToast('Driver select karo','#EF4444');return;}
   t1.wh = whVal; t1.vt = vtVal;
   db.ref('trips').push(t1);
   if(dualTrip){
@@ -1076,9 +1379,13 @@ function addTrip(){
   recordMeta();resetForm();
 }
 function resetForm(){
-  ['f-date','f-wh','f-vt','f-vid','f-driver','f-qty','f-pallets','f-capacity','f-cost','f-dispatch','f-status','f-remarks',
+  ['f-date','f-wh','f-vt','f-vid','f-qty','f-pallets','f-capacity','f-cost','f-dispatch','f-status','f-remarks',
    'f2-date','f2-wh','f2-vt','f2-vid','f2-qty','f2-pallets','f2-capacity','f2-cost','f2-dispatch','f2-status','f2-remarks']
     .forEach(id=>{const el=document.getElementById(id);if(el&&!el.readOnly)el.value='';});
+  // Reset driver dropdowns
+  ['f-driver','f2-driver'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['f-driver-custom','f2-driver-custom'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['f-driver-custom-wrap','f-driver-custom-wrap2'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   selectedStores={1:[],2:[]};
   [1,2].forEach(n=>{renderTags(n);renderDispInfo(n);renderStoreTimeInputs(n);const s=document.getElementById('spinp-'+n);if(s)s.value='';});
   dualTrip=false;
@@ -1512,9 +1819,10 @@ function renderMain(){
             `<button class="tfbtn ${tripFilter===f?'act':''}" onclick="tripFilter='${f}';renderMain()">${l}</button>`).join('')}
         </div>
       </div>
+      ${dateFilterBar()}
       <div style="overflow-x:auto"><table>
-        <thead><tr>${['Date','WH','Veh','Plate','Driver','Trip','#','Store Names','QTY','Pallets','Util','Dispatch','1st Arr','Last Dep','Cost','Cost/Plt','Status',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-        <tbody>${filtTrips.map(t=>{
+        <thead><tr>${['Trip Date','Order Date','WH','Veh','Plate','Driver','Trip','#','Store Names','QTY','Pallets','Util','Dispatch','1st Arr','Last Dep','Cost','Cost/Plt','Status',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>${applyDateFilter(filtTrips).map(t=>{
           const u=((t.pallets||0)/(t.capacity||14)*100).toFixed(0);
           const cpp=(t.pallets&&t.cost)?(t.cost/t.pallets).toFixed(2):'0.00';
           const times=Object.values(t.storeTimes||{});
@@ -1523,6 +1831,7 @@ function renderMain(){
           const sn=(t.storeNames||[]).join(', ')||'—';
           return `<tr>
             <td>${t.date}</td>
+            <td><span class="ecell" onclick="editOrderDate('${t._id}','${t.orderDate||''}')" title="Click to edit order date" style="cursor:pointer">${t.orderDate||'<span style=color:var(--muted)>Set date ✏</span>'}</span></td>
             <td><span class="wpill wh-${t.wh==='Own Warehouse'?'own':'3pl'}">${t.wh==='Own Warehouse'?'Own':'3PL'}</span></td>
             <td>${t.vt}</td><td>${t.vid||'—'}</td>
             <td>${t.driver}${tripBadge(t.trip2)}</td>
@@ -1579,6 +1888,7 @@ function renderMain(){
           <td>${canEdit()?`<span class="ecell" onclick="startEdit(this,'${t._id}','${store}','dep')" title="Click to edit">${ttag(st.dep)} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:ttag(st.dep)}</td>
           <td>${otTag}</td>
           <td><span class="wpill wh-${t.wh==='Own Warehouse'?'own':'3pl'}">${t.wh==='Own Warehouse'?'Own':'3PL'}</span></td>
+          <td>${canEdit()?`<button class="delbtn" onclick="openEditSch('${t._id}','${store}')" style="border-color:#3B82F640;color:#60A5FA">✏️</button>`:''}</td>
         </tr>`);
       });
     });
@@ -1594,7 +1904,7 @@ function renderMain(){
           </div>
         </div>
         <div style="overflow-x:auto"><table>
-          <thead><tr>${['Date','Driver','Trip','Store','Sched Dispatch','Window','Actual Dispatch ✏','WH Departed','WH On-Time','Arrival ✏','Depart ✏','Store On Time?','WH'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+          <thead><tr>${['Date','Driver','Trip','Store','Sched Dispatch','Window','Actual Dispatch ✏','WH Departed','WH On-Time','Arrival ✏','Depart ✏','Store On Time?','WH',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
           <tbody>${rows.join('')}</tbody>
         </table></div>
       </div>
@@ -1619,7 +1929,17 @@ function renderMain(){
           <div><label class="flabel">Warehouse Type</label>${wf(1)}</div>
           <div><label class="flabel">Vehicle Type</label>${vtf(1)}</div>
           <div><label class="flabel">Vehicle ID / Plate</label><input class="finput" type="text" id="f-vid" placeholder="e.g. DXB-T-001"></div>
-          <div><label class="flabel">Driver Name</label><input class="finput" type="text" id="f-driver" placeholder="Driver name" oninput="syncDriver()"></div>
+          <div><label class="flabel">Driver Name</label>
+            <select class="fselect" id="f-driver" onchange="driverSelected(1)">
+              <option value="">Select driver…</option>
+              ${DRIVERS.map(d=>`<option value="${d.name}" data-vid="${d.vid}" data-vt="${d.vt}" data-wh="${d.wh}">${d.name} — ${d.vid}</option>`).join('')}
+              <option value="__custom">Other (type manually)</option>
+            </select>
+          </div>
+          <div id="f-driver-custom-wrap" style="display:none">
+            <label class="flabel">Custom Driver Name</label>
+            <input class="finput" type="text" id="f-driver-custom" placeholder="Driver name" oninput="syncDriver()">
+          </div>
           <div><label class="flabel">QTY (Units)</label><input class="finput" type="number" id="f-qty" min="0" placeholder="0"></div>
           <div><label class="flabel">Pallets Loaded</label><input class="finput" type="number" id="f-pallets" min="0" placeholder="0"></div>
           <div><label class="flabel">Vehicle Capacity</label><input class="finput" type="number" id="f-capacity" min="0" placeholder="14"></div>
@@ -1752,7 +2072,7 @@ function renderMain(){
       <div class="twrap">
         <div style="overflow-x:auto"><table>
           <thead><tr>
-            ${['Time','Date','Driver','Store','Action','Trip ID'].map(h=>`<th>${h}</th>`).join('')}
+            ${['Time','Date','Driver','Store','Action','Photo','Trip ID',''].map(h=>`<th>${h}</th>`).join('')}
           </tr></thead>
           <tbody>
           ${allCheckins.length ? allCheckins.slice(0,50).map(c => {
@@ -1760,15 +2080,23 @@ function renderMain(){
             const icon  = actionIcon[c.action]  || '🔔';
             const label = actionLabel[c.action]  || c.action;
             const isToday = c.date === today;
+            const photoThumb = c.photoURL
+              ? `<img src="${c.photoURL}" onclick="viewPhoto('${c.photoURL}')" style="width:36px;height:36px;object-fit:cover;border-radius:5px;cursor:pointer;border:1px solid var(--border)">`
+              : `<span style="font-size:9px;color:var(--muted)">—</span>`;
             return `<tr style="${isToday?'background:#16A34A08':''}">
               <td><span style="font-family:'DM Mono',monospace;color:${color};font-weight:600">${c.time||'—'}</span></td>
               <td style="color:${isToday?'var(--green)':'var(--muted)'}">${isToday?'Today':c.date}</td>
               <td>${c.driver||'—'}</td>
               <td style="font-family:'DM Mono',monospace;font-weight:600">${(c.store||'').replace('QUIK_','')}</td>
               <td><span style="background:${color}20;color:${color};border:1px solid ${color}40;border-radius:20px;font-size:9px;font-weight:700;padding:2px 8px">${icon} ${label}</span></td>
+              <td>${photoThumb}</td>
               <td style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">${(c.tripId||'').slice(0,8)}…</td>
+              <td>${canEdit()?`
+                <button class="delbtn" onclick="openEditCk('checkins/${c._id}','checkin','${label} — ${(c.store||'').replace('QUIK_','')}','${c.time||''}','${c.driver||''}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button>
+                <button class="delbtn" onclick="deleteCheckin('checkins/${c._id}')">✕</button>
+              `:''}</td>
             </tr>`;
-          }).join('') : `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">Koi check-in nahi hua abhi tak</td></tr>`}
+          }).join('') : `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">Koi check-in nahi hua abhi tak</td></tr>`}
           </tbody>
         </table></div>
       </div>
@@ -1908,7 +2236,7 @@ function renderWHActivity() {
     <div class="section-title">Full Activity Log <div style="flex:1;height:1px;background:var(--border)"></div></div>
     <div class="twrap">
       <div style="overflow-x:auto"><table>
-        <thead><tr>${['Time','Date','Driver','Action','Trip ID'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['Time','Date','Driver','Action','Trip ID',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
         ${whCheckins.length ? whCheckins.slice(0,50).map(c => {
           const color = actionColor[c.action]||'#64748B';
@@ -1919,8 +2247,12 @@ function renderWHActivity() {
             <td>${c.driver||'—'}</td>
             <td><span style="background:${color}20;color:${color};border:1px solid ${color}40;border-radius:20px;font-size:9px;font-weight:700;padding:2px 8px">${actionIcon[c.action]||''} ${actionLabel[c.action]||c.action}</span></td>
             <td style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">${(c.tripId||'').slice(0,8)}…</td>
+            <td>${canEdit()?`
+              <button class="delbtn" onclick="openEditCk('wh_checkins/${c._id}','wh','${actionLabel[c.action]||c.action}','${c.time||''}','${c.driver||''}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button>
+              <button class="delbtn" onclick="deleteCheckin('wh_checkins/${c._id}')">✕</button>
+            `:''}</td>
           </tr>`;
-        }).join('') : `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Koi activity nahi</td></tr>`}
+        }).join('') : `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted)">Koi activity nahi</td></tr>`}
         </tbody>
       </table></div>
     </div>
