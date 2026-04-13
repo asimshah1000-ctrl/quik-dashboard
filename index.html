@@ -1154,7 +1154,6 @@ function switchTab(t){
 // ═══════════════════════════════════════════════════════
 function buildKpis(data,cid){
   const n=data.length,u=data.reduce((a,t)=>a+(t.qty||0),0),p=data.reduce((a,t)=>a+(t.pallets||0),0);
-  const tot=data.reduce((a,t)=>a+(t.totes||0),0);
   const tripCost=data.reduce((a,t)=>a+(t.cost||0),0);
   const fuelCost=data.reduce((a,t)=>a+(t.fuelCostAED||0),0);
   const totalCost=tripCost+fuelCost;
@@ -1163,7 +1162,7 @@ function buildKpis(data,cid){
   const cards=[
     {l:'Total Trips',v:n,s:`${data.filter(t=>t.status==='Completed').length} done · ${dual} 2nd-runs`,c:'blue'},
     {l:'Units Delivered',v:u.toLocaleString(),s:'FMCG units',c:'purple'},
-    {l:'Pallets + Totes',v:p.toLocaleString()+' + '+tot,s:'pallets · totes',c:'orange'},
+    {l:'Pallets Loaded',v:p.toLocaleString(),s:'all vehicles',c:'orange'},
     {l:'Total Cost (AED)',v:'AED '+Math.round(totalCost).toLocaleString(),s:`Trip: ${tripCost.toLocaleString()} · Fuel: ${Math.round(fuelCost)}`,c:'red'},
     {l:'Avg Utilization',v:util+'%',s:'pallets only (excl. totes)',c:'green'},
   ];
