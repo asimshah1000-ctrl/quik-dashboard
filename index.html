@@ -1548,20 +1548,30 @@ function tripIdSelected(n) {
   const tm = TRIP_MASTER.find(t=>t.id===sel.value);
   if (!tm) return;
 
-  // Auto-fill driver
-  const driverSel = document.getElementById(n===1?'f-driver':'f2-driver');
-  if (driverSel) {
-    driverSel.value = tm.driver;
-    driverSelected(n);
+  if (n === 1) {
+    // Trip 1 — fill driver + stores
+    const driverSel = document.getElementById('f-driver');
+    if (driverSel) { driverSel.value = tm.driver; driverSelected(1); }
+    // Now update Trip 2 dropdown to show only this driver's trips
+    updateTrip2Dropdown(tm.driver);
   }
 
-  // Auto-fill stores in store picker
+  // Auto-fill stores for both trips
   selectedStores[n] = [...tm.stores];
   renderTags(n);
   renderDispInfo(n);
   renderStoreTimeInputs(n);
 
-  showToast(`✅ Trip ${tm.id} loaded — ${tm.driver}, ${tm.stores.length} stores`);
+  showToast(`✅ Trip ${tm.id} loaded — ${n===2?'stores filled':'${tm.driver}, ${tm.stores.length} stores'}`);
+}
+
+function updateTrip2Dropdown(driverName) {
+  const sel = document.getElementById('f2-tripid');
+  if (!sel) return;
+  const filtered = TRIP_MASTER.filter(t => t.driver === driverName);
+  sel.innerHTML = `<option value="">Select Trip 2 ID (${driverName} ke routes)…</option>` +
+    filtered.map(t=>`<option value="${t.id}">${t.id} — ${t.stores.map(s=>s.replace('QUIK_','')).join(', ')}</option>`).join('') +
+    `<option value="">── Ya manually stores select karo ──</option>`;
 }
 
 function driverSelected(n) {
@@ -1586,9 +1596,12 @@ function driverSelected(n) {
 function syncDriver(){
   const sel = document.getElementById('f-driver');
   const d2  = document.getElementById('f2-driver');
-  if (sel && d2) d2.value = sel.value === '__custom'
+  const driverName = sel?.value === '__custom'
     ? (document.getElementById('f-driver-custom')?.value||'')
-    : sel.value;
+    : (sel?.value||'');
+  if (d2) d2.value = driverName;
+  // Update Trip 2 dropdown to show only this driver's trips
+  if (driverName && driverName !== '__custom') updateTrip2Dropdown(driverName);
 }
 function getStoreTimes(n){
   const obj={};
@@ -2243,11 +2256,27 @@ function renderMain(){
           <hr class="tdiv">
           <div class="tsect">🚛 TRIP 2 — Same Driver</div>
           <div class="fgrid">
+            <div style="grid-column:1/-1">
+              <label class="flabel">Trip ID — Trip 2 ka (stores auto-fill honge)</label>
+              <select class="fselect" id="f2-tripid" onchange="tripIdSelected(2)" style="font-size:12px">
+                ${(()=>{
+                  const d1 = document.getElementById('f-driver')?.value;
+                  const driverName = d1 === '__custom'
+                    ? (document.getElementById('f-driver-custom')?.value||'')
+                    : (d1||'');
+                  const filtered = driverName
+                    ? TRIP_MASTER.filter(t=>t.driver===driverName)
+                    : TRIP_MASTER;
+                  return `<option value="">${driverName ? driverName+' ki trips:' : 'Pehle Trip 1 mein driver select karo…'}</option>` +
+                    filtered.map(t=>`<option value="${t.id}">${t.id} — ${t.stores.map(s=>s.replace('QUIK_','')).join(', ')}</option>`).join('');
+                })()}
+              </select>
+            </div>
             <div><label class="flabel">Trip Date</label><input class="finput" type="date" id="f2-date"></div>
             <div><label class="flabel">Order Date</label><input class="finput" type="date" id="f2-orderdate"></div>
             <div><label class="flabel">Warehouse Type</label>${wf(2)}</div>
             <div><label class="flabel">Vehicle Type</label>${vtf(2)}</div>
-            <div><label class="flabel">Vehicle ID / Plate</label><input class="finput" type="text" id="f2-vid" placeholder="e.g. DXB-T-001"></div>
+            <div><label class="flabel">Vehicle ID / Plate</label><input class="finput" type="text" id="f2-vid" placeholder="Auto-fill from Trip 1"></div>
             <div><label class="flabel">Driver Name</label><input class="finput" type="text" id="f2-driver" readonly style="opacity:.5"></div>
             <div><label class="flabel">QTY (Units)</label><input class="finput" type="number" id="f2-qty" min="0" placeholder="0"></div>
             <div><label class="flabel">Pallets Loaded</label><input class="finput" type="number" id="f2-pallets" min="0" placeholder="0"></div>
