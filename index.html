@@ -1346,7 +1346,8 @@ function buildTripObj(prefix,n,t2){
   const whVal  = gv(prefix+'wh');
   const vtVal  = gv(prefix+'vt');
   return {
-    date:gv(prefix+'date')||new Date().toISOString().split('T')[0],
+    date:      gv(prefix+'date')||new Date().toISOString().split('T')[0],
+    orderDate: gv(prefix+'orderdate')||'',
     wh:whVal, vt:vtVal,
     vid:gv(prefix+'vid')||'—',
     driver:t2?getDriverVal('f-'):getDriverVal(prefix),
@@ -1379,8 +1380,8 @@ function addTrip(){
   recordMeta();resetForm();
 }
 function resetForm(){
-  ['f-date','f-wh','f-vt','f-vid','f-qty','f-pallets','f-capacity','f-cost','f-dispatch','f-status','f-remarks',
-   'f2-date','f2-wh','f2-vt','f2-vid','f2-qty','f2-pallets','f2-capacity','f2-cost','f2-dispatch','f2-status','f2-remarks']
+  ['f-date','f-orderdate','f-wh','f-vt','f-vid','f-qty','f-pallets','f-capacity','f-cost','f-dispatch','f-status','f-remarks',
+   'f2-date','f2-orderdate','f2-wh','f2-vt','f2-vid','f2-qty','f2-pallets','f2-capacity','f2-cost','f2-dispatch','f2-status','f2-remarks']
     .forEach(id=>{const el=document.getElementById(id);if(el&&!el.readOnly)el.value='';});
   // Reset driver dropdowns
   ['f-driver','f2-driver'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
@@ -1925,7 +1926,8 @@ function renderMain(){
         </div>
         <div class="tsect">🚛 TRIP 1</div>
         <div class="fgrid">
-          <div><label class="flabel">Date</label><input class="finput" type="date" id="f-date" value="${new Date().toISOString().split('T')[0]}"></div>
+          <div><label class="flabel">Trip Date</label><input class="finput" type="date" id="f-date" value="${new Date().toISOString().split('T')[0]}"></div>
+          <div><label class="flabel">Order Date</label><input class="finput" type="date" id="f-orderdate"></div>
           <div><label class="flabel">Warehouse Type</label>${wf(1)}</div>
           <div><label class="flabel">Vehicle Type</label>${vtf(1)}</div>
           <div><label class="flabel">Vehicle ID / Plate</label><input class="finput" type="text" id="f-vid" placeholder="e.g. DXB-T-001"></div>
@@ -1953,7 +1955,8 @@ function renderMain(){
           <hr class="tdiv">
           <div class="tsect">🚛 TRIP 2 — Same Driver</div>
           <div class="fgrid">
-            <div><label class="flabel">Date</label><input class="finput" type="date" id="f2-date"></div>
+            <div><label class="flabel">Trip Date</label><input class="finput" type="date" id="f2-date"></div>
+            <div><label class="flabel">Order Date</label><input class="finput" type="date" id="f2-orderdate"></div>
             <div><label class="flabel">Warehouse Type</label>${wf(2)}</div>
             <div><label class="flabel">Vehicle Type</label>${vtf(2)}</div>
             <div><label class="flabel">Vehicle ID / Plate</label><input class="finput" type="text" id="f2-vid" placeholder="e.g. DXB-T-001"></div>
