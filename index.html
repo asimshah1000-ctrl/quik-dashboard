@@ -297,7 +297,8 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
       <div><label class="flabel">Dispatch Time</label><input class="finput" id="e-dispatch" type="time" style="font-size:12px;padding:8px 10px"></div>
       <div><label class="flabel">QTY (Units)</label><input class="finput" id="e-qty" type="number" style="font-size:12px;padding:8px 10px"></div>
       <div><label class="flabel">Pallets</label><input class="finput" id="e-pallets" type="number" style="font-size:12px;padding:8px 10px"></div>
-      <div><label class="flabel">Capacity</label><input class="finput" id="e-capacity" type="number" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Totes</label><input class="finput" id="e-totes" type="number" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Capacity (pallets)</label><input class="finput" id="e-capacity" type="number" style="font-size:12px;padding:8px 10px"></div>
       <div><label class="flabel">Cost (AED)</label><input class="finput" id="e-cost" type="number" style="font-size:12px;padding:8px 10px"></div>
       <div><label class="flabel">Status</label>
         <select class="fselect" id="e-status" style="font-size:12px;padding:8px 10px">
@@ -1125,6 +1126,7 @@ function getNavTabs() {
     ['live','🟢 Live Check-ins'],
     ['wh-live','🏭 WH Activity'],
     ['fuel','⛽ KMs & Fuel'],
+    ['stores','🏪 Store View'],
   ];
   if (canEdit()) all.push(['add','➕ Add Trip'], ['upload','📤 Upload']);
   if (canAdmin()) all.push(['users-tab','👥 Users']);
@@ -1151,15 +1153,19 @@ function switchTab(t){
 //  KPI BUILDER
 // ═══════════════════════════════════════════════════════
 function buildKpis(data,cid){
-  const n=data.length,u=data.reduce((a,t)=>a+(t.qty||0),0),p=data.reduce((a,t)=>a+(t.pallets||0),0),c=data.reduce((a,t)=>a+(t.cost||0),0);
+  const n=data.length,u=data.reduce((a,t)=>a+(t.qty||0),0),p=data.reduce((a,t)=>a+(t.pallets||0),0);
+  const tot=data.reduce((a,t)=>a+(t.totes||0),0);
+  const tripCost=data.reduce((a,t)=>a+(t.cost||0),0);
+  const fuelCost=data.reduce((a,t)=>a+(t.fuelCostAED||0),0);
+  const totalCost=tripCost+fuelCost;
   const util=n?(data.reduce((a,t)=>a+((t.pallets||0)/(t.capacity||14)),0)/n*100).toFixed(1):0;
   const dual=data.filter(t=>t.trip2).length;
   const cards=[
     {l:'Total Trips',v:n,s:`${data.filter(t=>t.status==='Completed').length} done · ${dual} 2nd-runs`,c:'blue'},
     {l:'Units Delivered',v:u.toLocaleString(),s:'FMCG units',c:'purple'},
-    {l:'Pallets Loaded',v:p.toLocaleString(),s:'all vehicles',c:'orange'},
-    {l:'Total Cost (AED)',v:'AED '+c.toLocaleString(),s:'incl. adhoc',c:'red'},
-    {l:'Avg Utilization',v:util+'%',s:'vehicle capacity',c:'green'},
+    {l:'Pallets + Totes',v:p.toLocaleString()+' + '+tot,s:'pallets · totes',c:'orange'},
+    {l:'Total Cost (AED)',v:'AED '+Math.round(totalCost).toLocaleString(),s:`Trip: ${tripCost.toLocaleString()} · Fuel: ${Math.round(fuelCost)}`,c:'red'},
+    {l:'Avg Utilization',v:util+'%',s:'pallets only (excl. totes)',c:'green'},
   ];
   document.getElementById(cid).innerHTML=cards.map(k=>
     `<div class="kpi-card ${k.c}"><div class="kpi-label">${k.l}</div><div class="kpi-value">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`
@@ -1312,6 +1318,7 @@ function openEditModal(id) {
   document.getElementById('e-dispatch').value  = t.dispatch||'';
   document.getElementById('e-qty').value       = t.qty||0;
   document.getElementById('e-pallets').value   = t.pallets||0;
+  document.getElementById('e-totes').value     = t.totes||0;
   document.getElementById('e-capacity').value  = t.capacity||14;
   document.getElementById('e-cost').value      = t.cost||0;
   document.getElementById('e-status').value    = t.status||'Completed';
@@ -1334,6 +1341,7 @@ async function saveEditTrip(){
     dispatch:  document.getElementById('e-dispatch').value,
     qty:       +document.getElementById('e-qty').value||0,
     pallets:   +document.getElementById('e-pallets').value||0,
+    totes:     +document.getElementById('e-totes').value||0,
     capacity:  +document.getElementById('e-capacity').value||14,
     cost:      +document.getElementById('e-cost').value||0,
     status:    document.getElementById('e-status').value,
@@ -1619,6 +1627,7 @@ function buildTripObj(prefix,n,t2){
     tripId:    tripIdEl ? tripIdEl.value : '',
     trip2:t2, storeNames:sn, storeTimes:getStoreTimes(n),
     qty:+gv(prefix+'qty')||0, pallets:+gv(prefix+'pallets')||0,
+    totes:+gv(prefix+'totes')||0,
     capacity:+gv(prefix+'capacity')||14, cost:+gv(prefix+'cost')||0,
     dispatch:gv(prefix+'dispatch'), status:gv(prefix+'status')||'Completed',
     remarks:gv(prefix+'remarks'),
@@ -1649,8 +1658,8 @@ function addTrip(){
   recordMeta();resetForm();
 }
 function resetForm(){
-  ['f-date','f-orderdate','f-wh','f-vt','f-vid','f-qty','f-pallets','f-capacity','f-cost','f-dispatch','f-status','f-remarks',
-   'f2-date','f2-orderdate','f2-wh','f2-vt','f2-vid','f2-qty','f2-pallets','f2-capacity','f2-cost','f2-dispatch','f2-status','f2-remarks']
+  ['f-date','f-orderdate','f-wh','f-vt','f-vid','f-qty','f-pallets','f-totes','f-capacity','f-cost','f-dispatch','f-status','f-remarks',
+   'f2-date','f2-orderdate','f2-wh','f2-vt','f2-vid','f2-qty','f2-pallets','f2-totes','f2-capacity','f2-cost','f2-dispatch','f2-status','f2-remarks']
     .forEach(id=>{const el=document.getElementById(id);if(el&&!el.readOnly)el.value='';});
   // Reset driver dropdowns
   ['f-driver','f2-driver'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
@@ -2091,7 +2100,7 @@ function renderMain(){
       </div>
       ${dateFilterBar()}
       <div style="overflow-x:auto"><table>
-        <thead><tr>${['Trip Date','Order Date','WH','Veh','Plate','Driver','Trip','#','Store Names','QTY','Pallets','Util','Dispatch','1st Arr','Last Dep','Cost','Cost/Plt','Status',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['Trip Date','Order Date','WH','Veh','Plate','Driver','Trip','#','Store Names','QTY','Pallets','Totes','Util','Dispatch','1st Arr','Last Dep','Cost','Fuel','Status',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>${applyDateFilter(filtTrips).map(t=>{
           const u=((t.pallets||0)/(t.capacity||14)*100).toFixed(0);
           const cpp=(t.pallets&&t.cost)?(t.cost/t.pallets).toFixed(2):'0.00';
@@ -2101,18 +2110,21 @@ function renderMain(){
           const sn=(t.storeNames||[]).join(', ')||'—';
           return `<tr>
             <td>${t.date}</td>
-            <td><span class="ecell" onclick="editOrderDate('${t._id}','${t.orderDate||''}')" title="Click to edit order date" style="cursor:pointer">${t.orderDate||'<span style=color:var(--muted)>Set date ✏</span>'}</span></td>
+            <td><span class="ecell" onclick="editOrderDate('${t._id}','${t.orderDate||''}')" title="Click to edit order date" style="cursor:pointer">${t.orderDate||'<span style=color:var(--muted)>Set ✏</span>'}</span></td>
             <td><span class="wpill wh-${t.wh==='Own Warehouse'?'own':'3pl'}">${t.wh==='Own Warehouse'?'Own':'3PL'}</span></td>
             <td>${t.vt}</td><td>${t.vid||'—'}</td>
             <td>${t.driver}${tripBadge(t.trip2)}</td>
             <td style="text-align:center">${t.trip2?'Trip 2':'Trip 1'}</td>
             <td style="text-align:center">${(t.storeNames||[]).length}</td>
             <td style="max-width:140px;white-space:normal;font-size:9px;color:var(--muted)">${sn}</td>
-            <td>${(t.qty||0).toLocaleString()}</td><td style="text-align:center">${t.pallets||0}/${t.capacity||14}</td>
+            <td>${(t.qty||0).toLocaleString()}</td>
+            <td style="text-align:center;color:var(--orange);font-weight:600">${t.pallets||0}/${t.capacity||14}</td>
+            <td style="text-align:center;color:var(--purple)">${t.totes||0}</td>
             <td><span style="color:${utilColor(+u)}">${u}%</span></td>
             <td>${ttag(t.dispatch,'warn')}</td>
             <td>${ttag(arrs[0])}</td><td>${ttag(deps[deps.length-1])}</td>
-            <td>AED ${t.cost||0}</td><td>AED ${cpp}</td>
+            <td>AED ${t.cost||0}</td>
+            <td style="color:var(--orange);font-family:'DM Mono',monospace;font-size:10px">${t.fuelCostAED?'AED '+t.fuelCostAED:'—'}</td>
             <td>${statusBadge(t.status)}</td>
             <td>
             ${canEdit()?`<button class="delbtn" onclick="openEditModal('${t._id}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:4px">✏️</button>`:''}
@@ -2220,7 +2232,8 @@ function renderMain(){
           </div>
           <div><label class="flabel">QTY (Units)</label><input class="finput" type="number" id="f-qty" min="0" placeholder="0"></div>
           <div><label class="flabel">Pallets Loaded</label><input class="finput" type="number" id="f-pallets" min="0" placeholder="0"></div>
-          <div><label class="flabel">Vehicle Capacity</label><input class="finput" type="number" id="f-capacity" min="0" placeholder="14"></div>
+          <div><label class="flabel">Totes (on top of pallets)</label><input class="finput" type="number" id="f-totes" min="0" placeholder="0"></div>
+          <div><label class="flabel">Vehicle Capacity (pallets)</label><input class="finput" type="number" id="f-capacity" min="0" placeholder="14"></div>
           <div><label class="flabel">Trip Cost (AED)</label><input class="finput" type="number" id="f-cost" min="0" placeholder="0"></div>
           <div><label class="flabel">Dispatch Time (from WH)</label><input class="finput" type="time" id="f-dispatch"></div>
           <div><label class="flabel">Delivery Status</label>${sf(1)}</div>
@@ -2239,7 +2252,8 @@ function renderMain(){
             <div><label class="flabel">Driver Name</label><input class="finput" type="text" id="f2-driver" readonly style="opacity:.5"></div>
             <div><label class="flabel">QTY (Units)</label><input class="finput" type="number" id="f2-qty" min="0" placeholder="0"></div>
             <div><label class="flabel">Pallets Loaded</label><input class="finput" type="number" id="f2-pallets" min="0" placeholder="0"></div>
-            <div><label class="flabel">Vehicle Capacity</label><input class="finput" type="number" id="f2-capacity" min="0" placeholder="14"></div>
+            <div><label class="flabel">Totes (on top of pallets)</label><input class="finput" type="number" id="f2-totes" min="0" placeholder="0"></div>
+            <div><label class="flabel">Vehicle Capacity (pallets)</label><input class="finput" type="number" id="f2-capacity" min="0" placeholder="14"></div>
             <div><label class="flabel">Trip Cost (AED)</label><input class="finput" type="number" id="f2-cost" min="0" placeholder="0"></div>
             <div><label class="flabel">Dispatch Time (from WH)</label><input class="finput" type="time" id="f2-dispatch"></div>
             <div><label class="flabel">Delivery Status</label>${sf(2)}</div>
@@ -2383,6 +2397,7 @@ function renderMain(){
   }
   else if(currentTab==='wh-live'){ renderWHActivity(); }
   else if(currentTab==='fuel'){ renderFuelTab(); }
+  else if(currentTab==='stores'){ renderStoreView(); }
   else if(currentTab==='store-times'){
     m.innerHTML=`<div class="fsec">
       <div class="section-title">Store Dispatch Schedule — Edit Times <div style="flex:1;height:1px;background:var(--border)"></div></div>
@@ -2678,6 +2693,86 @@ async function renderFuelTab() {
       Distance: OSRM real road routing (falls back to haversine × 1.2–1.35 if offline)<br>
       Distances cached in Firebase — press 🔄 Refresh to recalculate<br>
       Diesel: AED ${DIESEL_PRICE}/L · Warehouse: ${WAREHOUSE.name}
+    </div>
+  </div>`;
+}
+
+// ── STORE-WISE VIEW ───────────────────────────────────────────
+function renderStoreView() {
+  const m = document.getElementById('main');
+  const filtered = applyDateFilter(trips);
+
+  // Build per-store data
+  const storeMap = {};
+  filtered.forEach(t => {
+    (t.storeNames||[]).forEach((store,idx) => {
+      if (!storeMap[store]) storeMap[store] = { pallets:0, totes:0, trips:0, drivers:new Set(), dates:[] };
+      // Distribute pallets/totes evenly across stores in trip
+      const storeCount = (t.storeNames||[]).length || 1;
+      storeMap[store].pallets += Math.round((t.pallets||0) / storeCount * 10) / 10;
+      storeMap[store].totes   += Math.round((t.totes||0)   / storeCount * 10) / 10;
+      storeMap[store].trips   += 1;
+      storeMap[store].drivers.add(t.driver);
+      if (!storeMap[store].dates.includes(t.date)) storeMap[store].dates.push(t.date);
+    });
+  });
+
+  const totalPallets = Object.values(storeMap).reduce((a,s)=>a+s.pallets,0);
+  const totalTotes   = Object.values(storeMap).reduce((a,s)=>a+s.totes,0);
+  const sorted = Object.entries(storeMap).sort((a,b)=>b[1].pallets-a[1].pallets);
+  const maxP = Math.max(...sorted.map(([,s])=>s.pallets),1);
+
+  m.innerHTML = `<div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">🏪 Store-wise Pallets & Totes</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">Pallets aur totes per store — trip ke stores mein equally distribute</div>
+      </div>
+    </div>
+    ${dateFilterBar()}
+
+    <!-- Summary KPIs -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px">
+      ${[
+        ['Total Stores', Object.keys(storeMap).length, 'served', 'blue'],
+        ['Total Pallets', Math.round(totalPallets), 'distributed', 'orange'],
+        ['Total Totes', Math.round(totalTotes), 'distributed', 'purple'],
+        ['Avg Pallets/Store', Math.round(totalPallets/(Object.keys(storeMap).length||1)*10)/10, 'per store', 'green'],
+      ].map(([l,v,s,c])=>`
+        <div class="kpi-card ${c}">
+          <div class="kpi-label">${l}</div>
+          <div class="kpi-value" style="font-size:20px">${v}</div>
+          <div class="kpi-sub">${s}</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- Store table -->
+    <div class="twrap">
+      <div style="overflow-x:auto"><table>
+        <thead><tr>${['Store','Trips','Pallets','Totes','Drivers','Bar','Last Delivery'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>
+        ${sorted.map(([store,s])=>`
+          <tr>
+            <td style="font-family:'DM Mono',monospace;font-weight:600;font-size:10px">${store.replace('QUIK_','')}</td>
+            <td style="text-align:center">${s.trips}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--orange);min-width:32px">${Math.round(s.pallets*10)/10}</span>
+              </div>
+            </td>
+            <td>
+              <span style="font-family:'DM Mono',monospace;color:var(--purple)">${Math.round(s.totes*10)/10}</span>
+            </td>
+            <td style="font-size:10px;color:var(--muted)">${[...s.drivers].join(', ')}</td>
+            <td style="min-width:100px">
+              <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+                <div style="width:${Math.round(s.pallets/maxP*100)}%;height:100%;background:var(--orange);border-radius:3px"></div>
+              </div>
+            </td>
+            <td style="font-size:10px;color:var(--muted)">${s.dates.sort().reverse()[0]||'—'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
     </div>
   </div>`;
 }
