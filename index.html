@@ -2372,19 +2372,22 @@ function renderMain(){
             const icon  = actionIcon[c.action]  || '🔔';
             const label = actionLabel[c.action]  || c.action;
             const isToday = c.date === today;
+            // Get driver name from trips if not in checkin record
+            const tripObj = trips.find(t => t._id === c.tripId);
+            const driverName = c.driver || tripObj?.driver || '—';
             const photoThumb = c.photoURL
               ? `<img src="${c.photoURL}" onclick="viewPhoto('${c.photoURL}')" style="width:36px;height:36px;object-fit:cover;border-radius:5px;cursor:pointer;border:1px solid var(--border)">`
               : `<span style="font-size:9px;color:var(--muted)">—</span>`;
             return `<tr style="${isToday?'background:#16A34A08':''}">
               <td><span style="font-family:'DM Mono',monospace;color:${color};font-weight:600">${c.time||'—'}</span></td>
               <td style="color:${isToday?'var(--green)':'var(--muted)'}">${isToday?'Today':c.date}</td>
-              <td>${c.driver||'—'}</td>
+              <td style="font-weight:600">${driverName}</td>
               <td style="font-family:'DM Mono',monospace;font-weight:600">${(c.store||'').replace('QUIK_','')}</td>
               <td><span style="background:${color}20;color:${color};border:1px solid ${color}40;border-radius:20px;font-size:9px;font-weight:700;padding:2px 8px">${icon} ${label}</span></td>
               <td>${photoThumb}</td>
               <td style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">${(c.tripId||'').slice(0,8)}…</td>
               <td>${canEdit()?`
-                <button class="delbtn" onclick="openEditCk('checkins/${c._id}','checkin','${label} — ${(c.store||'').replace('QUIK_','')}','${c.time||''}','${c.driver||''}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button>
+                <button class="delbtn" onclick="openEditCk('checkins/${c._id}','checkin','${label} — ${(c.store||'').replace('QUIK_','')}','${c.time||''}','${driverName}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button>
                 <button class="delbtn" onclick="deleteCheckin('checkins/${c._id}')">✕</button>
               `:''}</td>
             </tr>`;
@@ -2665,7 +2668,7 @@ async function renderFuelTab() {
     <div class="section-title">Trip-wise Fuel Breakdown <div style="flex:1;height:1px;background:var(--border)"></div></div>
     <div class="twrap">
       <div style="overflow-x:auto"><table>
-        <thead><tr>${['Date','Trip ID','Driver','Stores','Total KMs','Source','Litres','Fuel Cost','Route'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['Date','Trip ID','Driver','Stores','Total KMs','Source','Litres','Fuel Cost','Route',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
         ${tripFuel.map(t=>`<tr>
           <td>${t.date}</td>
@@ -2676,10 +2679,13 @@ async function renderFuelTab() {
           <td><span style="font-size:9px;padding:2px 6px;border-radius:10px;background:${t.source==='osrm'?'#16A34A20':'#F9731620'};color:${t.source==='osrm'?'#4ADE80':'#FCD34D'};border:1px solid ${t.source==='osrm'?'#16A34A40':'#F9731640'}">${t.source==='osrm'?'✅ Road':'~ Est.'}</span></td>
           <td style="font-family:'DM Mono',monospace">${Math.round(t.litres*10)/10} L</td>
           <td style="font-family:'DM Mono',monospace;color:var(--orange);font-weight:600">AED ${Math.round(t.cost)}</td>
-          <td style="font-size:9px;color:var(--muted);max-width:220px;white-space:normal;line-height:1.6">
+          <td style="font-size:9px;color:var(--muted);max-width:180px;white-space:normal;line-height:1.6">
             🏭→${(t.storeNames||[]).map(s=>s.replace('QUIK_','')).join('→')}→🏭
-            ${t.legs&&t.legs.length?`<br><span style="color:var(--border)">${t.legs.map(l=>l.km+'km').join('→')}</span>`:''}
           </td>
+          <td>${canEdit()?`
+            <button class="delbtn" onclick="openEditModal('${t._id}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button>
+            <button class="delbtn" onclick="openDelModal('${t._id}')">✕</button>
+          `:''}</td>
         </tr>`).join('')}
         </tbody>
       </table></div>
