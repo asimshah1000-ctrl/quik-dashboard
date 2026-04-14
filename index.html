@@ -404,6 +404,61 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
   <img id="photo-full" src="" style="max-width:90vw;max-height:90vh;border-radius:10px;object-fit:contain">
 </div>
 
+<!-- EDIT DRIVER MODAL -->
+<div id="editdriverov" class="modal-ov">
+  <div class="modal-box" style="width:500px;max-width:95vw;max-height:88vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">🚗 Edit Driver</div>
+      <button onclick="closeEditDriver()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><label class="flabel">Driver Name</label><input class="finput" id="ed-name" type="text" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Vehicle Number/Plate</label><input class="finput" id="ed-vid" type="text" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Vehicle Model Year</label><input class="finput" id="ed-model" type="number" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Fuel Efficiency (km/L)</label><input class="finput" id="ed-eff" type="number" step="0.5" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Vehicle Type</label>
+        <select class="fselect" id="ed-vt" style="font-size:12px;padding:8px 10px">
+          <option>Own Fleet</option><option>3PL Fleet</option><option>Adhoc/Rental</option>
+        </select>
+      </div>
+      <div><label class="flabel">Warehouse</label>
+        <select class="fselect" id="ed-wh" style="font-size:12px;padding:8px 10px">
+          <option>Own Warehouse</option><option>3PL Warehouse</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label class="flabel">Trip IDs (comma separated, e.g. T0001, T0012)</label>
+      <input class="finput" id="ed-tripids" type="text" placeholder="T0001, T0012" style="font-size:12px;padding:8px 10px">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeEditDriver()" class="btn-s" style="font-size:12px">Cancel</button>
+      <button onclick="saveEditDriver()" class="btn-p" style="font-size:12px">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT STORE MODAL -->
+<div id="editstoreov" class="modal-ov">
+  <div class="modal-box" style="width:420px;max-width:95vw">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">🏪 Edit Store</div>
+      <button onclick="closeEditStore()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div style="grid-column:1/-1"><label class="flabel">Store Name</label><input class="finput" id="es-name" type="text" readonly style="font-size:12px;padding:8px 10px;opacity:.6"></div>
+      <div><label class="flabel">Latitude</label><input class="finput" id="es-lat" type="number" step="0.00001" style="font-size:12px;padding:8px 10px"></div>
+      <div><label class="flabel">Longitude</label><input class="finput" id="es-lng" type="number" step="0.00001" style="font-size:12px;padding:8px 10px"></div>
+      <div style="grid-column:1/-1"><label class="flabel">GPS Check-in Radius (meters) — 10m normal, 200m basement/mall</label>
+        <input class="finput" id="es-radius" type="number" style="font-size:12px;padding:8px 10px"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeEditStore()" class="btn-s" style="font-size:12px">Cancel</button>
+      <button onclick="saveEditStore()" class="btn-p" style="font-size:12px">💾 Save</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <header>
@@ -675,6 +730,8 @@ const STORE_NAMES = Object.keys(storeSchedule);
 let trips = [];
 let liveCheckins = [];
 let whCheckins = [];
+let driversDB = {};   // Firebase-synced driver records
+let storesDB  = {};   // Firebase-synced store records
 let currentTab = 'overview';
 let currentUser = '';
 let whFilter = 'all';
@@ -838,6 +895,41 @@ function startDBListeners() {
       .map(([id,v]) => ({...v, _id:id}))
       .sort((a,b) => (b.ts||0) - (a.ts||0));
     if (currentTab === 'wh-live') renderMain();
+  });
+
+  // Drivers — init from DRIVERS array if not in Firebase yet
+  db.ref('drivers_config').on('value', snap => {
+    const data = snap.val();
+    if (data) {
+      driversDB = data;
+    } else {
+      // Seed from DRIVERS array
+      const seed = {};
+      DRIVERS.forEach(d => {
+        const key = d.name.replace(/[^a-zA-Z0-9]/g,'_');
+        seed[key] = { ...d, active:true, tripIds: TRIP_MASTER.filter(t=>t.driver===d.name).map(t=>t.id) };
+      });
+      db.ref('drivers_config').set(seed);
+      driversDB = seed;
+    }
+    if (currentTab === 'drivers-tab') renderMain();
+  });
+
+  // Stores — init from STORE_COORDS if not in Firebase yet
+  db.ref('stores_config').on('value', snap => {
+    const data = snap.val();
+    if (data) {
+      storesDB = data;
+    } else {
+      // Seed from STORE_COORDS
+      const seed = {};
+      Object.entries(STORE_COORDS).forEach(([name, c]) => {
+        seed[name] = { name, lat:c.lat, lng:c.lng, radius:c.radius||10, active:true };
+      });
+      db.ref('stores_config').set(seed);
+      storesDB = seed;
+    }
+    if (currentTab === 'stores-tab') renderMain();
   });
 }
 
@@ -1130,6 +1222,8 @@ function getNavTabs() {
   ];
   if (canEdit()) all.push(['add','➕ Add Trip'], ['upload','📤 Upload']);
   if (canAdmin()) all.push(['users-tab','👥 Users']);
+  all.push(['drivers-tab','🚗 Drivers']);
+  all.push(['stores-tab','🏪 Stores']);
   all.push(['store-times','⚙️ Store Times']);
   return all;
 }
@@ -1199,7 +1293,11 @@ function bcard(title,badge,data,color){
 let spHighlight={1:-1,2:-1};
 function spRender(n){
   const q=(document.getElementById('spinp-'+n)||{}).value||'';
-  const vis=STORE_NAMES.filter(s=>s.toLowerCase().includes(q.toLowerCase()));
+  // Only show active stores
+  const activeStores = STORE_NAMES.filter(s => {
+    const sc = storesDB[s]; return sc ? sc.active !== false : true;
+  });
+  const vis=activeStores.filter(s=>s.toLowerCase().includes(q.toLowerCase()));
   const dd=document.getElementById('spdrop-'+n);
   if(!dd)return;
   dd.innerHTML=vis.map(s=>`<div class="spopt ${selectedStores[n].includes(s)?'sel':''}" onclick="spToggle(${n},'${s}')"><div class="spchk">${selectedStores[n].includes(s)?'✓':''}</div>${s}</div>`).join('');
@@ -2316,7 +2414,10 @@ function renderMain(){
           <div><label class="flabel">Driver Name</label>
             <select class="fselect" id="f-driver" onchange="driverSelected(1)">
               <option value="">Select driver…</option>
-              ${DRIVERS.map(d=>`<option value="${d.name}" data-vid="${d.vid}" data-vt="${d.vt}" data-wh="${d.wh}">${d.name} — ${d.vid}</option>`).join('')}
+              ${(Object.values(driversDB).length ? Object.values(driversDB) : DRIVERS)
+                .filter(d=>d.active!==false)
+                .sort((a,b)=>(a.name||'').localeCompare(b.name||''))
+                .map(d=>`<option value="${d.name}" data-vid="${d.vid}" data-vt="${d.vt||'Own Fleet'}" data-wh="${d.wh||'Own Warehouse'}">${d.name} — ${d.vid}</option>`).join('')}
               <option value="__custom">Other (type manually)</option>
             </select>
           </div>
@@ -2511,6 +2612,8 @@ function renderMain(){
   else if(currentTab==='wh-live'){ renderWHActivity(); }
   else if(currentTab==='fuel'){ renderFuelTab(); }
   else if(currentTab==='stores'){ renderStoreView(); }
+  else if(currentTab==='stores-tab'){ renderStoresTab(); }
+  else if(currentTab==='drivers-tab'){ renderDriversTab(); }
   else if(currentTab==='store-times'){
     m.innerHTML=`<div class="fsec">
       <div class="section-title">Store Dispatch Schedule — Edit Times <div style="flex:1;height:1px;background:var(--border)"></div></div>
@@ -2892,6 +2995,239 @@ function renderStoreView() {
     </div>
   </div>`;
 }
+
+// ── DRIVERS TAB ──────────────────────────────────────────────
+function renderDriversTab() {
+  const m = document.getElementById('main');
+  const drivers = Object.entries(driversDB).sort((a,b)=>a[1].name?.localeCompare(b[1].name)||0);
+  const active  = drivers.filter(([,d])=>d.active!==false).length;
+
+  m.innerHTML = `<div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">🚗 Drivers & Vehicles</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">${active} active · ${drivers.length - active} inactive</div>
+      </div>
+      ${canEdit()?`<button onclick="openAddDriver()" class="btn-p" style="font-size:12px">+ Add Driver</button>`:''}
+    </div>
+
+    <div class="twrap">
+      <div style="overflow-x:auto"><table>
+        <thead><tr>${['Status','Driver','Plate','Model','Efficiency','Type','Warehouse','Trip IDs',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>
+        ${drivers.map(([key, d]) => {
+          const isActive = d.active !== false;
+          const tripIds = (d.tripIds||[]).join(', ') || '—';
+          return `<tr style="opacity:${isActive?1:0.45}">
+            <td>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                <div onclick="toggleDriver('${key}')"
+                  style="width:38px;height:22px;border-radius:11px;background:${isActive?'#22C55E':'#374151'};position:relative;cursor:pointer;transition:background .2s;flex-shrink:0">
+                  <div style="width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2px;${isActive?'right:2px':'left:2px'};transition:all .2s"></div>
+                </div>
+                <span style="font-size:10px;color:${isActive?'#22C55E':'var(--muted)'};font-weight:600">${isActive?'ON':'OFF'}</span>
+              </label>
+            </td>
+            <td style="font-weight:700">${d.name||'—'}</td>
+            <td style="font-family:'DM Mono',monospace;color:var(--orange)">${d.vid||'—'}</td>
+            <td style="color:var(--muted)">${d.model||'—'}</td>
+            <td style="font-family:'DM Mono',monospace">${d.eff||'—'} km/L</td>
+            <td>${d.vt||'Own Fleet'}</td>
+            <td>${d.wh||'Own Warehouse'}</td>
+            <td style="font-size:10px;font-family:'DM Mono',monospace;color:var(--blue);max-width:140px;white-space:normal">${tripIds}</td>
+            <td>${canEdit()?`<button class="delbtn" onclick="openEditDriver('${key}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button><button class="delbtn" onclick="deleteDriver('${key}','${d.name}')">✕</button>`:''}
+            </td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table></div>
+    </div>
+  </div>`;
+}
+
+let editDriverKey = null;
+function openAddDriver() {
+  editDriverKey = null;
+  document.getElementById('ed-name').value    = '';
+  document.getElementById('ed-vid').value     = '';
+  document.getElementById('ed-model').value   = '';
+  document.getElementById('ed-eff').value     = '5.5';
+  document.getElementById('ed-vt').value      = 'Own Fleet';
+  document.getElementById('ed-wh').value      = 'Own Warehouse';
+  document.getElementById('ed-tripids').value = '';
+  document.getElementById('editdriverov').classList.add('show');
+}
+function openEditDriver(key) {
+  editDriverKey = key;
+  const d = driversDB[key] || {};
+  document.getElementById('ed-name').value    = d.name||'';
+  document.getElementById('ed-vid').value     = d.vid||'';
+  document.getElementById('ed-model').value   = d.model||'';
+  document.getElementById('ed-eff').value     = d.eff||5.5;
+  document.getElementById('ed-vt').value      = d.vt||'Own Fleet';
+  document.getElementById('ed-wh').value      = d.wh||'Own Warehouse';
+  document.getElementById('ed-tripids').value = (d.tripIds||[]).join(', ');
+  document.getElementById('editdriverov').classList.add('show');
+}
+function closeEditDriver() { document.getElementById('editdriverov').classList.remove('show'); }
+
+async function saveEditDriver() {
+  const name = document.getElementById('ed-name').value.trim();
+  if (!name) { showToast('Driver naam daalo','#EF4444'); return; }
+  const key = editDriverKey || name.replace(/[^a-zA-Z0-9]/g,'_');
+  const tripIds = document.getElementById('ed-tripids').value
+    .split(',').map(s=>s.trim()).filter(Boolean);
+  const data = {
+    name,
+    vid:      document.getElementById('ed-vid').value.trim(),
+    model:    +document.getElementById('ed-model').value||0,
+    eff:      +document.getElementById('ed-eff').value||5.5,
+    vt:       document.getElementById('ed-vt').value,
+    wh:       document.getElementById('ed-wh').value,
+    tripIds,
+    active:   driversDB[key]?.active ?? true,
+  };
+  await db.ref('drivers_config/'+key).set(data);
+  // Also update VEHICLE_EFFICIENCY live
+  VEHICLE_EFFICIENCY[name] = data.eff;
+  recordMeta();
+  closeEditDriver();
+  showToast('✅ Driver saved!');
+}
+
+async function toggleDriver(key) {
+  if (!canEdit()) { showToast('Access nahi hai','#EF4444'); return; }
+  const current = driversDB[key]?.active !== false;
+  await db.ref('drivers_config/'+key+'/active').set(!current);
+  showToast(current ? '🔴 Driver deactivated' : '✅ Driver activated');
+}
+
+async function deleteDriver(key, name) {
+  if (!canAdmin()) { showToast('Sirf admin delete kar sakta hai','#EF4444'); return; }
+  if (!confirm(`Delete driver "${name}"?`)) return;
+  await db.ref('drivers_config/'+key).remove();
+  showToast('🗑️ Driver deleted','#EF4444');
+}
+
+document.getElementById('editdriverov').addEventListener('click',function(e){if(e.target===this)closeEditDriver();});
+
+// ── STORES TAB ────────────────────────────────────────────────
+const STORE_ADDRESSES = {
+  QUIK_RAFFA:'Al Raffa Residence, Bur Dubai',QUIK_UMS:'Jumeirah Building A, Umm Suqeim',
+  QUIK_DWTC:"WTC Za'abeel 2",QUIK_DFC:'B2 North, Dubai Festival City',
+  QUIK_MEYDAN:'Bahwan Residence, Meydan',QUIK_DEIRA:'Al Muteena, Deira',
+  QUIK_ALQUSAIS:'Zulekha Colonnade, Al Qusais',QUIK_BB2:'Damac Maison Prive, Business Bay',
+  QUIK_BB:'Opal Tower, Business Bay',QUIK_SAFA:'Al Safa Park Complex',
+  QUIK_DSO:'Binghatti Vista, Dubai Silicon Oasis',QUIK_MIRDIFF:'Arabian Centre Mall, Mirdiff',
+  QUIK_BB3:'KML Business Centre, Al Quoz 1',QUIK_MAJAN:'Mangrove Plaza, Wadi Al Safa 3',
+  QUIK_DUBAILAND:'Desert Sun Tower, Dubai Land',QUIK_MARINA:'Bunyan Tower, Dubai Marina',
+  QUIK_BARSHA:'Belselah Residence, Al Barsha',QUIK_MARINA2:'Bay Central 3, Dubai Marina',
+  QUIK_INTERNETC:'Star Holding Building, Dubai Internet City',QUIK_JVC_PLAZA:'Plaza Residences 2, JVC',
+  QUIK_JVC:'Binghatti Luna, JVC',QUIK_ARJAN:'Orion Building, Arjan',
+  QUIK_ALQUOZ:'Industrial Area 4, Al Quoz',QUIK_JADDAF:'Emerald Jadaf Metro 2',
+  QUIK_MOTORC:'Lootah Avenue, Motor City',QUIK_JLT:'O2 Residence, Cluster O, JLT',
+  QUIK_DFP:'Dubai Festival Plaza, B1',QUIK_JVT:'Noor Apartments, JVT',
+  QUIK_DIP1:'Darwish Bin Ahmed, DIP 1',QUIK_SPORTSCITY:'Matrix Tower, Sports City',
+  QUIK_CITYLAND:'Cityland Mall, Wadi Al Safa 4',QUIK_WASL:'Al Wasl Road, Al Bada',
+  QUIK_MURJAN:'Al Murjan Tower, Abu Dhabi',QUIK_RAHA:'Al Rahah Street, Abu Dhabi',
+  QUIK_ETISALAT:'Sheikh Rashid Bin Saeed St, Abu Dhabi',QUIK_REEM:'Najmat Tower, Reem Island',
+  QUIK_BANIYAS:'Baniyas Drive Square',QUIK_MBZ:'Zone 27, Mohamed Bin Zayed City',
+  QUIK_WAHA:'Al Ain Waha Mall',QUIK_SHAMKHA:'Industrial Area, Al Ain',
+};
+
+function renderStoresTab() {
+  const m = document.getElementById('main');
+  const stores = Object.entries(storesDB).sort((a,b)=>a[0].localeCompare(b[0]));
+  const active  = stores.filter(([,s])=>s.active!==false).length;
+
+  m.innerHTML = `<div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">🏪 Stores & Locations</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">${active} active · ${stores.length - active} inactive</div>
+      </div>
+    </div>
+
+    <div class="twrap">
+      <div style="overflow-x:auto"><table>
+        <thead><tr>${['Status','Store','Address','Lat','Lng','GPS Radius',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>
+        ${stores.map(([key, s]) => {
+          const isActive = s.active !== false;
+          const name = key;
+          const shortName = name.replace('QUIK_','');
+          const addr = STORE_ADDRESSES[name] || '—';
+          const isBasement = (s.radius||10) >= 200;
+          return `<tr style="opacity:${isActive?1:0.45}">
+            <td>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                <div onclick="toggleStore('${key}')"
+                  style="width:38px;height:22px;border-radius:11px;background:${isActive?'#22C55E':'#374151'};position:relative;cursor:pointer;transition:background .2s;flex-shrink:0">
+                  <div style="width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2px;${isActive?'right:2px':'left:2px'};transition:all .2s"></div>
+                </div>
+                <span style="font-size:10px;color:${isActive?'#22C55E':'var(--muted)'};font-weight:600">${isActive?'ON':'OFF'}</span>
+              </label>
+            </td>
+            <td style="font-weight:700;font-family:'DM Mono',monospace;font-size:11px">${shortName}</td>
+            <td style="font-size:10px;color:var(--muted);max-width:180px;white-space:normal">${addr}</td>
+            <td style="font-family:'DM Mono',monospace;font-size:10px">${(s.lat||0).toFixed(5)}</td>
+            <td style="font-family:'DM Mono',monospace;font-size:10px">${(s.lng||0).toFixed(5)}</td>
+            <td>
+              <span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${isBasement?'#7C3AED20':'#16A34A20'};color:${isBasement?'#A855F7':'#4ADE80'};border:1px solid ${isBasement?'#7C3AED40':'#16A34A40'}">
+                ${isBasement?'🏢 '+s.radius+'m':'📍 '+s.radius+'m'}
+              </span>
+            </td>
+            <td>${canEdit()?`<button class="delbtn" onclick="openEditStore('${key}')" style="border-color:#3B82F640;color:#60A5FA">✏️</button>`:''}
+            </td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table></div>
+    </div>
+  </div>`;
+}
+
+let editStoreKey = null;
+function openEditStore(key) {
+  editStoreKey = key;
+  const s = storesDB[key] || {};
+  document.getElementById('es-name').value   = key;
+  document.getElementById('es-lat').value    = s.lat||'';
+  document.getElementById('es-lng').value    = s.lng||'';
+  document.getElementById('es-radius').value = s.radius||10;
+  document.getElementById('editstoreov').classList.add('show');
+}
+function closeEditStore() { document.getElementById('editstoreov').classList.remove('show'); }
+
+async function saveEditStore() {
+  if (!editStoreKey) return;
+  const updates = {
+    lat:    +document.getElementById('es-lat').value,
+    lng:    +document.getElementById('es-lng').value,
+    radius: +document.getElementById('es-radius').value||10,
+    name:   editStoreKey,
+    active: storesDB[editStoreKey]?.active ?? true,
+  };
+  await db.ref('stores_config/'+editStoreKey).update(updates);
+  // Update STORE_COORDS live
+  if (STORE_COORDS[editStoreKey]) {
+    STORE_COORDS[editStoreKey].lat    = updates.lat;
+    STORE_COORDS[editStoreKey].lng    = updates.lng;
+    STORE_COORDS[editStoreKey].radius = updates.radius;
+  }
+  recordMeta();
+  closeEditStore();
+  showToast('✅ Store updated!');
+}
+
+async function toggleStore(key) {
+  if (!canEdit()) { showToast('Access nahi hai','#EF4444'); return; }
+  const current = storesDB[key]?.active !== false;
+  await db.ref('stores_config/'+key+'/active').set(!current);
+  showToast(current ? '🔴 Store deactivated' : '✅ Store activated');
+}
+
+document.getElementById('editstoreov').addEventListener('click',function(e){if(e.target===this)closeEditStore();});
 
 function saveScheduleAll(){
   if(!canAdmin()){showToast('Sirf Admin ye change kar sakta hai','#EF4444');return;}
