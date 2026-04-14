@@ -1216,6 +1216,81 @@ function renderTags(n){
   if(!el)return;
   cnt&&(cnt.textContent=selectedStores[n].length);
   el.innerHTML=selectedStores[n].map(s=>`<span class="sptag">${s}<span class="rx" onclick="spToggle(${n},'${s}')">×</span></span>`).join('');
+  // Show/hide optimize button
+  const wrap = document.getElementById('route-opt-wrap-'+n);
+  if (wrap) wrap.style.display = selectedStores[n].length >= 2 ? 'block' : 'none';
+  const res = document.getElementById('route-result-'+n);
+  if (res && !res.dataset.locked) res.innerHTML = '';
+}
+
+// ── ROUTE OPTIMIZER ─────────────────────────────────────────
+function optimizeRoute(n) {
+  const stores = [...selectedStores[n]];
+  if (stores.length < 2) { showToast('Kam se kam 2 stores select karo','#F97316'); return; }
+
+  // Nearest Neighbour algorithm: WH → nearest unvisited → ... → WH
+  const unvisited = [...stores];
+  const route = [];
+  let curLat = WAREHOUSE.lat, curLng = WAREHOUSE.lng;
+
+  while (unvisited.length) {
+    let nearest = null, nearestDist = Infinity, nearestIdx = -1;
+    unvisited.forEach((store, i) => {
+      const c = STORE_COORDS[store];
+      if (!c) return;
+      const d = haversine(curLat, curLng, c.lat, c.lng);
+      if (d < nearestDist) { nearestDist = d; nearest = store; nearestIdx = i; }
+    });
+    if (!nearest) { route.push(...unvisited); break; }
+    route.push(nearest);
+    unvisited.splice(nearestIdx, 1);
+    curLat = STORE_COORDS[nearest].lat;
+    curLng = STORE_COORDS[nearest].lng;
+  }
+
+  // Calculate original vs optimized total distance
+  const calcTotal = (arr) => {
+    let total = 0, pLat = WAREHOUSE.lat, pLng = WAREHOUSE.lng;
+    arr.forEach(s => {
+      const c = STORE_COORDS[s]; if (!c) return;
+      total += haversine(pLat, pLng, c.lat, c.lng);
+      pLat = c.lat; pLng = c.lng;
+    });
+    total += haversine(pLat, pLng, WAREHOUSE.lat, WAREHOUSE.lng);
+    return total;
+  };
+
+  const origKm  = Math.round(calcTotal(stores) * 1.3 * 10) / 10;
+  const optKm   = Math.round(calcTotal(route)  * 1.3 * 10) / 10;
+  const saving  = Math.round((origKm - optKm) * 10) / 10;
+
+  // Apply optimized route
+  selectedStores[n] = route;
+  renderTags(n);
+  renderDispInfo(n);
+  renderStoreTimeInputs(n);
+
+  // Show result
+  const res = document.getElementById('route-result-'+n);
+  if (res) {
+    res.dataset.locked = '1';
+    res.innerHTML = `
+      <div style="background:#0F2010;border:1px solid #16A34A40;border-radius:10px;padding:13px 14px">
+        <div style="font-size:11px;font-weight:700;color:#4ADE80;margin-bottom:8px">✅ Route Optimized!</div>
+        <div style="font-size:10px;color:var(--muted);line-height:2">
+          <span style="color:#F1F5F9">🏭 Warehouse</span>
+          ${route.map(s=>`→ <span style="color:#F1F5F9">${s.replace('QUIK_','')}</span>`).join('')}
+          → <span style="color:#F1F5F9">🏭 Warehouse</span>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap">
+          <div style="font-size:11px"><span style="color:var(--muted)">Original:</span> <span style="color:#EF4444;font-weight:600">${origKm} km</span></div>
+          <div style="font-size:11px"><span style="color:var(--muted)">Optimized:</span> <span style="color:#4ADE80;font-weight:600">${optKm} km</span></div>
+          ${saving>0?`<div style="font-size:11px"><span style="color:var(--muted)">Saved:</span> <span style="color:#A855F7;font-weight:600">${saving} km 🎉</span></div>`:''}
+        </div>
+      </div>`;
+    setTimeout(()=>{ if(res) res.dataset.locked=''; }, 5000);
+  }
+  showToast(`🗺️ Route optimized — ${saving>0?saving+' km saved!':'Already optimal!'}`);
 }
 function renderDispInfo(n){
   const box=document.getElementById('dinfo-'+n),rows=document.getElementById('drows-'+n);
@@ -1267,6 +1342,13 @@ function spHTML(n){
   <div style="grid-column:1/-1;display:none" id="sttimes-wrap-${n}">
     <label class="flabel" style="margin-bottom:7px">Actual Arrival & Depart per Store</label>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px" id="sttimes-${n}"></div>
+  </div>
+  <div style="grid-column:1/-1" id="route-opt-wrap-${n}" style="display:none">
+    <button type="button" onclick="optimizeRoute(${n})"
+      style="width:100%;padding:11px;background:linear-gradient(135deg,#7C3AED,#A855F7);border:none;border-radius:9px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px">
+      🗺️ Optimize Route (Nearest Neighbour)
+    </button>
+    <div id="route-result-${n}" style="margin-top:10px"></div>
   </div>`;
 }
 
