@@ -459,6 +459,49 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
   </div>
 </div>
 
+<!-- MANUAL CHECK-IN MODAL -->
+<div id="manualckov" class="modal-ov">
+  <div class="modal-box" style="width:420px;max-width:95vw">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">➕ Manual Check-in</div>
+      <button onclick="closeManualCheckin()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><label class="flabel">Trip</label>
+        <select class="fselect" id="mck-trip" onchange="mckTripChange()" style="font-size:12px;padding:8px 10px">
+          <option value="">Select trip…</option>
+        </select>
+      </div>
+      <div><label class="flabel">Store</label>
+        <select class="fselect" id="mck-store" style="font-size:12px;padding:8px 10px">
+          <option value="">Select store…</option>
+        </select>
+      </div>
+      <div><label class="flabel">Driver</label>
+        <input class="finput" id="mck-driver" type="text" style="font-size:12px;padding:8px 10px" readonly>
+      </div>
+      <div><label class="flabel">Action</label>
+        <select class="fselect" id="mck-action" style="font-size:12px;padding:8px 10px">
+          <option value="arrived">📍 Arrived</option>
+          <option value="completed">✅ Delivery Completed</option>
+          <option value="departed">🚛 Departed</option>
+        </select>
+      </div>
+      <div><label class="flabel">Time</label>
+        <input class="finput" id="mck-time" type="time" style="font-size:12px;padding:8px 10px">
+      </div>
+      <div><label class="flabel">Date</label>
+        <input class="finput" id="mck-date" type="date" style="font-size:12px;padding:8px 10px">
+      </div>
+    </div>
+    <div id="mck-err" style="background:#450A0A;border:1px solid #EF444440;border-radius:7px;padding:8px 11px;font-size:11px;color:#FCA5A5;margin-bottom:10px;display:none"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeManualCheckin()" class="btn-s" style="font-size:12px">Cancel</button>
+      <button onclick="saveManualCheckin()" class="btn-p" style="font-size:12px">✅ Save Check-in</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <header>
@@ -1470,6 +1513,78 @@ function editOrderDate(tripId, current) {
     showToast('✅ Order date saved!');
   }
 }
+
+// ── MANUAL CHECK-IN ───────────────────────────────────────────
+function openManualCheckin() {
+  if (!canEdit()) { showToast('Access nahi hai','#EF4444'); return; }
+  const today = getToday();
+  const todayTrips = trips.filter(t => t.date === today);
+
+  // Populate trip dropdown
+  const tripSel = document.getElementById('mck-trip');
+  tripSel.innerHTML = '<option value="">Select trip…</option>' +
+    todayTrips.map(t => `<option value="${t._id}">${t.driver} — ${(t.storeNames||[]).map(s=>s.replace('QUIK_','')).join(', ')}</option>`).join('');
+
+  // Set default time to now
+  document.getElementById('mck-time').value = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('mck-date').value = today;
+  document.getElementById('mck-driver').value = '';
+  document.getElementById('mck-store').innerHTML = '<option value="">Select trip first…</option>';
+  document.getElementById('mck-err').style.display = 'none';
+  document.getElementById('manualckov').classList.add('show');
+}
+
+function mckTripChange() {
+  const tripId = document.getElementById('mck-trip').value;
+  const trip = trips.find(t => t._id === tripId);
+  const storeSel = document.getElementById('mck-store');
+  const driverEl = document.getElementById('mck-driver');
+
+  if (!trip) {
+    storeSel.innerHTML = '<option value="">Select trip first…</option>';
+    driverEl.value = '';
+    return;
+  }
+
+  driverEl.value = trip.driver || '';
+  storeSel.innerHTML = '<option value="">Select store…</option>' +
+    (trip.storeNames||[]).map(s => `<option value="${s}">${s.replace('QUIK_','')}</option>`).join('');
+}
+
+function closeManualCheckin() {
+  document.getElementById('manualckov').classList.remove('show');
+}
+
+async function saveManualCheckin() {
+  const tripId  = document.getElementById('mck-trip').value;
+  const store   = document.getElementById('mck-store').value;
+  const action  = document.getElementById('mck-action').value;
+  const time    = document.getElementById('mck-time').value;
+  const date    = document.getElementById('mck-date').value;
+  const driver  = document.getElementById('mck-driver').value;
+  const errEl   = document.getElementById('mck-err');
+
+  const showErr = (msg) => { errEl.textContent=msg; errEl.style.display='block'; };
+  errEl.style.display = 'none';
+
+  if (!tripId)  { showErr('Trip select karo'); return; }
+  if (!store)   { showErr('Store select karo'); return; }
+  if (!time)    { showErr('Time daalo'); return; }
+
+  // Save to Firebase checkins
+  await db.ref('checkins').push({ tripId, store, driver, action, time, date, ts: Date.now() });
+
+  // Also update storeTimes in trip
+  if (action === 'arrived')   await db.ref(`trips/${tripId}/storeTimes/${store}/arr`).set(time);
+  if (action === 'departed')  await db.ref(`trips/${tripId}/storeTimes/${store}/dep`).set(time);
+  if (action === 'completed') await db.ref(`trips/${tripId}/status`).set('Completed');
+
+  recordMeta();
+  closeManualCheckin();
+  showToast(`✅ Check-in saved — ${store.replace('QUIK_','')} ${action}`);
+}
+
+document.getElementById('manualckov').addEventListener('click',function(e){if(e.target===this)closeManualCheckin();});
 
 function viewPhoto(url) {
   document.getElementById('photo-full').src = url;
@@ -2634,7 +2749,7 @@ function renderMain(){
 
     const actionColor = { arrived:'#3B82F6', departed:'#F97316', completed:'#22C55E' };
     const actionIcon  = { arrived:'📍', departed:'🚛', completed:'✅' };
-    const actionLabel = { arrived:'Arrived at store', departed:'Departed store', completed:'Delivery completed' };
+    const actionLabel = { arrived:'Arrived', departed:'Departed', completed:'Completed' };
 
     // Build store-level summary for today
     const storeSummary = {};
@@ -2644,25 +2759,52 @@ function renderMain(){
       if(c.driver) storeSummary[c.store].driver = c.driver;
     });
 
+    // Build transit times per trip (WH dep → Store arr → Store dep → next store arr)
+    const todayTrips = applyDateFilter(trips);
+    const transitRows = [];
+    todayTrips.forEach(t => {
+      const whDep = t.whCheckin?.departed||'';
+      const stores = t.storeNames||[];
+      if(!stores.length) return;
+      // WH → Store 1
+      if(whDep) {
+        const st0 = (t.storeTimes&&t.storeTimes[stores[0]])||{};
+        const arr0 = st0.arr||'';
+        const mins = (whDep&&arr0) ? toMins(arr0)-toMins(whDep) : null;
+        transitRows.push({ driver:t.driver, from:'🏭 WH', to:stores[0].replace('QUIK_',''),
+          dep:whDep, arr:arr0, mins, tripId:t._id });
+      }
+      // Store → Store
+      for(let i=0;i<stores.length-1;i++) {
+        const sA=(t.storeTimes&&t.storeTimes[stores[i]])||{};
+        const sB=(t.storeTimes&&t.storeTimes[stores[i+1]])||{};
+        const mins=(sA.dep&&sB.arr)?toMins(sB.arr)-toMins(sA.dep):null;
+        transitRows.push({ driver:t.driver, from:stores[i].replace('QUIK_',''), to:stores[i+1].replace('QUIK_',''),
+          dep:sA.dep||'', arr:sB.arr||'', mins, tripId:t._id });
+      }
+    });
+
+    const todayTripsAll = trips.filter(t=>t.date===today);
+
     m.innerHTML = `<div>
-      <!-- Header -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
         <div>
           <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">🟢 Live Driver Check-ins</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:3px">Real-time updates jab driver QR scan kare</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">Real-time + manual check-in entry</div>
         </div>
-        <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--green);background:#16A34A15;border:1px solid #16A34A40;padding:5px 12px;border-radius:6px">
-          🔴 LIVE — Auto refreshing
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--green);background:#16A34A15;border:1px solid #16A34A40;padding:5px 12px;border-radius:6px">🔴 LIVE</div>
+          ${canEdit()?`<button onclick="openManualCheckin()" class="btn-p" style="font-size:11px">+ Manual Check-in</button>`:''}
         </div>
       </div>
 
-      <!-- Today's summary stats -->
+      <!-- KPIs -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
         ${[
-          ['Total Scans Today', todayCheckins.length, '#3B82F6'],
+          ['Total Scans', todayCheckins.length, '#3B82F6'],
           ['Arrived', todayCheckins.filter(c=>c.action==='arrived').length, '#3B82F6'],
-          ['Departed', todayCheckins.filter(c=>c.action==='departed').length, '#F97316'],
           ['Completed', todayCheckins.filter(c=>c.action==='completed').length, '#22C55E'],
+          ['Departed', todayCheckins.filter(c=>c.action==='departed').length, '#F97316'],
         ].map(([l,v,color])=>`
           <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
             <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${l}</div>
@@ -2670,41 +2812,63 @@ function renderMain(){
           </div>`).join('')}
       </div>
 
-      <!-- Store status grid for today -->
+      <!-- Store status grid -->
       ${Object.keys(storeSummary).length > 0 ? `
       <div class="section-title">Today's Store Status <div style="flex:1;height:1px;background:var(--border)"></div></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:20px">
         ${Object.entries(storeSummary).map(([store, s]) => {
-          const done = s.completed, dep = s.departed, arr = s.arrived;
-          const statusColor = done ? '#22C55E' : dep ? '#F97316' : arr ? '#3B82F6' : '#64748B';
-          const statusLabel = done ? '✅ Completed' : dep ? '🚛 Departed' : arr ? '📍 Arrived' : '⏳ Pending';
-          return `<div style="background:var(--bg2);border:1px solid ${statusColor}40;border-radius:10px;padding:12px;border-left:3px solid ${statusColor}">
-            <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;margin-bottom:6px">${store.replace('QUIK_','')}</div>
-            <div style="font-size:11px;font-weight:600;color:${statusColor};margin-bottom:4px">${statusLabel}</div>
+          const done=s.completed,dep=s.departed,arr=s.arrived;
+          const sc=done?'#22C55E':dep?'#F97316':arr?'#3B82F6':'#64748B';
+          const sl=done?'✅ Completed':dep?'🚛 Departed':arr?'📍 Arrived':'⏳ Pending';
+          return `<div style="background:var(--bg2);border:1px solid ${sc}40;border-radius:10px;padding:12px;border-left:3px solid ${sc}">
+            <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;margin-bottom:5px">${store.replace('QUIK_','')}</div>
+            <div style="font-size:11px;font-weight:600;color:${sc};margin-bottom:3px">${sl}</div>
             ${s.driver?`<div style="font-size:10px;color:var(--muted)">👤 ${s.driver}</div>`:''}
-            <div style="font-size:9px;color:var(--muted);margin-top:4px">
-              ${arr?`📍 ${arr}`:''}${arr&&dep?' · ':''}${dep?`🚛 ${dep}`:''}${dep&&done?' · ':''}${done?`✅ ${s.completed}`:''}
+            <div style="font-size:9px;color:var(--muted);margin-top:3px">
+              ${arr?`📍${arr}`:''}${arr&&dep?' · ':''}${dep?`🚛${dep}`:''}${dep&&done?' · ':''}${done?`✅${s.completed}`:''}
             </div>
           </div>`;
         }).join('')}
-      </div>` : `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:24px;text-align:center;margin-bottom:20px;color:var(--muted);font-size:13px">
-        📭 Aaj koi check-in nahi hua abhi tak. Drivers QR scan karein ge toh yahan live dikhe ga.
-      </div>`}
+      </div>` : ''}
 
-      <!-- Live feed -->
-      <div class="section-title">Live Feed <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <!-- TRANSIT TIMES -->
+      ${transitRows.length ? `
+      <div class="section-title">⏱️ Transit Times — Aaj <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div class="twrap" style="margin-bottom:20px">
+        <div style="overflow-x:auto"><table>
+          <thead><tr>${['Driver','From','To','Departed','Arrived','⏱️ Time','Status'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+          <tbody>
+          ${transitRows.map(r => {
+            const hasData = r.dep && r.arr;
+            const color = r.mins===null?'var(--muted)':r.mins<=30?'#22C55E':r.mins<=60?'#F97316':'#EF4444';
+            const label = r.mins===null ? (r.dep?'En route…':'Pending') : r.mins+' min';
+            return `<tr>
+              <td style="font-weight:600">${r.driver}</td>
+              <td style="font-family:'DM Mono',monospace;font-size:10px">${r.from}</td>
+              <td style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${r.to}</td>
+              <td>${r.dep?`<span class="ttag">${r.dep}</span>`:'<span style="color:var(--muted);font-size:9px">—</span>'}</td>
+              <td>${r.arr?`<span class="ttag">${r.arr}</span>`:'<span style="color:var(--muted);font-size:9px">${r.dep?"En route ⏳":"—"}</span>'}</td>
+              <td><span style="font-family:'DM Mono',monospace;font-weight:700;color:${color}">${label}</span></td>
+              <td><span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${color}20;color:${color};border:1px solid ${color}40">${
+                r.mins===null?(r.dep?'🚛 Moving':'⏳ Waiting'):r.mins<=30?'🟢 Fast':r.mins<=60?'🟡 Normal':'🔴 Slow'
+              }</span></td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+        </table></div>
+      </div>` : ''}
+
+      <!-- Live feed table -->
+      <div class="section-title">Full Check-in Log <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div class="twrap">
         <div style="overflow-x:auto"><table>
-          <thead><tr>
-            ${['Time','Date','Driver','Store','Action','Photo','Trip ID',''].map(h=>`<th>${h}</th>`).join('')}
-          </tr></thead>
+          <thead><tr>${['Time','Date','Driver','Store','Action','Photo','Trip ID',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
           <tbody>
-          ${allCheckins.length ? allCheckins.slice(0,50).map(c => {
+          ${allCheckins.length ? allCheckins.slice(0,100).map(c => {
             const color = actionColor[c.action] || '#64748B';
             const icon  = actionIcon[c.action]  || '🔔';
             const label = actionLabel[c.action]  || c.action;
             const isToday = c.date === today;
-            // Get driver name from trips if not in checkin record
             const tripObj = trips.find(t => t._id === c.tripId);
             const driverName = c.driver || tripObj?.driver || '—';
             const photoThumb = c.photoURL
