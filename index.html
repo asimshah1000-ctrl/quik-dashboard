@@ -1224,6 +1224,7 @@ function getNavTabs() {
   if (canAdmin()) all.push(['users-tab','👥 Users']);
   all.push(['drivers-tab','🚗 Drivers']);
   all.push(['stores-tab','🏪 Stores']);
+  all.push(['export-tab','⬇️ Export']);
   all.push(['store-times','⚙️ Store Times']);
   return all;
 }
@@ -2671,6 +2672,7 @@ function renderMain(){
   else if(currentTab==='stores'){ renderStoreView(); }
   else if(currentTab==='stores-tab'){ renderStoresTab(); }
   else if(currentTab==='drivers-tab'){ renderDriversTab(); }
+  else if(currentTab==='export-tab'){ renderExportTab(); }
   else if(currentTab==='store-times'){
     m.innerHTML=`<div class="fsec">
       <div class="section-title">Store Dispatch Schedule — Edit Times <div style="flex:1;height:1px;background:var(--border)"></div></div>
@@ -3053,7 +3055,329 @@ function renderStoreView() {
   </div>`;
 }
 
-// ── DRIVERS TAB ──────────────────────────────────────────────
+// ── EXPORT TAB ───────────────────────────────────────────────
+function renderExportTab() {
+  const m = document.getElementById('main');
+  const today = getToday();
+  m.innerHTML = `<div>
+    <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:6px">⬇️ Data Export</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:20px">Sab data CSV ya Excel format mein export karo</div>
+
+    ${dateFilterBar()}
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
+
+      <!-- Trips -->
+      <div class="bcard" style="border:1px solid #3B82F640">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px">📋 Trip Log</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.7">
+          Sab trips — date, driver, stores, pallets, totes, cost, fuel cost, status
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="exportTrips('csv')" class="btn-s" style="flex:1;font-size:11px">📄 CSV</button>
+          <button onclick="exportTrips('excel')" class="btn-p" style="flex:1;font-size:11px">📊 Excel</button>
+        </div>
+      </div>
+
+      <!-- Check-ins -->
+      <div class="bcard" style="border:1px solid #22C55E40">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px">🟢 Store Check-ins</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.7">
+          Driver store check-ins — arrived, completed, departed times + photo proof
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="exportCheckins('csv')" class="btn-s" style="flex:1;font-size:11px">📄 CSV</button>
+          <button onclick="exportCheckins('excel')" class="btn-p" style="flex:1;font-size:11px">📊 Excel</button>
+        </div>
+      </div>
+
+      <!-- WH Activity -->
+      <div class="bcard" style="border:1px solid #F9731640">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px">🏭 Warehouse Activity</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.7">
+          WH arrived, loading done, departed times per driver per trip
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="exportWH('csv')" class="btn-s" style="flex:1;font-size:11px">📄 CSV</button>
+          <button onclick="exportWH('excel')" class="btn-p" style="flex:1;font-size:11px">📊 Excel</button>
+        </div>
+      </div>
+
+      <!-- Transit Times -->
+      <div class="bcard" style="border:1px solid #A855F740">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px">⏱️ Transit Times</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.7">
+          WH → Store → Store transit times + distances per trip per leg
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="exportTransit('csv')" class="btn-s" style="flex:1;font-size:11px">📄 CSV</button>
+          <button onclick="exportTransit('excel')" class="btn-p" style="flex:1;font-size:11px">📊 Excel</button>
+        </div>
+      </div>
+
+      <!-- Fuel -->
+      <div class="bcard" style="border:1px solid #EF444440">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px">⛽ KMs & Fuel</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.7">
+          Per trip KMs, litres, fuel cost — per driver summary
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="exportFuel('csv')" class="btn-s" style="flex:1;font-size:11px">📄 CSV</button>
+          <button onclick="exportFuel('excel')" class="btn-p" style="flex:1;font-size:11px">📊 Excel</button>
+        </div>
+      </div>
+
+      <!-- Store View -->
+      <div class="bcard" style="border:1px solid #7C3AED40">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px">🏪 Store Pallets & Totes</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.7">
+          Per store pallets + totes delivered, trip count, drivers
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="exportStoreView('csv')" class="btn-s" style="flex:1;font-size:11px">📄 CSV</button>
+          <button onclick="exportStoreView('excel')" class="btn-p" style="flex:1;font-size:11px">📊 Excel</button>
+        </div>
+      </div>
+
+      <!-- Full Export -->
+      <div class="bcard" style="border:1px solid var(--orange);grid-column:1/-1;background:linear-gradient(135deg,#1c1008,#111827)">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--orange)">📦 Full Export — Sab Data</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.7">
+          Ek Excel file mein sab sheets — Trips, Check-ins, WH Activity, Transit Times, Fuel, Store View
+        </div>
+        <button onclick="exportAll()" style="width:100%;padding:13px;background:linear-gradient(135deg,var(--orange),#EA580C);border:none;border-radius:9px;color:#fff;font-size:13px;font-weight:700;cursor:pointer">
+          📦 Export Everything (Multi-Sheet Excel)
+        </button>
+      </div>
+
+    </div>
+  </div>`;
+}
+
+// ── EXPORT HELPERS ────────────────────────────────────────────
+function toCSV(headers, rows) {
+  const esc = v => {
+    const s = String(v??'');
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? '"' + s.replace(/"/g,'""') + '"' : s;
+  };
+  return [headers, ...rows].map(r => r.map(esc).join(',')).join('\n');
+}
+
+function downloadCSV(filename, csv) {
+  const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+function downloadExcel(filename, sheets) {
+  // sheets: [{name, headers, rows}]
+  if (!window.XLSX) { showToast('XLSX library load nahi hua','#EF4444'); return; }
+  const wb = XLSX.utils.book_new();
+  sheets.forEach(s => {
+    const ws = XLSX.utils.aoa_to_sheet([s.headers, ...s.rows]);
+    // Style header row
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const addr = XLSX.utils.encode_cell({r:0,c:C});
+      if (!ws[addr]) continue;
+      ws[addr].s = { fill:{fgColor:{rgb:'1E3A5F'}}, font:{bold:true,color:{rgb:'FFFFFF'}} };
+    }
+    // Auto column widths
+    ws['!cols'] = s.headers.map(h => ({ wch: Math.max(h.length+2, 12) }));
+    XLSX.utils.book_append_sheet(wb, ws, s.name.slice(0,31));
+  });
+  XLSX.writeFile(wb, filename);
+}
+
+function getExportDateLabel() {
+  const f = dateFilterFrom, t2 = dateFilterTo, today = getToday();
+  switch(dateFilterMode) {
+    case 'today': return today;
+    case 'yesterday': return getYesterday();
+    case 'week': return `${getWeekStart()}_to_${today}`;
+    case 'month': return `${getMonthStart()}_to_${today}`;
+    case 'all': return 'all';
+    case 'custom': return `${f||'start'}_to_${t2||today}`;
+    default: return today;
+  }
+}
+
+// ── TRIPS EXPORT ─────────────────────────────────────────────
+function exportTrips(fmt) {
+  const data = applyDateFilter(trips);
+  const headers = ['Date','Order Date','Driver','Vehicle','WH','Type','Trip#','Stores','QTY','Pallets','Totes','Capacity','Util%','Dispatch','Cost AED','Fuel Cost AED','Total Cost','Status','Remarks','Trip ID'];
+  const rows = data.map(t => {
+    const u = t.pallets&&t.capacity ? ((t.pallets/t.capacity)*100).toFixed(1) : 0;
+    const total = (t.cost||0) + (t.fuelCostAED||0);
+    return [t.date,t.orderDate||'',t.driver,t.vid,t.wh,t.vt,t.trip2?2:1,
+      (t.storeNames||[]).join(' | '),(t.qty||0),(t.pallets||0),(t.totes||0),
+      (t.capacity||14),u,(t.dispatch||''),(t.cost||0),(t.fuelCostAED||0),
+      Math.round(total),(t.status||''),(t.remarks||''),(t.tripId||'')];
+  });
+  const label = getExportDateLabel();
+  if (fmt==='csv') downloadCSV(`QUIK_Trips_${label}.csv`, toCSV(headers,rows));
+  else downloadExcel(`QUIK_Trips_${label}.xlsx`, [{name:'Trips', headers, rows}]);
+}
+
+// ── CHECKINS EXPORT ───────────────────────────────────────────
+function exportCheckins(fmt) {
+  const filtered = applyDateFilter(liveCheckins.filter(c=>c.date));
+  const headers = ['Date','Time','Driver','Store','Action','Trip ID','Photo'];
+  const rows = filtered.map(c => [c.date,c.time||'',c.driver||'',
+    (c.store||'').replace('QUIK_',''),c.action||'',c.tripId||'',c.photoURL?'Yes':'No']);
+  const label = getExportDateLabel();
+  if (fmt==='csv') downloadCSV(`QUIK_Checkins_${label}.csv`, toCSV(headers,rows));
+  else downloadExcel(`QUIK_Checkins_${label}.xlsx`, [{name:'Check-ins', headers, rows}]);
+}
+
+// ── WH ACTIVITY EXPORT ────────────────────────────────────────
+function exportWH(fmt) {
+  const filtered = applyDateFilter(whCheckins.filter(c=>c.date));
+  const headers = ['Date','Time','Driver','Action','Trip ID'];
+  const rows = filtered.map(c => [c.date,c.time||'',c.driver||'',c.action||'',c.tripId||'']);
+  const label = getExportDateLabel();
+  if (fmt==='csv') downloadCSV(`QUIK_WH_Activity_${label}.csv`, toCSV(headers,rows));
+  else downloadExcel(`QUIK_WH_Activity_${label}.xlsx`, [{name:'WH Activity', headers, rows}]);
+}
+
+// ── TRANSIT TIMES EXPORT ──────────────────────────────────────
+function exportTransit(fmt) {
+  const data = applyDateFilter(trips);
+  const headers = ['Date','Driver','From','To','Departed','Arrived','Transit Mins','Dist KM (est)'];
+  const rows = [];
+  data.forEach(t => {
+    const whDep = t.whCheckin?.departed||'';
+    const stores = t.storeNames||[];
+    if (whDep && stores[0]) {
+      const st0 = (t.storeTimes&&t.storeTimes[stores[0]])||{};
+      const arr0 = st0.arr||'';
+      const mins = (whDep&&arr0) ? toMins(arr0)-toMins(whDep) : '';
+      const c0 = STORE_COORDS[stores[0]];
+      const km = c0 ? Math.round(haversine(WAREHOUSE.lat,WAREHOUSE.lng,c0.lat,c0.lng)*1.3*10)/10 : '';
+      rows.push([t.date,t.driver,'Warehouse',stores[0].replace('QUIK_',''),whDep,arr0,mins,km]);
+    }
+    for (let i=0;i<stores.length-1;i++) {
+      const stA=(t.storeTimes&&t.storeTimes[stores[i]])||{};
+      const stB=(t.storeTimes&&t.storeTimes[stores[i+1]])||{};
+      const depA=stA.dep||'', arrB=stB.arr||'';
+      const mins=(depA&&arrB)?toMins(arrB)-toMins(depA):'';
+      const cA=STORE_COORDS[stores[i]],cB=STORE_COORDS[stores[i+1]];
+      const km=(cA&&cB)?Math.round(haversine(cA.lat,cA.lng,cB.lat,cB.lng)*1.3*10)/10:'';
+      rows.push([t.date,t.driver,stores[i].replace('QUIK_',''),stores[i+1].replace('QUIK_',''),depA,arrB,mins,km]);
+    }
+  });
+  const label = getExportDateLabel();
+  if (fmt==='csv') downloadCSV(`QUIK_Transit_${label}.csv`, toCSV(headers,rows));
+  else downloadExcel(`QUIK_Transit_${label}.xlsx`, [{name:'Transit Times', headers, rows}]);
+}
+
+// ── FUEL EXPORT ───────────────────────────────────────────────
+function exportFuel(fmt) {
+  const data = applyDateFilter(trips);
+  const headers = ['Date','Driver','Trip ID','Stores','KMs','Eff km/L','Litres','Fuel Cost AED'];
+  const rows = data.map(t => {
+    const { km } = calcTripKMs(t.storeNames||[]);
+    const fuel = calcFuelCost(t.driver, km);
+    return [t.date,t.driver,t.tripId||'',(t.storeNames||[]).join(' | '),
+      Math.round(km*10)/10,fuel.eff,Math.round(fuel.litres*10)/10,Math.round(fuel.cost)];
+  });
+  const label = getExportDateLabel();
+  if (fmt==='csv') downloadCSV(`QUIK_Fuel_${label}.csv`, toCSV(headers,rows));
+  else downloadExcel(`QUIK_Fuel_${label}.xlsx`, [{name:'KMs & Fuel', headers, rows}]);
+}
+
+// ── STORE VIEW EXPORT ─────────────────────────────────────────
+function exportStoreView(fmt) {
+  const filtered = applyDateFilter(trips);
+  const storeMap = {};
+  filtered.forEach(t => {
+    (t.storeNames||[]).forEach(store => {
+      if (!storeMap[store]) storeMap[store] = { pallets:0, totes:0, trips:0, drivers:new Set() };
+      const n = (t.storeNames||[]).length||1;
+      storeMap[store].pallets += (t.pallets||0)/n;
+      storeMap[store].totes   += (t.totes||0)/n;
+      storeMap[store].trips   += 1;
+      storeMap[store].drivers.add(t.driver);
+    });
+  });
+  const headers = ['Store','Trips','Pallets','Totes','Drivers'];
+  const rows = Object.entries(storeMap)
+    .sort((a,b)=>b[1].pallets-a[1].pallets)
+    .map(([s,d])=>[s.replace('QUIK_',''),d.trips,Math.round(d.pallets*10)/10,
+      Math.round(d.totes*10)/10,[...d.drivers].join(' | ')]);
+  const label = getExportDateLabel();
+  if (fmt==='csv') downloadCSV(`QUIK_StoreView_${label}.csv`, toCSV(headers,rows));
+  else downloadExcel(`QUIK_StoreView_${label}.xlsx`, [{name:'Store View', headers, rows}]);
+}
+
+// ── FULL EXPORT ───────────────────────────────────────────────
+function exportAll() {
+  const label = getExportDateLabel();
+  const data = applyDateFilter(trips);
+
+  const tripHeaders = ['Date','Order Date','Driver','Vehicle','WH','Type','Trip#','Stores','QTY','Pallets','Totes','Capacity','Util%','Dispatch','Cost AED','Fuel AED','Total AED','Status','Remarks'];
+  const tripRows = data.map(t => {
+    const u = t.pallets&&t.capacity?((t.pallets/t.capacity)*100).toFixed(1):0;
+    return [t.date,t.orderDate||'',t.driver,t.vid,t.wh,t.vt,t.trip2?2:1,
+      (t.storeNames||[]).join(' | '),(t.qty||0),(t.pallets||0),(t.totes||0),(t.capacity||14),
+      u,(t.dispatch||''),(t.cost||0),(t.fuelCostAED||0),Math.round((t.cost||0)+(t.fuelCostAED||0)),
+      (t.status||''),(t.remarks||'')];
+  });
+
+  const ckHeaders = ['Date','Time','Driver','Store','Action','Trip ID'];
+  const ckRows = applyDateFilter(liveCheckins.filter(c=>c.date)).map(c=>
+    [c.date,c.time||'',c.driver||'',(c.store||'').replace('QUIK_',''),c.action||'',c.tripId||'']);
+
+  const whHeaders = ['Date','Time','Driver','Action','Trip ID'];
+  const whRows = applyDateFilter(whCheckins.filter(c=>c.date)).map(c=>
+    [c.date,c.time||'',c.driver||'',c.action||'',c.tripId||'']);
+
+  const trHeaders = ['Date','Driver','From','To','Departed','Arrived','Transit Mins'];
+  const trRows = [];
+  data.forEach(t => {
+    const whDep=t.whCheckin?.departed||'', stores=t.storeNames||[];
+    if(whDep&&stores[0]){ const st0=(t.storeTimes&&t.storeTimes[stores[0]])||{};
+      const m=(whDep&&st0.arr)?toMins(st0.arr)-toMins(whDep):'';
+      trRows.push([t.date,t.driver,'Warehouse',stores[0].replace('QUIK_',''),whDep,st0.arr||'',m]); }
+    for(let i=0;i<stores.length-1;i++){ const sA=(t.storeTimes&&t.storeTimes[stores[i]])||{};
+      const sB=(t.storeTimes&&t.storeTimes[stores[i+1]])||{};
+      const m=(sA.dep&&sB.arr)?toMins(sB.arr)-toMins(sA.dep):'';
+      trRows.push([t.date,t.driver,stores[i].replace('QUIK_',''),stores[i+1].replace('QUIK_',''),sA.dep||'',sB.arr||'',m]); }
+  });
+
+  const fuelHeaders = ['Date','Driver','Trip ID','Stores','KMs','Eff','Litres','Fuel AED'];
+  const fuelRows = data.map(t => {
+    const {km}=calcTripKMs(t.storeNames||[]),fuel=calcFuelCost(t.driver,km);
+    return [t.date,t.driver,t.tripId||'',(t.storeNames||[]).join(' | '),
+      Math.round(km*10)/10,fuel.eff,Math.round(fuel.litres*10)/10,Math.round(fuel.cost)];
+  });
+
+  const svMap = {};
+  data.forEach(t=>{(t.storeNames||[]).forEach(s=>{
+    if(!svMap[s])svMap[s]={pallets:0,totes:0,trips:0,drivers:new Set()};
+    const n=(t.storeNames||[]).length||1;
+    svMap[s].pallets+=(t.pallets||0)/n; svMap[s].totes+=(t.totes||0)/n;
+    svMap[s].trips+=1; svMap[s].drivers.add(t.driver);
+  });});
+  const svHeaders=['Store','Trips','Pallets','Totes','Drivers'];
+  const svRows=Object.entries(svMap).sort((a,b)=>b[1].pallets-a[1].pallets)
+    .map(([s,d])=>[s.replace('QUIK_',''),d.trips,Math.round(d.pallets*10)/10,
+      Math.round(d.totes*10)/10,[...d.drivers].join(' | ')]);
+
+  downloadExcel(`QUIK_Full_Export_${label}.xlsx`, [
+    {name:'Trips',        headers:tripHeaders, rows:tripRows},
+    {name:'Store Check-ins', headers:ckHeaders, rows:ckRows},
+    {name:'WH Activity',  headers:whHeaders,  rows:whRows},
+    {name:'Transit Times',headers:trHeaders,  rows:trRows},
+    {name:'KMs & Fuel',   headers:fuelHeaders,rows:fuelRows},
+    {name:'Store View',   headers:svHeaders,  rows:svRows},
+  ]);
+  showToast('✅ Full export download ho raha hai!');
+}
+
 function renderDriversTab() {
   const m = document.getElementById('main');
   const drivers = Object.entries(driversDB).sort((a,b)=>a[1].name?.localeCompare(b[1].name)||0);
