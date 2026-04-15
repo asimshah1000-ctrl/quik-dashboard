@@ -2369,6 +2369,63 @@ function renderMain(){
     m.innerHTML=`<div>
       ${dateFilterBar()}
       <div class="syncbanner">✅ Firebase live — koi bhi edit kare sabko instantly dikhe ga &nbsp;·&nbsp; <span style="font-weight:400;color:#86EFAC">Click ✏ cell to edit inline</span></div>
+
+      <!-- TRANSIT TIMES SECTION -->
+      <div class="section-title">⏱️ Transit Times — WH se Store tak <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div class="twrap" style="margin-bottom:20px">
+        <div style="overflow-x:auto"><table>
+          <thead><tr>${['Date','Driver','From','To','Departed','Arrived','⏱️ Transit','Distance'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+          <tbody>
+          ${schedTrips.flatMap(t => {
+            const whDep = t.whCheckin?.departed||'';
+            const stores = t.storeNames||[];
+            const legs = [];
+
+            // Leg 1: Warehouse → First Store
+            if (whDep && stores[0]) {
+              const st0 = (t.storeTimes&&t.storeTimes[stores[0]])||{};
+              const arr0 = st0.arr||'';
+              const mins = (whDep && arr0) ? toMins(arr0) - toMins(whDep) : null;
+              const c0 = STORE_COORDS[stores[0]];
+              const distKm = c0 ? Math.round(haversine(WAREHOUSE.lat,WAREHOUSE.lng,c0.lat,c0.lng)*1.3*10)/10 : null;
+              legs.push(`<tr style="background:#3B82F608">
+                <td>${t.date}</td>
+                <td style="font-weight:600">${t.driver}</td>
+                <td><span style="background:#3B82F620;color:#60A5FA;border:1px solid #3B82F640;border-radius:6px;font-size:9px;font-weight:700;padding:2px 7px">🏭 Warehouse</span></td>
+                <td style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${stores[0].replace('QUIK_','')}</td>
+                <td>${ttag(whDep||'—')}</td>
+                <td>${ttag(arr0||'—')}</td>
+                <td>${mins!==null ? (mins<0?`<span style="color:#EF4444;font-weight:700">⚠ -${Math.abs(mins)}min</span>`:`<span style="color:${mins<=30?'#22C55E':mins<=60?'#F97316':'#EF4444'};font-weight:700;font-family:'DM Mono',monospace">${mins} min</span>`) : '<span style="color:var(--muted);font-size:9px">—</span>'}</td>
+                <td style="font-size:10px;color:var(--muted)">${distKm?distKm+' km':'—'}</td>
+              </tr>`);
+            }
+
+            // Legs: Store N Departed → Store N+1 Arrived
+            for (let i=0; i<stores.length-1; i++) {
+              const stA = (t.storeTimes&&t.storeTimes[stores[i]])||{};
+              const stB = (t.storeTimes&&t.storeTimes[stores[i+1]])||{};
+              const depA = stA.dep||'';
+              const arrB = stB.arr||'';
+              const mins = (depA && arrB) ? toMins(arrB) - toMins(depA) : null;
+              const cA = STORE_COORDS[stores[i]], cB = STORE_COORDS[stores[i+1]];
+              const distKm = (cA&&cB) ? Math.round(haversine(cA.lat,cA.lng,cB.lat,cB.lng)*1.3*10)/10 : null;
+              legs.push(`<tr>
+                <td>${t.date}</td>
+                <td style="font-weight:600">${t.driver}</td>
+                <td style="font-family:'DM Mono',monospace;font-size:10px">${stores[i].replace('QUIK_','')}</td>
+                <td style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${stores[i+1].replace('QUIK_','')}</td>
+                <td>${ttag(depA||'—')}</td>
+                <td>${ttag(arrB||'—')}</td>
+                <td>${mins!==null ? `<span style="color:${mins<=30?'#22C55E':mins<=60?'#F97316':'#EF4444'};font-weight:700;font-family:'DM Mono',monospace">${mins} min</span>` : '<span style="color:var(--muted);font-size:9px">—</span>'}</td>
+                <td style="font-size:10px;color:var(--muted)">${distKm?distKm+' km':'—'}</td>
+              </tr>`);
+            }
+            return legs;
+          }).join('')||`<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted)">Koi check-in data nahi — drivers QR scan karen</td></tr>`}
+          </tbody>
+        </table></div>
+      </div>
+
       <div class="twrap">
         <div class="ttbar">
           <div><div class="ttitle">🕐 Driver Store Dispatch Schedule</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Click any ✏ time cell to edit inline — saves to Firebase instantly</div></div>
