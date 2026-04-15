@@ -1709,6 +1709,56 @@ function commitEdit(tripId,store,field,val){
 }
 
 // ═══════════════════════════════════════════════════════
+//  UNIVERSAL INLINE EDIT
+// ═══════════════════════════════════════════════════════
+// Usage: ie(el, 'trips/ID/field', value, type, options?)
+// type: 'text' | 'number' | 'time' | 'date' | 'select'
+// options: array of strings for select type
+function ie(el, fbPath, curVal, type='text', options=null) {
+  if (!canEdit()) { showToast('Access nahi hai','#EF4444'); return; }
+  const orig = curVal ?? '';
+  let input;
+  if (type === 'select' && options) {
+    input = document.createElement('select');
+    input.className = 'einput';
+    input.style.cssText = 'width:100%;min-width:90px;font-size:11px;padding:3px 5px';
+    options.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o; opt.textContent = o;
+      if (o == orig) opt.selected = true;
+      input.appendChild(opt);
+    });
+  } else {
+    input = document.createElement('input');
+    input.className = 'einput';
+    input.type = type;
+    input.value = orig;
+    input.style.cssText = 'width:100%;min-width:80px;font-size:11px;padding:3px 5px';
+    if (type === 'number') { input.step = 'any'; }
+  }
+
+  const save = () => {
+    const val = type === 'number' ? (+input.value||0) : input.value;
+    if (String(val) === String(orig)) { renderMain(); return; }
+    db.ref(fbPath).set(val);
+    recordMeta();
+    showToast('✏️ Saved','#3B82F6');
+    // Don't re-render — Firebase listener will update automatically
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { input.value = orig; input.removeEventListener('blur', save); renderMain(); }
+  });
+
+  el.innerHTML = '';
+  el.appendChild(input);
+  input.focus();
+  if (input.select) input.select();
+}
+
+// ═══════════════════════════════════════════════════════
 //  ADD TRIP
 // ═══════════════════════════════════════════════════════
 function toggleDualTrip(){
@@ -1842,12 +1892,20 @@ function addTrip(){
   db.ref('trips').push(t1);
   if(dualTrip){
     const t2=buildTripObj('f2-',2,true);
-    const wh2El=document.getElementById('f2-wh'),vt2El=document.getElementById('f2-vt');
-    if(wh2El&&vt2El&&wh2El.value&&vt2El.value){
-      t2.wh=wh2El.value;t2.vt=vt2El.value;t2.driver=t1.driver;
-      db.ref('trips').push(t2);showToast(`✓ 2 trips added for ${t1.driver}`);
-    } else showToast('Trip 1 added — Trip 2 skipped','#F97316');
-  } else showToast('✓ Trip added!');
+    const wh2El=document.getElementById('f2-wh'), vt2El=document.getElementById('f2-vt');
+    // Fallback to Trip 1 values if Trip 2 WH/VT not explicitly set
+    t2.wh     = (wh2El&&wh2El.value) ? wh2El.value : t1.wh;
+    t2.vt     = (vt2El&&vt2El.value) ? vt2El.value : t1.vt;
+    t2.driver = t1.driver;
+    t2.vid    = t2.vid || t1.vid;
+    if(!t2.storeNames||!t2.storeNames.length){
+      showToast('Trip 2 mein stores select karo','#EF4444'); return;
+    }
+    db.ref('trips').push(t2);
+    showToast(`✅ 2 trips added — ${t1.driver}`);
+  } else {
+    showToast('✅ Trip added!');
+  }
   recordMeta();resetForm();
 }
 function resetForm(){
@@ -2296,34 +2354,38 @@ function renderMain(){
         <thead><tr>${['Trip Date','Order Date','WH','Veh','Plate','Driver','Trip','#','Store Names','QTY','Pallets','Totes','Util','Dispatch','1st Arr','Last Dep','Cost','Fuel','Status',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>${applyDateFilter(filtTrips).map(t=>{
           const u=((t.pallets||0)/(t.capacity||14)*100).toFixed(0);
-          const cpp=(t.pallets&&t.cost)?(t.cost/t.pallets).toFixed(2):'0.00';
           const times=Object.values(t.storeTimes||{});
           const arrs=times.map(x=>x.arr).filter(Boolean).sort();
           const deps=times.map(x=>x.dep).filter(Boolean).sort();
           const sn=(t.storeNames||[]).join(', ')||'—';
+          const ie_=canEdit()?'cursor:pointer;border-radius:3px;padding:1px 3px':'';
+          const iec=(field,val,type,opts)=>canEdit()
+            ?`<span class="ecell" title="Click to edit" onclick="ie(this,'trips/${t._id}/${field}','${val||''}','${type}'${opts?`,[${opts.map(o=>`'${o}'`).join(',')}]`:''})">${val||'<span style=color:var(--muted);font-size:9px>—</span>'}</span>`
+            :(val||'—');
           return `<tr>
-            <td>${t.date}</td>
-            <td><span class="ecell" onclick="editOrderDate('${t._id}','${t.orderDate||''}')" title="Click to edit order date" style="cursor:pointer">${t.orderDate||'<span style=color:var(--muted)>Set ✏</span>'}</span></td>
-            <td><span class="wpill wh-${t.wh==='Own Warehouse'?'own':'3pl'}">${t.wh==='Own Warehouse'?'Own':'3PL'}</span></td>
-            <td>${t.vt}</td><td>${t.vid||'—'}</td>
-            <td>${t.driver}${tripBadge(t.trip2)}</td>
+            <td>${iec('date',t.date,'date')}</td>
+            <td>${iec('orderDate',t.orderDate||'','date')}</td>
+            <td>${iec('wh',t.wh,'select',['Own Warehouse','3PL Warehouse'])}</td>
+            <td>${iec('vt',t.vt,'select',['Own Fleet','3PL Fleet','Adhoc/Rental'])}</td>
+            <td>${iec('vid',t.vid||'','text')}</td>
+            <td>${iec('driver',t.driver,'select',Object.values(driversDB).filter(d=>d.active!==false).map(d=>d.name))}${tripBadge(t.trip2)}</td>
             <td style="text-align:center">${t.trip2?'Trip 2':'Trip 1'}</td>
             <td style="text-align:center">${(t.storeNames||[]).length}</td>
-            <td style="max-width:140px;white-space:normal;font-size:9px;color:var(--muted)">${sn}</td>
-            <td>${(t.qty||0).toLocaleString()}</td>
-            <td style="text-align:center;color:var(--orange);font-weight:600">${t.pallets||0}/${t.capacity||14}</td>
-            <td style="text-align:center;color:var(--purple)">${t.totes||0}</td>
+            <td style="max-width:120px;white-space:normal;font-size:9px;color:var(--muted)">${sn}</td>
+            <td>${iec('qty',t.qty||0,'number')}</td>
+            <td>${iec('pallets',t.pallets||0,'number')}/<span style="color:var(--muted)">${iec('capacity',t.capacity||14,'number')}</span></td>
+            <td style="text-align:center;color:var(--purple)">${iec('totes',t.totes||0,'number')}</td>
             <td><span style="color:${utilColor(+u)}">${u}%</span></td>
-            <td>${ttag(t.dispatch,'warn')}</td>
+            <td>${iec('dispatch',t.dispatch||'','time')}</td>
             <td>${ttag(arrs[0])}</td><td>${ttag(deps[deps.length-1])}</td>
-            <td>AED ${t.cost||0}</td>
-            <td style="color:var(--orange);font-family:'DM Mono',monospace;font-size:10px">${t.fuelCostAED?'AED '+t.fuelCostAED:'—'}</td>
-            <td>${statusBadge(t.status)}</td>
+            <td>${iec('cost',t.cost||0,'number')}</td>
+            <td style="color:var(--orange);font-size:10px">${t.fuelCostAED?'AED '+t.fuelCostAED:'—'}</td>
+            <td>${iec('status',t.status,'select',['Completed','In Transit','Delayed','Partial'])}</td>
+            <td>${iec('remarks',t.remarks||'','text')}</td>
             <td>
-            ${canEdit()?`<button class="delbtn" onclick="openEditModal('${t._id}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:4px">✏️</button>`:''}
-            ${canEdit()?`<button class="delbtn" onclick="openDelModal('${t._id}')">✕</button>`:''}
-            <button onclick="printTripQR('${t._id}','${t.driver||''}','${t.vid||''}')" style="background:transparent;border:1px solid #3B82F640;color:#60A5FA;border-radius:4px;padding:3px 7px;font-size:9px;font-weight:700;cursor:pointer;margin-left:3px">🖨 QR</button>
-          </td>
+              ${canEdit()?`<button class="delbtn" onclick="openDelModal('${t._id}')">✕</button>`:''}
+              <button onclick="printTripQR('${t._id}','${t.driver||''}','${t.vid||''}')" style="background:transparent;border:1px solid #3B82F640;color:#60A5FA;border-radius:4px;padding:3px 7px;font-size:9px;font-weight:700;cursor:pointer;margin-left:3px">🖨 QR</button>
+            </td>
           </tr>`;
         }).join('')}</tbody>
       </table></div>
@@ -3399,6 +3461,9 @@ function renderDriversTab() {
         ${drivers.map(([key, d]) => {
           const isActive = d.active !== false;
           const tripIds = (d.tripIds||[]).join(', ') || '—';
+          const ied=(field,val,type,opts)=>canEdit()
+            ?`<span class="ecell" title="Click to edit" onclick="ie(this,'drivers_config/${key}/${field}','${String(val||'').replace(/'/g,"\\'")}','${type}'${opts?`,[${opts.map(o=>`'${o}'`).join(',')}]`:''})">${val||'<span style=color:var(--muted);font-size:9px>—</span>'}</span>`
+            :(val||'—');
           return `<tr style="opacity:${isActive?1:0.45}">
             <td>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
@@ -3409,14 +3474,16 @@ function renderDriversTab() {
                 <span style="font-size:10px;color:${isActive?'#22C55E':'var(--muted)'};font-weight:600">${isActive?'ON':'OFF'}</span>
               </label>
             </td>
-            <td style="font-weight:700">${d.name||'—'}</td>
-            <td style="font-family:'DM Mono',monospace;color:var(--orange)">${d.vid||'—'}</td>
-            <td style="color:var(--muted)">${d.model||'—'}</td>
-            <td style="font-family:'DM Mono',monospace">${d.eff||'—'} km/L</td>
-            <td>${d.vt||'Own Fleet'}</td>
-            <td>${d.wh||'Own Warehouse'}</td>
-            <td style="font-size:10px;font-family:'DM Mono',monospace;color:var(--blue);max-width:140px;white-space:normal">${tripIds}</td>
-            <td>${canEdit()?`<button class="delbtn" onclick="openEditDriver('${key}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button><button class="delbtn" onclick="deleteDriver('${key}','${d.name}')">✕</button>`:''}
+            <td style="font-weight:700">${ied('name',d.name,'text')}</td>
+            <td style="font-family:'DM Mono',monospace;color:var(--orange)">${ied('vid',d.vid,'text')}</td>
+            <td style="color:var(--muted)">${ied('model',d.model,'number')}</td>
+            <td style="font-family:'DM Mono',monospace">${ied('eff',d.eff,'number')} km/L</td>
+            <td>${ied('vt',d.vt||'Own Fleet','select',['Own Fleet','3PL Fleet','Adhoc/Rental'])}</td>
+            <td>${ied('wh',d.wh||'Own Warehouse','select',['Own Warehouse','3PL Warehouse'])}</td>
+            <td style="font-size:10px;font-family:'DM Mono',monospace;color:var(--blue);max-width:160px">
+              ${canEdit()?`<span class="ecell" title="Edit Trip IDs" onclick="editDriverTripIds('${key}','${tripIds}')">${tripIds} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:tripIds}
+            </td>
+            <td>${canEdit()?`<button class="delbtn" onclick="deleteDriver('${key}','${d.name}')">✕</button>`:''}
             </td>
           </tr>`;
         }).join('')}
@@ -3490,6 +3557,15 @@ async function deleteDriver(key, name) {
   showToast('🗑️ Driver deleted','#EF4444');
 }
 
+function editDriverTripIds(key, current) {
+  const val = prompt('Trip IDs (comma separated):', current==='—'?'':current);
+  if (val === null) return;
+  const ids = val.split(',').map(s=>s.trim()).filter(Boolean);
+  db.ref('drivers_config/'+key+'/tripIds').set(ids);
+  recordMeta();
+  showToast('✅ Trip IDs updated!');
+}
+
 document.getElementById('editdriverov').addEventListener('click',function(e){if(e.target===this)closeEditDriver();});
 
 // ── STORES TAB ────────────────────────────────────────────────
@@ -3535,10 +3611,12 @@ function renderStoresTab() {
         <tbody>
         ${stores.map(([key, s]) => {
           const isActive = s.active !== false;
-          const name = key;
-          const shortName = name.replace('QUIK_','');
-          const addr = STORE_ADDRESSES[name] || '—';
-          const isBasement = (s.radius||10) >= 200;
+          const shortName = key.replace('QUIK_','');
+          const addr = STORE_ADDRESSES[key] || '—';
+          const isBasement = (s.radius||100) >= 200;
+          const ies=(field,val,type)=>canEdit()
+            ?`<span class="ecell" title="Click to edit" onclick="ie(this,'stores_config/${key}/${field}','${val||''}','${type}')">${val||'—'}</span>`
+            :(val||'—');
           return `<tr style="opacity:${isActive?1:0.45}">
             <td>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
@@ -3551,14 +3629,12 @@ function renderStoresTab() {
             </td>
             <td style="font-weight:700;font-family:'DM Mono',monospace;font-size:11px">${shortName}</td>
             <td style="font-size:10px;color:var(--muted);max-width:180px;white-space:normal">${addr}</td>
-            <td style="font-family:'DM Mono',monospace;font-size:10px">${(s.lat||0).toFixed(5)}</td>
-            <td style="font-family:'DM Mono',monospace;font-size:10px">${(s.lng||0).toFixed(5)}</td>
+            <td style="font-family:'DM Mono',monospace;font-size:10px">${ies('lat',(s.lat||0).toFixed(5),'number')}</td>
+            <td style="font-family:'DM Mono',monospace;font-size:10px">${ies('lng',(s.lng||0).toFixed(5),'number')}</td>
             <td>
               <span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${isBasement?'#7C3AED20':'#16A34A20'};color:${isBasement?'#A855F7':'#4ADE80'};border:1px solid ${isBasement?'#7C3AED40':'#16A34A40'}">
-                ${isBasement?'🏢 '+s.radius+'m':'📍 '+s.radius+'m'}
+                ${ies('radius',s.radius||100,'number')}m
               </span>
-            </td>
-            <td>${canEdit()?`<button class="delbtn" onclick="openEditStore('${key}')" style="border-color:#3B82F640;color:#60A5FA">✏️</button>`:''}
             </td>
           </tr>`;
         }).join('')}
