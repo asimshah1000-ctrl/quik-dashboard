@@ -2816,7 +2816,8 @@ function renderMain(){
 
       ${dateFilterBar()}
 
-      <!-- KPIs — always today's -->
+      <!-- KPIs — always today's, horizontal compact -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
         ${[
           ['Total Scans', todayCheckins.length, '#3B82F6'],
           ['Arrived', todayCheckins.filter(c=>c.action==='arrived').length, '#3B82F6'],
@@ -2863,8 +2864,8 @@ function renderMain(){
               <td style="font-weight:600">${r.driver}</td>
               <td style="font-family:'DM Mono',monospace;font-size:10px">${r.from}</td>
               <td style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${r.to}</td>
-              <td>${r.dep?`<span class="ttag">${r.dep}</span>`:'<span style="color:var(--muted);font-size:9px">—</span>'}</td>
-              <td>${r.arr?`<span class="ttag">${r.arr}</span>`:'<span style="color:var(--muted);font-size:9px">${r.dep?"En route ⏳":"—"}</span>'}</td>
+              <td>${r.dep ? `<span class="ttag">${r.dep}</span>` : '<span style="color:var(--muted);font-size:9px">—</span>'}</td>
+              <td>${r.arr ? `<span class="ttag">${r.arr}</span>` : (r.dep ? '<span style="color:var(--orange);font-size:9px">En route ⏳</span>' : '<span style="color:var(--muted);font-size:9px">—</span>')}</td>
               <td><span style="font-family:'DM Mono',monospace;font-weight:700;color:${color}">${label}</span></td>
               <td><span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${color}20;color:${color};border:1px solid ${color}40">${
                 r.mins===null?(r.dep?'🚛 Moving':'⏳ Waiting'):r.mins<=30?'🟢 Fast':r.mins<=60?'🟡 Normal':'🔴 Slow'
