@@ -1908,8 +1908,19 @@ function toggleDualTrip(){
   const sec=document.getElementById('trip2-sec');
   if(sec)sec.style.display=dualTrip?'block':'none';
   if(dualTrip){
-    const d=document.getElementById('f-date'),d2=document.getElementById('f2-date');
-    if(d&&d2)d2.value=d.value;
+    // Auto-fill Trip 2 from Trip 1 values
+    const copyFields = [
+      ['f-date',      'f2-date'],
+      ['f-orderdate', 'f2-orderdate'],
+      ['f-wh',        'f2-wh'],
+      ['f-vt',        'f2-vt'],
+      ['f-vid',       'f2-vid'],
+    ];
+    copyFields.forEach(([from, to]) => {
+      const a = document.getElementById(from);
+      const b = document.getElementById(to);
+      if (a && b && a.value) b.value = a.value;
+    });
     syncDriver();
   }
 }
@@ -1954,13 +1965,21 @@ function driverSelected(n) {
   if (val && val!=='__custom') {
     const opt = sel.options[sel.selectedIndex];
     const vid = opt.dataset.vid, vt = opt.dataset.vt, wh = opt.dataset.wh;
-    // Auto-fill vehicle details
     const vidEl = document.getElementById(n===1?'f-vid':'f2-vid');
     const vtEl  = document.getElementById(n===1?'f-vt':'f2-vt');
     const whEl  = document.getElementById(n===1?'f-wh':'f2-wh');
     if (vidEl) vidEl.value = vid;
     if (vtEl)  vtEl.value  = vt==='Own Fleet'?'Own Fleet':vt;
     if (whEl)  whEl.value  = wh;
+    // If Trip 2 exists and is on, also sync
+    if (n===1 && dualTrip) {
+      const v2 = document.getElementById('f2-vid');
+      const vt2 = document.getElementById('f2-vt');
+      const wh2 = document.getElementById('f2-wh');
+      if (v2 && !v2.value)  v2.value  = vid;
+      if (vt2 && !vt2.value) vt2.value = vt==='Own Fleet'?'Own Fleet':vt;
+      if (wh2 && !wh2.value) wh2.value = wh;
+    }
     if (n===1) syncDriver();
   }
 }
@@ -1996,24 +2015,28 @@ function getDriverVal(prefix) {
 }
 function buildTripObj(prefix,n,t2){
   const sn=selectedStores[n];
-  const whVal  = gv(prefix+'wh');
-  const vtVal  = gv(prefix+'vt');
   const driver = t2?getDriverVal('f-'):getDriverVal(prefix);
+  // For Trip 2: fall back to Trip 1 values if not explicitly set
+  const whVal  = gv(prefix+'wh')  || (t2?gv('f-wh'):'');
+  const vtVal  = gv(prefix+'vt')  || (t2?gv('f-vt'):'');
+  const vidVal = gv(prefix+'vid') || (t2?gv('f-vid'):'—');
+  const odVal  = gv(prefix+'orderdate') || (t2?gv('f-orderdate'):'');
+  const dateVal= gv(prefix+'date')|| (t2?gv('f-date'):new Date().toISOString().split('T')[0]);
   const { km }  = calcTripKMs(sn);
   const fuel    = calcFuelCost(driver, km);
   const tripIdEl = document.getElementById(prefix+'tripid');
   return {
-    date:      gv(prefix+'date')||new Date().toISOString().split('T')[0],
-    orderDate: gv(prefix+'orderdate')||'',
+    date:      dateVal,
+    orderDate: odVal,
     wh:whVal, vt:vtVal,
-    vid:gv(prefix+'vid')||'—',
+    vid:vidVal,
     driver,
     tripId:    tripIdEl ? tripIdEl.value : '',
     trip2:t2, storeNames:sn, storeTimes:getStoreTimes(n),
     qty:+gv(prefix+'qty')||0, pallets:+gv(prefix+'pallets')||0,
     totes:+gv(prefix+'totes')||0,
     capacity:+gv(prefix+'capacity')||14, cost:+gv(prefix+'cost')||0,
-    dispatch:gv(prefix+'dispatch'), status:gv(prefix+'status')||'Completed',
+    dispatch:gv(prefix+'dispatch'), status:gv(prefix+'status')||'In Transit',
     remarks:gv(prefix+'remarks'),
     kmTotal:   Math.round(km*10)/10,
     fuelLitres: Math.round(fuel.litres*10)/10,
