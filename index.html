@@ -2970,22 +2970,46 @@ function printTripQR(tripId, driver, vid) {
 // ── WH ACTIVITY TAB ──────────────────────────────────────────
 function renderWHActivity() {
   const today = new Date().toISOString().split('T')[0];
-  const todayWH = whCheckins.filter(c => c.date === today);
   const actionColor = { arrived:'#3B82F6', loaded:'#A855F7', departed:'#F97316' };
   const actionIcon  = { arrived:'🏭', loaded:'📦', departed:'🚛' };
   const actionLabel = { arrived:'Arrived at WH', loaded:'Vehicle Loaded', departed:'Departed WH' };
 
-  // Build driver summary for today
+  // Apply date filter to WH checkins
+  const filteredWH = (() => {
+    switch(dateFilterMode) {
+      case 'today':     return whCheckins.filter(c => c.date === today);
+      case 'yesterday': return whCheckins.filter(c => c.date === getYesterday());
+      case 'week':      return whCheckins.filter(c => c.date >= getWeekStart() && c.date <= today);
+      case 'month':     return whCheckins.filter(c => c.date >= getMonthStart() && c.date <= today);
+      case 'all':       return whCheckins;
+      case 'custom': {
+        const from = dateFilterFrom || '2000-01-01';
+        const to   = dateFilterTo   || today;
+        return whCheckins.filter(c => c.date >= from && c.date <= to);
+      }
+      default: return whCheckins.filter(c => c.date === today);
+    }
+  })();
+
+  const todayWH = whCheckins.filter(c => c.date === today);
+
+  // Build driver summary for selected date range
   const driverMap = {};
-  todayWH.forEach(c => {
+  filteredWH.forEach(c => {
     const key = c.tripId || c.driver;
-    if (!driverMap[key]) driverMap[key] = { driver:c.driver||'—', arrived:null, loaded:null, departed:null, tripId:c.tripId };
+    if (!driverMap[key]) driverMap[key] = { driver:c.driver||'—', arrived:null, loaded:null, departed:null, tripId:c.tripId, date:c.date };
     driverMap[key][c.action] = c.time;
   });
 
+  // Get trip driver name from trips array for display
+  const getTripDriver = (tripId) => {
+    const t = trips.find(x => x._id === tripId);
+    return t ? t.driver : '—';
+  };
+
   const m = document.getElementById('main');
   m.innerHTML = `<div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
       <div>
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">🏭 Warehouse Activity</div>
         <div style="font-size:11px;color:var(--muted);margin-top:3px">Driver warehouse arrivals, loading, aur departures</div>
@@ -2993,12 +3017,14 @@ function renderWHActivity() {
       <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--green);background:#16A34A15;border:1px solid #16A34A40;padding:5px 12px;border-radius:6px">🔴 LIVE</div>
     </div>
 
-    <!-- KPIs -->
+    ${dateFilterBar()}
+
+    <!-- KPIs — always today's -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
       ${[
-        ['WH Arrivals', todayWH.filter(c=>c.action==='arrived').length, '#3B82F6'],
-        ['Vehicles Loaded', todayWH.filter(c=>c.action==='loaded').length, '#A855F7'],
-        ['Departed', todayWH.filter(c=>c.action==='departed').length, '#F97316'],
+        ['WH Arrivals', filteredWH.filter(c=>c.action==='arrived').length, '#3B82F6'],
+        ['Vehicles Loaded', filteredWH.filter(c=>c.action==='loaded').length, '#A855F7'],
+        ['Departed', filteredWH.filter(c=>c.action==='departed').length, '#F97316'],
         ['Pending Depart', Object.values(driverMap).filter(d=>d.arrived&&!d.departed).length, '#EF4444'],
       ].map(([l,v,color])=>`
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
@@ -3009,14 +3035,16 @@ function renderWHActivity() {
 
     <!-- Driver status grid -->
     ${Object.keys(driverMap).length > 0 ? `
-    <div class="section-title">Today's Driver Status <div style="flex:1;height:1px;background:var(--border)"></div></div>
+    <div class="section-title">Driver Status <div style="flex:1;height:1px;background:var(--border)"></div></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px">
       ${Object.values(driverMap).map(d => {
-        const done = d.departed, loaded = d.loaded, arrived = d.arrived;
-        const color = done?'#22C55E':loaded?'#A855F7':arrived?'#3B82F6':'#64748B';
-        const label = done?'✅ Departed':loaded?'📦 Loaded':arrived?'🏭 At WH':'⏳ Not arrived';
+        const done=d.departed, loaded=d.loaded, arrived=d.arrived;
+        const color=done?'#22C55E':loaded?'#A855F7':arrived?'#3B82F6':'#64748B';
+        const label=done?'✅ Departed':loaded?'📦 Loaded':arrived?'🏭 At WH':'⏳ Not arrived';
+        const tripDriver = d.tripId ? getTripDriver(d.tripId) : d.driver;
         return `<div style="background:var(--bg2);border:1px solid ${color}40;border-radius:10px;padding:12px;border-left:3px solid ${color}">
-          <div style="font-size:12px;font-weight:700;margin-bottom:5px">👤 ${d.driver}</div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:3px">👤 ${tripDriver||d.driver}</div>
+          <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:5px">${d.tripId?d.tripId.slice(-8):'—'}</div>
           <div style="font-size:11px;font-weight:600;color:${color};margin-bottom:4px">${label}</div>
           <div style="font-size:9px;color:var(--muted)">
             ${arrived?`🏭 ${arrived}`:''}${arrived&&loaded?' · ':''}${loaded?`📦 ${loaded}`:''}${loaded&&done?' · ':''}${done?`🚛 ${done}`:''}
@@ -3025,30 +3053,32 @@ function renderWHActivity() {
       }).join('')}
     </div>` : `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:24px;text-align:center;margin-bottom:20px;color:var(--muted);font-size:13px">
-      📭 Aaj koi warehouse activity nahi hua abhi tak.
+      📭 Is date range mein koi warehouse activity nahi.
     </div>`}
 
     <!-- Full log -->
-    <div class="section-title">Full Activity Log <div style="flex:1;height:1px;background:var(--border)"></div></div>
+    <div class="section-title">Full Activity Log <span style="font-size:10px;color:var(--muted);margin-left:8px">${filteredWH.length} records</span> <div style="flex:1;height:1px;background:var(--border)"></div></div>
     <div class="twrap">
       <div style="overflow-x:auto"><table>
-        <thead><tr>${['Time','Date','Driver','Action','Trip ID',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['Time','Date','Driver','Action','Trip ID','Trip Driver',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
-        ${whCheckins.length ? whCheckins.slice(0,50).map(c => {
+        ${filteredWH.length ? filteredWH.map(c => {
           const color = actionColor[c.action]||'#64748B';
           const isToday = c.date===today;
+          const tripDriver = c.tripId ? getTripDriver(c.tripId) : '';
           return `<tr style="${isToday?'background:#3B82F608':''}">
             <td style="font-family:'DM Mono',monospace;color:${color};font-weight:600">${c.time||'—'}</td>
-            <td style="color:${isToday?'var(--green)':'var(--muted)'}">${isToday?'Today':c.date}</td>
-            <td>${c.driver||'—'}</td>
+            <td style="color:${isToday?'var(--green)':'var(--text)'};font-weight:${isToday?'600':'400'}">${isToday?'Today ✓':c.date}</td>
+            <td style="font-weight:600">${tripDriver||c.driver||'—'}</td>
             <td><span style="background:${color}20;color:${color};border:1px solid ${color}40;border-radius:20px;font-size:9px;font-weight:700;padding:2px 8px">${actionIcon[c.action]||''} ${actionLabel[c.action]||c.action}</span></td>
-            <td style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">${(c.tripId||'').slice(0,8)}…</td>
+            <td style="font-family:'DM Mono',monospace;font-size:10px;color:var(--orange)">${c.tripId||'—'}</td>
+            <td style="font-size:10px;color:var(--muted)">${tripDriver}</td>
             <td>${canEdit()?`
-              <button class="delbtn" onclick="openEditCk('wh_checkins/${c._id}','wh','${actionLabel[c.action]||c.action}','${c.time||''}','${c.driver||''}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button>
+              <button class="delbtn" onclick="openEditCk('wh_checkins/${c._id}','wh','${actionLabel[c.action]||c.action}','${c.time||''}','${tripDriver||c.driver||''}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button>
               <button class="delbtn" onclick="deleteCheckin('wh_checkins/${c._id}')">✕</button>
             `:''}</td>
           </tr>`;
-        }).join('') : `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted)">Koi activity nahi</td></tr>`}
+        }).join('') : `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">Koi activity nahi is date range mein</td></tr>`}
         </tbody>
       </table></div>
     </div>
