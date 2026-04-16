@@ -2746,7 +2746,22 @@ function renderMain(){
   else if(currentTab==='live'){
     const today = new Date().toISOString().split('T')[0];
     const todayCheckins = liveCheckins.filter(c => c.date === today);
-    const allCheckins = liveCheckins;
+
+    // Apply date filter to full log
+    const allCheckins = (() => {
+      switch(dateFilterMode) {
+        case 'today':     return liveCheckins.filter(c => c.date === today);
+        case 'yesterday': return liveCheckins.filter(c => c.date === getYesterday());
+        case 'week':      return liveCheckins.filter(c => c.date >= getWeekStart() && c.date <= today);
+        case 'month':     return liveCheckins.filter(c => c.date >= getMonthStart() && c.date <= today);
+        case 'all':       return liveCheckins;
+        case 'custom': {
+          const from = dateFilterFrom||'2000-01-01', to = dateFilterTo||today;
+          return liveCheckins.filter(c => c.date >= from && c.date <= to);
+        }
+        default: return liveCheckins.filter(c => c.date === today);
+      }
+    })();
 
     const actionColor = { arrived:'#3B82F6', departed:'#F97316', completed:'#22C55E' };
     const actionIcon  = { arrived:'📍', departed:'🚛', completed:'✅' };
@@ -2799,8 +2814,9 @@ function renderMain(){
         </div>
       </div>
 
-      <!-- KPIs -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+      ${dateFilterBar()}
+
+      <!-- KPIs — always today's -->
         ${[
           ['Total Scans', todayCheckins.length, '#3B82F6'],
           ['Arrived', todayCheckins.filter(c=>c.action==='arrived').length, '#3B82F6'],
@@ -2860,7 +2876,7 @@ function renderMain(){
       </div>` : ''}
 
       <!-- Live feed table -->
-      <div class="section-title">Full Check-in Log <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div class="section-title">Full Check-in Log <span style="font-size:10px;color:var(--muted);margin-left:8px">${allCheckins.length} records</span> <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div class="twrap">
         <div style="overflow-x:auto"><table>
           <thead><tr>${['Time','Date','Driver','Store','Action','Photo','Trip ID',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
