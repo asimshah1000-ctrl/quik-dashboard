@@ -502,6 +502,50 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
   </div>
 </div>
 
+<!-- TRIP EDITOR MODAL -->
+<div id="tripeditorov" class="modal-ov">
+  <div class="modal-box" style="width:560px;max-width:95vw;max-height:88vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">✏️ Edit Trip Stores</div>
+      <button onclick="closeTripEditor()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
+    </div>
+    <div id="te-trip-info" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px"></div>
+
+    <!-- Current stores -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px">Current Stores — click × to remove</div>
+      <div id="te-current-stores" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px"></div>
+    </div>
+
+    <!-- Transfer section -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px">Transfer store to another trip</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="te-transfer-store" class="fselect" style="font-size:11px;padding:6px 8px;flex:1">
+          <option value="">Select store to transfer…</option>
+        </select>
+        <span style="color:var(--muted);font-size:11px">→</span>
+        <select id="te-transfer-trip" class="fselect" style="font-size:11px;padding:6px 8px;flex:1">
+          <option value="">Select destination trip…</option>
+        </select>
+        <button onclick="transferStore()" class="btn-s" style="font-size:11px;white-space:nowrap">Transfer →</button>
+      </div>
+    </div>
+
+    <!-- Add new stores -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px">Add stores to this trip</div>
+      <input type="text" id="te-search" class="finput" placeholder="Search store…" style="font-size:12px;padding:8px 10px;margin-bottom:8px" oninput="teRenderSearch()">
+      <div id="te-search-results" style="display:flex;flex-wrap:wrap;gap:5px;max-height:140px;overflow-y:auto"></div>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeTripEditor()" class="btn-s" style="font-size:12px">Close</button>
+      <button onclick="saveTripEditor()" class="btn-p" style="font-size:12px">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <header>
@@ -1530,6 +1574,130 @@ function openDelModal(id){
   document.getElementById('delov').classList.add('show');
 }
 function closeDelModal(){pendingDeleteId=null;document.getElementById('delov').classList.remove('show');}
+// ── TRIP EDITOR ───────────────────────────────────────────────
+let teTrip = null;      // current trip being edited
+let teStores = [];      // current stores list (mutable copy)
+
+function openTripEditor(tripId) {
+  if (!canEdit()) { showToast('Access nahi hai','#EF4444'); return; }
+  teTrip = trips.find(t => t._id === tripId);
+  if (!teTrip) return;
+  teStores = [...(teTrip.storeNames||[])];
+  teRender();
+  document.getElementById('tripeditorov').classList.add('show');
+}
+
+function closeTripEditor() {
+  document.getElementById('tripeditorov').classList.remove('show');
+  teTrip = null; teStores = [];
+}
+
+function teRender() {
+  // Trip info
+  document.getElementById('te-trip-info').innerHTML =
+    `<span style="font-weight:700">${teTrip.driver}</span> &nbsp;·&nbsp; ${teTrip.trip2?'Trip 2':'Trip 1'} &nbsp;·&nbsp; ${teTrip.date} &nbsp;·&nbsp;
+     <span style="color:var(--orange)">${teStores.length} stores</span>`;
+
+  // Current stores chips
+  document.getElementById('te-current-stores').innerHTML = teStores.length
+    ? teStores.map(s=>`
+        <span style="background:#1E293B;border:1px solid #3B82F640;border-radius:6px;padding:5px 8px;font-size:11px;font-family:'DM Mono',monospace;color:#F1F5F9;display:inline-flex;align-items:center;gap:5px">
+          ${s.replace('QUIK_','')}
+          <span onclick="teRemoveStore('${s}')" style="cursor:pointer;color:#EF4444;font-size:13px;line-height:1;font-weight:700" title="Remove">×</span>
+        </span>`).join('')
+    : '<span style="color:var(--muted);font-size:11px">No stores — add some below</span>';
+
+  // Transfer dropdowns
+  const tsSel = document.getElementById('te-transfer-store');
+  tsSel.innerHTML = '<option value="">Select store to transfer…</option>' +
+    teStores.map(s=>`<option value="${s}">${s.replace('QUIK_','')}</option>`).join('');
+
+  const ttSel = document.getElementById('te-transfer-trip');
+  const otherTrips = trips.filter(t => t._id !== teTrip._id && t.date === teTrip.date);
+  ttSel.innerHTML = '<option value="">Select destination trip…</option>' +
+    otherTrips.map(t=>`<option value="${t._id}">${t.driver} ${t.trip2?'(2nd)':'(1st)'} — ${(t.storeNames||[]).map(s=>s.replace('QUIK_','')).join(', ')}</option>`).join('');
+
+  // Search results
+  teRenderSearch();
+}
+
+function teRenderSearch() {
+  const q = (document.getElementById('te-search')?.value||'').toLowerCase();
+  const activeStores = STORE_NAMES.filter(s => {
+    const sc = storesDB[s]; return sc ? sc.active !== false : true;
+  });
+  const results = activeStores
+    .filter(s => !teStores.includes(s) && s.toLowerCase().includes(q))
+    .slice(0, 30);
+
+  document.getElementById('te-search-results').innerHTML = results.length
+    ? results.map(s=>`
+        <span onclick="teAddStore('${s}')" style="background:#16A34A15;border:1px solid #16A34A40;border-radius:6px;padding:4px 8px;font-size:11px;font-family:'DM Mono',monospace;color:#4ADE80;cursor:pointer;display:inline-flex;align-items:center;gap:4px">
+          + ${s.replace('QUIK_','')}
+        </span>`).join('')
+    : '<span style="color:var(--muted);font-size:11px">Sab stores already added hain</span>';
+}
+
+function teAddStore(store) {
+  if (!teStores.includes(store)) { teStores.push(store); teRender(); }
+}
+
+function teRemoveStore(store) {
+  teStores = teStores.filter(s => s !== store);
+  teRender();
+}
+
+async function saveTripEditor() {
+  if (!teTrip) return;
+  // Preserve existing storeTimes for kept stores, add empty for new ones
+  const existingTimes = teTrip.storeTimes || {};
+  const newStoreTimes = {};
+  teStores.forEach(s => { newStoreTimes[s] = existingTimes[s] || { arr:'', dep:'', completed:null }; });
+
+  await db.ref('trips/'+teTrip._id).update({
+    storeNames: teStores,
+    storeTimes: newStoreTimes,
+  });
+  recordMeta();
+  closeTripEditor();
+  showToast(`✅ Trip updated — ${teStores.length} stores`);
+}
+
+async function transferStore() {
+  const store   = document.getElementById('te-transfer-store').value;
+  const destId  = document.getElementById('te-transfer-trip').value;
+  if (!store || !destId) { showToast('Store aur destination select karo','#F97316'); return; }
+
+  const destTrip = trips.find(t => t._id === destId);
+  if (!destTrip) return;
+
+  // Remove from current trip
+  teStores = teStores.filter(s => s !== store);
+
+  // Add to destination trip
+  const destStores = [...(destTrip.storeNames||[]), store];
+  const destTimes  = { ...(destTrip.storeTimes||{}), [store]: { arr:'', dep:'', completed:null } };
+
+  await db.ref('trips/'+destId).update({ storeNames: destStores, storeTimes: destTimes });
+  showToast(`✅ ${store.replace('QUIK_','')} → ${destTrip.driver} trip mein transfer`);
+  teRender();
+}
+
+async function removeStoreFromTrip(tripId, store) {
+  if (!canEdit()) return;
+  if (!confirm(`Remove ${store.replace('QUIK_','')} from this trip?`)) return;
+  const trip = trips.find(t => t._id === tripId);
+  if (!trip) return;
+  const newStores = (trip.storeNames||[]).filter(s => s !== store);
+  const newTimes  = { ...(trip.storeTimes||{}) };
+  delete newTimes[store];
+  await db.ref('trips/'+tripId).update({ storeNames: newStores, storeTimes: newTimes });
+  recordMeta();
+  showToast(`🗑️ ${store.replace('QUIK_','')} removed`,'#F97316');
+}
+
+document.getElementById('tripeditorov').addEventListener('click',function(e){if(e.target===this)closeTripEditor();});
+
 function editOrderDate(tripId, current) {
   const d = prompt('Order Date (YYYY-MM-DD):', current || new Date().toISOString().split('T')[0]);
   if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
@@ -2535,7 +2703,17 @@ function renderMain(){
             <td>${iec('driver',t.driver,'select',Object.values(driversDB).filter(d=>d.active!==false).map(d=>d.name))}${tripBadge(t.trip2)}</td>
             <td style="text-align:center">${t.trip2?'Trip 2':'Trip 1'}</td>
             <td style="text-align:center">${(t.storeNames||[]).length}</td>
-            <td style="max-width:120px;white-space:normal;font-size:9px;color:var(--muted)">${sn}</td>
+            <td style="max-width:140px;white-space:normal">
+              ${canEdit() ? `
+              <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center">
+                ${(t.storeNames||[]).map(s=>`
+                  <span style="background:#1E293B;border:1px solid #3B82F640;border-radius:4px;padding:2px 5px;font-size:8px;font-family:'DM Mono',monospace;color:#94A3B8;display:inline-flex;align-items:center;gap:3px">
+                    ${s.replace('QUIK_','')}
+                    <span onclick="removeStoreFromTrip('${t._id}','${s}')" style="cursor:pointer;color:#EF4444;font-size:10px;line-height:1" title="Remove">×</span>
+                  </span>`).join('')}
+                <span onclick="openTripEditor('${t._id}')" style="background:#3B82F620;border:1px dashed #3B82F660;border-radius:4px;padding:2px 6px;font-size:8px;color:#60A5FA;cursor:pointer;font-weight:700">+ Add</span>
+              </div>` : `<span style="font-size:9px;color:var(--muted)">${sn}</span>`}
+            </td>
             <td>${iec('qty',t.qty||0,'number')}</td>
             <td>${iec('pallets',t.pallets||0,'number')}/<span style="color:var(--muted)">${iec('capacity',t.capacity||14,'number')}</span></td>
             <td style="text-align:center;color:var(--purple)">${iec('totes',t.totes||0,'number')}</td>
