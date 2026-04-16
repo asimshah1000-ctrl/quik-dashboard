@@ -1953,7 +1953,8 @@ function getStoreTimes(n){
   const obj={};
   selectedStores[n].forEach(s=>{
     const a=document.getElementById('sta-'+n+'-'+s),dp=document.getElementById('std-'+n+'-'+s);
-    obj[s]={arr:a?a.value:'',dep:dp?dp.value:''};
+    // ✅ Fresh storeTimes — no completed flag, no old data bleeding in
+    obj[s]={ arr:a?a.value:'', dep:dp?dp.value:'', completed:null };
   });
   return obj;
 }
