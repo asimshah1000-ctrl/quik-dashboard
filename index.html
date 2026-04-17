@@ -454,7 +454,7 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
       <button onclick="closeEditStore()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-      <div style="grid-column:1/-1"><label class="flabel">Store Name</label><input class="finput" id="es-name" type="text" readonly style="font-size:12px;padding:8px 10px;opacity:.6"></div>
+      <div style="grid-column:1/-1"><label class="flabel">Store Name (e.g. QUIK_DUBAI_HILLS)</label><input class="finput" id="es-name" type="text" style="font-size:12px;padding:8px 10px"></div>
       <div><label class="flabel">Latitude</label><input class="finput" id="es-lat" type="number" step="0.00001" style="font-size:12px;padding:8px 10px"></div>
       <div><label class="flabel">Longitude</label><input class="finput" id="es-lng" type="number" step="0.00001" style="font-size:12px;padding:8px 10px"></div>
       <div style="grid-column:1/-1"><label class="flabel">GPS Check-in Radius (meters) — 10m normal, 200m basement/mall</label>
@@ -1475,10 +1475,12 @@ function bcard(title,badge,data,color){
 let spHighlight={1:-1,2:-1};
 function spRender(n){
   const q=(document.getElementById('spinp-'+n)||{}).value||'';
-  // Only show active stores
-  const activeStores = STORE_NAMES.filter(s => {
-    const sc = storesDB[s]; return sc ? sc.active !== false : true;
-  });
+  // Merge hardcoded STORE_NAMES with Firebase storesDB (includes newly added stores)
+  const allStoreKeys = new Set([...STORE_NAMES, ...Object.keys(storesDB)]);
+  const activeStores = [...allStoreKeys].filter(s => {
+    const sc = storesDB[s];
+    return sc ? sc.active !== false : true; // if not in Firebase yet, show by default
+  }).sort();
   const vis=activeStores.filter(s=>s.toLowerCase().includes(q.toLowerCase()));
   const dd=document.getElementById('spdrop-'+n);
   if(!dd)return;
@@ -4216,6 +4218,7 @@ function renderStoresTab() {
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">🏪 Stores & Locations</div>
         <div style="font-size:11px;color:var(--muted);margin-top:3px">${active} active · ${stores.length - active} inactive</div>
       </div>
+      ${canEdit()?`<button onclick="openAddStore()" class="btn-p" style="font-size:12px">+ Add New Store</button>`:''}
     </div>
 
     <div class="twrap">
@@ -4257,37 +4260,63 @@ function renderStoresTab() {
   </div>`;
 }
 
-let editStoreKey = null;
+function openAddStore() {
+  if (!canEdit()) { showToast('Access nahi hai','#EF4444'); return; }
+  editStoreKey = null;
+  document.getElementById('es-name').removeAttribute('readonly');
+  document.getElementById('es-name').style.opacity = '1';
+  document.getElementById('es-name').value   = 'QUIK_';
+  document.getElementById('es-lat').value    = '';
+  document.getElementById('es-lng').value    = '';
+  document.getElementById('es-radius').value = 100;
+  document.getElementById('editstoreov').querySelector('.modal-box > div:first-child > div').textContent = '🏪 Add New Store';
+  document.getElementById('editstoreov').classList.add('show');
+}
+
 function openEditStore(key) {
   editStoreKey = key;
   const s = storesDB[key] || {};
-  document.getElementById('es-name').value   = key;
+  const nameEl = document.getElementById('es-name');
+  nameEl.value   = key;
+  nameEl.setAttribute('readonly','true');
+  nameEl.style.opacity = '0.6';
   document.getElementById('es-lat').value    = s.lat||'';
   document.getElementById('es-lng').value    = s.lng||'';
-  document.getElementById('es-radius').value = s.radius||10;
+  document.getElementById('es-radius').value = s.radius||100;
+  document.getElementById('editstoreov').querySelector('.modal-box > div:first-child > div').textContent = '🏪 Edit Store';
   document.getElementById('editstoreov').classList.add('show');
 }
 function closeEditStore() { document.getElementById('editstoreov').classList.remove('show'); }
 
 async function saveEditStore() {
-  if (!editStoreKey) return;
+  const nameEl = document.getElementById('es-name');
+  const key = editStoreKey || nameEl.value.trim().toUpperCase().replace(/\s+/g,'_');
+
+  if (!key || key === 'QUIK_') { showToast('Store naam daalo (e.g. QUIK_DUBAI_HILLS)','#EF4444'); return; }
+
+  const lat = +document.getElementById('es-lat').value;
+  const lng = +document.getElementById('es-lng').value;
+
+  if (!lat || !lng) { showToast('Latitude aur Longitude daalo','#EF4444'); return; }
+
   const updates = {
-    lat:    +document.getElementById('es-lat').value,
-    lng:    +document.getElementById('es-lng').value,
-    radius: +document.getElementById('es-radius').value||10,
-    name:   editStoreKey,
-    active: storesDB[editStoreKey]?.active ?? true,
+    lat,
+    lng,
+    radius: +document.getElementById('es-radius').value||100,
+    name:   key,
+    active: storesDB[key]?.active ?? true,
   };
-  await db.ref('stores_config/'+editStoreKey).update(updates);
-  // Update STORE_COORDS live
-  if (STORE_COORDS[editStoreKey]) {
-    STORE_COORDS[editStoreKey].lat    = updates.lat;
-    STORE_COORDS[editStoreKey].lng    = updates.lng;
-    STORE_COORDS[editStoreKey].radius = updates.radius;
-  }
+  await db.ref('stores_config/'+key).set(updates);
+
+  // Update STORE_COORDS live for GPS + routing
+  if (!STORE_COORDS[key]) STORE_COORDS[key] = {};
+  STORE_COORDS[key].lat    = lat;
+  STORE_COORDS[key].lng    = lng;
+  STORE_COORDS[key].radius = updates.radius;
+
   recordMeta();
   closeEditStore();
-  showToast('✅ Store updated!');
+  showToast(editStoreKey ? '✅ Store updated!' : `✅ ${key} added!`);
 }
 
 async function toggleStore(key) {
