@@ -26,8 +26,16 @@ header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24p
 .hmeta{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
 .ldot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.6s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
-nav{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;overflow-x:auto}
-.tab{padding:12px 15px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;letter-spacing:.4px;text-transform:uppercase}
+nav{display:flex;background:var(--bg2);padding:0 8px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;scroll-behavior:smooth;flex:1}
+nav::-webkit-scrollbar{display:none}
+.nav-wrap{position:relative;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:stretch}
+.nav-arrow{background:transparent;border:none;color:var(--muted);font-size:20px;padding:0 10px;cursor:pointer;transition:all .2s;flex-shrink:0;display:flex;align-items:center;line-height:1}
+.nav-arrow:hover{color:var(--text);background:var(--bg3)}
+.nav-arrow-left{border-right:1px solid var(--border)}
+.nav-arrow-right{border-left:1px solid var(--border)}
+.tab{padding:12px 15px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;letter-spacing:.4px;text-transform:uppercase;position:relative}
+.tab:hover{color:var(--text);background:var(--bg3)}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue);background:linear-gradient(180deg,transparent,rgba(59,130,246,0.06))}
 .tab:hover{color:var(--text)}.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
 main{padding:20px 24px;max-width:1500px;margin:0 auto}
 .panel{display:none}.panel.active{display:block}
@@ -502,6 +510,63 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
   </div>
 </div>
 
+<!-- THEME CUSTOMIZER -->
+<div id="themeov" class="modal-ov">
+  <div class="modal-box" style="width:420px;max-width:95vw">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">🎨 Theme</div>
+      <button onclick="closeTheme()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
+    </div>
+
+    <!-- Preset themes -->
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:10px">Preset Themes</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px">
+      ${[
+        ['Dark Blue','#0B1120','#111827','#3B82F6','#F97316'],
+        ['Deep Dark','#050810','#0D1117','#6366F1','#EC4899'],
+        ['Forest','#071510','#0D1F18','#10B981','#F59E0B'],
+        ['Midnight','#090915','#0F0F23','#8B5CF6','#F97316'],
+        ['Slate','#0F172A','#1E293B','#38BDF8','#FB923C'],
+        ['Carbon','#111111','#1A1A1A','#3B82F6','#22C55E'],
+      ].map(([name,bg,bg2,accent,orange])=>`
+        <div onclick="applyPreset('${bg}','${bg2}','${accent}','${orange}')"
+          style="border-radius:8px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:border .2s"
+          onmouseover="this.style.borderColor='${accent}'" onmouseout="this.style.borderColor='transparent'">
+          <div style="background:${bg};padding:8px;display:flex;gap:4px;align-items:center">
+            <div style="background:${bg2};border-radius:4px;flex:1;height:24px;display:flex;align-items:center;padding:0 6px;gap:4px">
+              <div style="width:6px;height:6px;border-radius:50%;background:${accent}"></div>
+              <div style="width:6px;height:6px;border-radius:50%;background:${orange}"></div>
+            </div>
+          </div>
+          <div style="background:${bg2};padding:4px 8px;font-size:9px;font-weight:600;color:#94A3B8">${name}</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- Custom colors -->
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:10px">Custom Colors</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      ${[
+        ['Background','--bg','bg-pick'],
+        ['Card/Surface','--bg2','bg2-pick'],
+        ['Accent (Blue)','--blue','blue-pick'],
+        ['Highlight (Orange)','--orange','orange-pick'],
+        ['Success (Green)','--green','green-pick'],
+        ['Border','--border','border-pick'],
+      ].map(([label,varName,id])=>`
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="color" id="${id}" style="width:32px;height:32px;border-radius:6px;border:none;cursor:pointer;background:none"
+            onchange="applyColor('${varName}',this.value)">
+          <span style="font-size:11px;color:var(--text)">${label}</span>
+        </div>`).join('')}
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="resetTheme()" class="btn-s" style="font-size:12px">↺ Reset</button>
+      <button onclick="closeTheme()" class="btn-p" style="font-size:12px">Done ✓</button>
+    </div>
+  </div>
+</div>
+
 <!-- TRIP EDITOR MODAL -->
 <div id="tripeditorov" class="modal-ov">
   <div class="modal-box" style="width:560px;max-width:95vw;max-height:88vh;overflow-y:auto">
@@ -559,12 +624,17 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
     <span id="uname-hdr" style="color:var(--orange)"></span>
     <span id="role-hdr"></span>
     <button id="um-btn" onclick="openUM()" style="display:none;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:10px;font-weight:600;cursor:pointer;margin-left:6px">👥 Users</button>
+    <button onclick="openTheme()" style="padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:10px;cursor:pointer;margin-left:4px" title="Change theme">🎨</button>
     <button onclick="openPinModal(null)" style="padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:10px;cursor:pointer;margin-left:4px">🔑 PIN</button>
     <button onclick="doLogout()" style="padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:10px;cursor:pointer;margin-left:4px">Logout</button>
   </div>
 </header>
 
-<nav id="nav"></nav>
+<div class="nav-wrap" id="nav-wrap">
+  <button class="nav-arrow nav-arrow-left" id="nav-left" onclick="navScroll(-1)">‹</button>
+  <nav id="nav"></nav>
+  <button class="nav-arrow nav-arrow-right" id="nav-right" onclick="navScroll(1)">›</button>
+</div>
 <main id="main"></main>
 
 <script>
@@ -1343,10 +1413,38 @@ function getNavTabs() {
 
 function renderNav(){
   const tabs = getNavTabs();
-  document.getElementById('nav').innerHTML = tabs.map(([id,label])=>
+  const nav = document.getElementById('nav');
+  nav.innerHTML = tabs.map(([id,label])=>
     `<div class="tab ${currentTab===id?'active':''}" onclick="switchTab('${id}')">${label}</div>`
   ).join('');
+  // Scroll active tab into view
+  setTimeout(()=>{
+    const active = nav.querySelector('.tab.active');
+    if (active) active.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'center' });
+    updateNavArrows();
+  }, 50);
 }
+
+function navScroll(dir) {
+  const nav = document.getElementById('nav');
+  if (nav) nav.scrollBy({ left: dir * 200, behavior:'smooth' });
+  setTimeout(updateNavArrows, 250);
+}
+
+function updateNavArrows() {
+  const nav = document.getElementById('nav');
+  if (!nav) return;
+  const l = document.getElementById('nav-left');
+  const r = document.getElementById('nav-right');
+  if (l) l.style.opacity = nav.scrollLeft > 10 ? '1' : '0.25';
+  if (r) r.style.opacity = (nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 10) ? '1' : '0.25';
+}
+
+// Init nav arrows on load
+document.addEventListener('DOMContentLoaded', () => {
+  const nav = document.getElementById('nav');
+  if (nav) nav.addEventListener('scroll', updateNavArrows);
+});
 
 function switchTab(t){
   // Permission check
@@ -1574,7 +1672,87 @@ function openDelModal(id){
   document.getElementById('delov').classList.add('show');
 }
 function closeDelModal(){pendingDeleteId=null;document.getElementById('delov').classList.remove('show');}
-// ── TRIP EDITOR ───────────────────────────────────────────────
+// ── THEME CUSTOMIZER ─────────────────────────────────────────
+const DEFAULT_THEME = {
+  '--bg':'#0B1120','--bg2':'#111827','--bg3':'#1E293B','--border':'#1E2D45',
+  '--blue':'#3B82F6','--blue-dim':'#1D4ED8','--orange':'#F97316',
+  '--green':'#22C55E','--red':'#EF4444','--purple':'#A855F7',
+  '--text':'#F1F5F9','--muted':'#64748B'
+};
+
+function openTheme() {
+  // Set color pickers to current values
+  const r = document.documentElement;
+  const getV = v => getComputedStyle(r).getPropertyValue(v).trim();
+  const map = [
+    ['--bg','bg-pick'],['--bg2','bg2-pick'],['--blue','blue-pick'],
+    ['--orange','orange-pick'],['--green','green-pick'],['--border','border-pick']
+  ];
+  map.forEach(([v,id]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = getV(v);
+  });
+  document.getElementById('themeov').classList.add('show');
+}
+function closeTheme() { document.getElementById('themeov').classList.remove('show'); }
+
+function applyColor(varName, value) {
+  document.documentElement.style.setProperty(varName, value);
+  // Derive related colors
+  if (varName === '--blue') document.documentElement.style.setProperty('--blue-dim', value);
+  if (varName === '--bg') {
+    // auto-darken bg3 slightly
+    document.documentElement.style.setProperty('--bg3', value);
+  }
+  saveTheme();
+}
+
+function applyPreset(bg, bg2, accent, orange) {
+  const vars = {
+    '--bg': bg, '--bg2': bg2, '--bg3': bg2,
+    '--border': bg2+'dd',
+    '--blue': accent, '--blue-dim': accent,
+    '--orange': orange,
+  };
+  Object.entries(vars).forEach(([k,v]) => document.documentElement.style.setProperty(k,v));
+  // Update pickers
+  const map = [['--bg','bg-pick'],['--bg2','bg2-pick'],['--blue','blue-pick'],['--orange','orange-pick']];
+  map.forEach(([v,id]) => { const el=document.getElementById(id); if(el) el.value=accent||bg; });
+  document.getElementById('bg-pick') && (document.getElementById('bg-pick').value=bg);
+  document.getElementById('bg2-pick') && (document.getElementById('bg2-pick').value=bg2);
+  document.getElementById('blue-pick') && (document.getElementById('blue-pick').value=accent);
+  document.getElementById('orange-pick') && (document.getElementById('orange-pick').value=orange);
+  saveTheme();
+}
+
+function saveTheme() {
+  const r = document.documentElement;
+  const theme = {};
+  Object.keys(DEFAULT_THEME).forEach(k => {
+    theme[k] = getComputedStyle(r).getPropertyValue(k).trim();
+  });
+  localStorage.setItem('quik_theme', JSON.stringify(theme));
+}
+
+function loadTheme() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('quik_theme')||'{}');
+    Object.entries(saved).forEach(([k,v]) => {
+      if(v) document.documentElement.style.setProperty(k,v);
+    });
+  } catch(e) {}
+}
+
+function resetTheme() {
+  Object.entries(DEFAULT_THEME).forEach(([k,v]) => document.documentElement.style.setProperty(k,v));
+  localStorage.removeItem('quik_theme');
+  openTheme(); // refresh pickers
+  showToast('↺ Theme reset!');
+}
+
+document.getElementById('themeov').addEventListener('click',function(e){if(e.target===this)closeTheme();});
+// Load saved theme on startup
+loadTheme();
 let teTrip = null;      // current trip being edited
 let teStores = [];      // current stores list (mutable copy)
 
