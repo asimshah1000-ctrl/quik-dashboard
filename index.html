@@ -518,46 +518,17 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
       <button onclick="closeTheme()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
     </div>
 
-    <!-- Preset themes -->
     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:10px">Preset Themes</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px">
-      ${[
-        ['Dark Blue','#0B1120','#111827','#3B82F6','#F97316'],
-        ['Deep Dark','#050810','#0D1117','#6366F1','#EC4899'],
-        ['Forest','#071510','#0D1F18','#10B981','#F59E0B'],
-        ['Midnight','#090915','#0F0F23','#8B5CF6','#F97316'],
-        ['Slate','#0F172A','#1E293B','#38BDF8','#FB923C'],
-        ['Carbon','#111111','#1A1A1A','#3B82F6','#22C55E'],
-      ].map(([name,bg,bg2,accent,orange])=>`
-        <div onclick="applyPreset('${bg}','${bg2}','${accent}','${orange}')"
-          style="border-radius:8px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:border .2s"
-          onmouseover="this.style.borderColor='${accent}'" onmouseout="this.style.borderColor='transparent'">
-          <div style="background:${bg};padding:8px;display:flex;gap:4px;align-items:center">
-            <div style="background:${bg2};border-radius:4px;flex:1;height:24px;display:flex;align-items:center;padding:0 6px;gap:4px">
-              <div style="width:6px;height:6px;border-radius:50%;background:${accent}"></div>
-              <div style="width:6px;height:6px;border-radius:50%;background:${orange}"></div>
-            </div>
-          </div>
-          <div style="background:${bg2};padding:4px 8px;font-size:9px;font-weight:600;color:#94A3B8">${name}</div>
-        </div>`).join('')}
-    </div>
+    <div id="theme-presets" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px"></div>
 
-    <!-- Custom colors -->
     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:10px">Custom Colors</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-      ${[
-        ['Background','--bg','bg-pick'],
-        ['Card/Surface','--bg2','bg2-pick'],
-        ['Accent (Blue)','--blue','blue-pick'],
-        ['Highlight (Orange)','--orange','orange-pick'],
-        ['Success (Green)','--green','green-pick'],
-        ['Border','--border','border-pick'],
-      ].map(([label,varName,id])=>`
-        <div style="display:flex;align-items:center;gap:8px">
-          <input type="color" id="${id}" style="width:32px;height:32px;border-radius:6px;border:none;cursor:pointer;background:none"
-            onchange="applyColor('${varName}',this.value)">
-          <span style="font-size:11px;color:var(--text)">${label}</span>
-        </div>`).join('')}
+      <div style="display:flex;align-items:center;gap:8px"><input type="color" id="bg-pick" style="width:32px;height:32px;border-radius:6px;border:1px solid var(--border);cursor:pointer" onchange="applyColor('--bg',this.value)"><span style="font-size:11px;color:var(--text)">Background</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><input type="color" id="bg2-pick" style="width:32px;height:32px;border-radius:6px;border:1px solid var(--border);cursor:pointer" onchange="applyColor('--bg2',this.value)"><span style="font-size:11px;color:var(--text)">Card / Surface</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><input type="color" id="blue-pick" style="width:32px;height:32px;border-radius:6px;border:1px solid var(--border);cursor:pointer" onchange="applyColor('--blue',this.value)"><span style="font-size:11px;color:var(--text)">Accent (Blue)</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><input type="color" id="orange-pick" style="width:32px;height:32px;border-radius:6px;border:1px solid var(--border);cursor:pointer" onchange="applyColor('--orange',this.value)"><span style="font-size:11px;color:var(--text)">Highlight (Orange)</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><input type="color" id="green-pick" style="width:32px;height:32px;border-radius:6px;border:1px solid var(--border);cursor:pointer" onchange="applyColor('--green',this.value)"><span style="font-size:11px;color:var(--text)">Success (Green)</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><input type="color" id="border-pick" style="width:32px;height:32px;border-radius:6px;border:1px solid var(--border);cursor:pointer" onchange="applyColor('--border',this.value)"><span style="font-size:11px;color:var(--text)">Border</span></div>
     </div>
 
     <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -1672,7 +1643,47 @@ function openDelModal(id){
   document.getElementById('delov').classList.add('show');
 }
 function closeDelModal(){pendingDeleteId=null;document.getElementById('delov').classList.remove('show');}
-// ── THEME CUSTOMIZER ─────────────────────────────────────────
+const THEME_PRESETS = [
+  ['Dark Blue', '#0B1120','#111827','#3B82F6','#F97316'],
+  ['Deep Dark', '#050810','#0D1117','#6366F1','#EC4899'],
+  ['Forest',    '#071510','#0D1F18','#10B981','#F59E0B'],
+  ['Midnight',  '#090915','#0F0F23','#8B5CF6','#F97316'],
+  ['Slate',     '#0F172A','#1E293B','#38BDF8','#FB923C'],
+  ['Carbon',    '#111111','#1A1A1A','#3B82F6','#22C55E'],
+];
+
+function openTheme() {
+  // Build preset tiles
+  const presetsEl = document.getElementById('theme-presets');
+  if (presetsEl && !presetsEl.dataset.built) {
+    presetsEl.innerHTML = THEME_PRESETS.map(([name,bg,bg2,accent,orange])=>`
+      <div onclick="applyPreset('${bg}','${bg2}','${accent}','${orange}')"
+        style="border-radius:8px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:border-color .2s"
+        onmouseover="this.style.borderColor='${accent}'" onmouseout="this.style.borderColor='transparent'">
+        <div style="background:${bg};padding:8px">
+          <div style="background:${bg2};border-radius:4px;height:28px;display:flex;align-items:center;padding:0 8px;gap:5px">
+            <div style="width:8px;height:8px;border-radius:50%;background:${accent}"></div>
+            <div style="width:8px;height:8px;border-radius:50%;background:${orange}"></div>
+            <div style="flex:1;height:3px;background:${accent}40;border-radius:2px"></div>
+          </div>
+        </div>
+        <div style="background:${bg2};padding:5px 8px;font-size:9px;font-weight:700;color:#94A3B8;letter-spacing:.3px">${name}</div>
+      </div>`).join('');
+    presetsEl.dataset.built = '1';
+  }
+
+  // Set color pickers to current values
+  const r = document.documentElement;
+  const getV = v => getComputedStyle(r).getPropertyValue(v).trim();
+  [['--bg','bg-pick'],['--bg2','bg2-pick'],['--blue','blue-pick'],
+   ['--orange','orange-pick'],['--green','green-pick'],['--border','border-pick']]
+  .forEach(([v,id]) => {
+    const el = document.getElementById(id);
+    if (el) { try { el.value = getV(v); } catch(e){} }
+  });
+  document.getElementById('themeov').classList.add('show');
+}
+
 const DEFAULT_THEME = {
   '--bg':'#0B1120','--bg2':'#111827','--bg3':'#1E293B','--border':'#1E2D45',
   '--blue':'#3B82F6','--blue-dim':'#1D4ED8','--orange':'#F97316',
@@ -1680,20 +1691,6 @@ const DEFAULT_THEME = {
   '--text':'#F1F5F9','--muted':'#64748B'
 };
 
-function openTheme() {
-  // Set color pickers to current values
-  const r = document.documentElement;
-  const getV = v => getComputedStyle(r).getPropertyValue(v).trim();
-  const map = [
-    ['--bg','bg-pick'],['--bg2','bg2-pick'],['--blue','blue-pick'],
-    ['--orange','orange-pick'],['--green','green-pick'],['--border','border-pick']
-  ];
-  map.forEach(([v,id]) => {
-    const el = document.getElementById(id);
-    if (el) el.value = getV(v);
-  });
-  document.getElementById('themeov').classList.add('show');
-}
 function closeTheme() { document.getElementById('themeov').classList.remove('show'); }
 
 function applyColor(varName, value) {
