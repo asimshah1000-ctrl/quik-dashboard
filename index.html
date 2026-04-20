@@ -2425,7 +2425,10 @@ function addTrip(){
   db.ref('trips').push(t1);
   if (t2) {
     db.ref('trips').push(t2);
-    showToast(`✅ 2 trips added — ${t1.driver}`);
+    // Echo Trip 2 captured values so user can verify
+    console.log('[addTrip] Trip 1:', t1);
+    console.log('[addTrip] Trip 2:', t2);
+    showToast(`✅ 2 trips added — ${t1.driver} | T2: QTY ${t2.qty}, Pallets ${t2.pallets}, Cost ${t2.cost}`);
   } else {
     showToast('✅ Trip added!');
   }
