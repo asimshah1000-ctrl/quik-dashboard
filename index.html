@@ -2301,6 +2301,9 @@ function updateTrip2Dropdown(driverName) {
   const sel = document.getElementById('f2-tripid');
   if (!sel) return;
   const filtered = TRIP_MASTER.filter(t => t.driver === driverName);
+  // Also get stores from driversDB for display
+  const driverKey = Object.keys(driversDB).find(k => driversDB[k].name === driverName);
+  const dStores = driverKey ? getDriverStores(driverKey) : [];
   sel.innerHTML = `<option value="">Select Trip 2 ID (${driverName} ke routes)…</option>` +
     filtered.map(t=>`<option value="${t.id}">${t.id} — ${t.stores.map(s=>s.replace('QUIK_','')).join(', ')}</option>`).join('') +
     `<option value="">── Ya manually stores select karo ──</option>`;
@@ -2321,7 +2324,26 @@ function driverSelected(n) {
     if (vidEl) vidEl.value = vid;
     if (vtEl)  vtEl.value  = vt==='Own Fleet'?'Own Fleet':vt;
     if (whEl)  whEl.value  = wh;
-    // If Trip 2 exists and is on, also sync
+
+    // ✅ AUTO-FILL STORES from driversDB (if no Trip ID selected and no stores picked yet)
+    const tripIdSel = document.getElementById(n===1?'f-tripid':'f2-tripid');
+    const tripIdPicked = tripIdSel && tripIdSel.value;
+    if (!tripIdPicked && selectedStores[n].length === 0) {
+      // Find driver key in driversDB
+      const driverKey = Object.keys(driversDB).find(k => driversDB[k].name === val);
+      if (driverKey) {
+        const dStores = getDriverStores(driverKey);
+        if (dStores.length) {
+          selectedStores[n] = [...dStores];
+          renderTags(n);
+          renderDispInfo(n);
+          renderStoreTimeInputs(n);
+          showToast(`📍 ${dStores.length} stores auto-filled for ${val}`);
+        }
+      }
+    }
+
+    // If Trip 2 exists and is on, also sync vehicle details
     if (n===1 && dualTrip) {
       const v2 = document.getElementById('f2-vid');
       const vt2 = document.getElementById('f2-vt');
