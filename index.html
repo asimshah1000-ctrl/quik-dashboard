@@ -1480,12 +1480,7 @@ function bcard(title,badge,data,color){
 let spHighlight={1:-1,2:-1};
 function spRender(n){
   const q=(document.getElementById('spinp-'+n)||{}).value||'';
-  // Merge hardcoded STORE_NAMES with Firebase storesDB (includes newly added stores)
-  const allStoreKeys = new Set([...STORE_NAMES, ...Object.keys(storesDB)]);
-  const activeStores = [...allStoreKeys].filter(s => {
-    const sc = storesDB[s];
-    return sc ? sc.active !== false : true; // if not in Firebase yet, show by default
-  }).sort();
+  const activeStores = getActiveStoreNames();
   const vis=activeStores.filter(s=>s.toLowerCase().includes(q.toLowerCase()));
   const dd=document.getElementById('spdrop-'+n);
   if(!dd)return;
@@ -1603,8 +1598,15 @@ function renderStoreTimeInputs(n){
       </div>
     </div>`).join('');
 }
+// Helper: get all active store names (merges hardcoded + Firebase, filters inactive)
+function getActiveStoreNames() {
+  const allKeys = new Set([...STORE_NAMES, ...Object.keys(storesDB)]);
+  return [...allKeys].filter(s => {
+    const sc = storesDB[s]; return sc ? sc.active !== false : true;
+  }).sort();
+}
 function spKey(e,n){
-  const vis=STORE_NAMES.filter(s=>s.toLowerCase().includes((document.getElementById('spinp-'+n)||{}).value||''));
+  const vis=getActiveStoreNames().filter(s=>s.toLowerCase().includes((document.getElementById('spinp-'+n)||{}).value||''));
   if(e.key==='ArrowDown'){e.preventDefault();spHighlight[n]=Math.min(spHighlight[n]+1,vis.length-1);}
   else if(e.key==='ArrowUp'){e.preventDefault();spHighlight[n]=Math.max(spHighlight[n]-1,0);}
   else if(e.key==='Enter'&&spHighlight[n]>=0){e.preventDefault();spToggle(n,vis[spHighlight[n]]);}
@@ -1805,9 +1807,7 @@ function teRender() {
 
 function teRenderSearch() {
   const q = (document.getElementById('te-search')?.value||'').toLowerCase();
-  const activeStores = STORE_NAMES.filter(s => {
-    const sc = storesDB[s]; return sc ? sc.active !== false : true;
-  });
+  const activeStores = getActiveStoreNames();
   const results = activeStores
     .filter(s => !teStores.includes(s) && s.toLowerCase().includes(q))
     .slice(0, 30);
@@ -4077,6 +4077,10 @@ function renderDriversTab() {
   const drivers = Object.entries(driversDB).sort((a,b)=>a[1].name?.localeCompare(b[1].name)||0);
   const active  = drivers.filter(([,d])=>d.active!==false).length;
 
+  // Build lookup: tripId → stores from TRIP_MASTER
+  const tripStoresMap = {};
+  TRIP_MASTER.forEach(t => { tripStoresMap[t.id] = t.stores; });
+
   m.innerHTML = `<div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
       <div>
@@ -4088,14 +4092,29 @@ function renderDriversTab() {
 
     <div class="twrap">
       <div style="overflow-x:auto"><table>
-        <thead><tr>${['Status','Driver','Plate','Model','Efficiency','Type','Warehouse','Trip IDs',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['Status','Driver','Plate','Model','Efficiency','Type','WH','Trip IDs & Stores',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
         ${drivers.map(([key, d]) => {
           const isActive = d.active !== false;
-          const tripIds = (d.tripIds||[]).join(', ') || '—';
+          const tripIds = d.tripIds||[];
           const ied=(field,val,type,opts)=>canEdit()
             ?`<span class="ecell" title="Click to edit" onclick="ie(this,'drivers_config/${key}/${field}','${String(val||'').replace(/'/g,"\\'")}','${type}'${opts?`,[${opts.map(o=>`'${o}'`).join(',')}]`:''})">${val||'<span style=color:var(--muted);font-size:9px>—</span>'}</span>`
             :(val||'—');
+
+          // Build trip cards with stores
+          const tripCards = tripIds.length ? tripIds.map(tid => {
+            const stores = tripStoresMap[tid] || [];
+            return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 8px;margin-bottom:4px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+                <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:var(--blue)">${tid}</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:3px">
+                ${stores.map(s=>`<span style="background:#1E293B;border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:8px;font-family:'DM Mono',monospace;color:#94A3B8">${s.replace('QUIK_','')}</span>`).join('')}
+                ${!stores.length?'<span style="font-size:8px;color:var(--muted)">No stores</span>':''}
+              </div>
+            </div>`;
+          }).join('') : '<span style="font-size:9px;color:var(--muted)">No trips assigned</span>';
+
           return `<tr style="opacity:${isActive?1:0.45}">
             <td>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
@@ -4112,8 +4131,9 @@ function renderDriversTab() {
             <td style="font-family:'DM Mono',monospace">${ied('eff',d.eff,'number')} km/L</td>
             <td>${ied('vt',d.vt||'Own Fleet','select',['Own Fleet','3PL Fleet','Adhoc/Rental'])}</td>
             <td>${ied('wh',d.wh||'Own Warehouse','select',['Own Warehouse','3PL Warehouse'])}</td>
-            <td style="font-size:10px;font-family:'DM Mono',monospace;color:var(--blue);max-width:160px">
-              ${canEdit()?`<span class="ecell" title="Edit Trip IDs" onclick="editDriverTripIds('${key}','${tripIds}')">${tripIds} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:tripIds}
+            <td style="max-width:240px;min-width:180px">
+              ${tripCards}
+              ${canEdit()?`<span onclick="editDriverTripIds('${key}','${tripIds.join(', ')}')" style="font-size:9px;color:var(--blue);cursor:pointer;display:inline-block;margin-top:3px">✏ Edit Trip IDs</span>`:''}
             </td>
             <td>${canEdit()?`<button class="delbtn" onclick="deleteDriver('${key}','${d.name}')">✕</button>`:''}
             </td>
