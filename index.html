@@ -1021,7 +1021,12 @@ function startDBListeners() {
       if (canEdit()) SAMPLE.forEach(t => db.ref('trips').push(t));
     }
     setSyncStatus('live');
-    renderAll();
+    // ✅ Don't re-render Add Trip form while user is filling it — would wipe input fields
+    if (currentTab === 'add') {
+      renderNav(); // just refresh nav, leave form alone
+    } else {
+      renderAll();
+    }
   });
 
   db.ref('schedule').on('value', snap => {
@@ -2390,7 +2395,11 @@ function buildTripObj(prefix,n,t2){
 }
 function addTrip(){
   if(!canEdit()){showToast('Access nahi hai','#EF4444');return;}
-  const t1=buildTripObj('f-',1,false);
+
+  // ✅ CRITICAL: Build BOTH trip objects from DOM FIRST, before any Firebase push.
+  // Reason: Firebase listener fires on first push → renderMain() → form re-renders →
+  // Trip 2 fields cleared → Trip 2 pushes empty data.
+  const t1 = buildTripObj('f-',1,false);
   const whEl = document.getElementById('f-wh');
   const vtEl = document.getElementById('f-vt');
   const whVal = whEl ? whEl.value : t1.wh;
@@ -2398,11 +2407,11 @@ function addTrip(){
   if(!whVal||!vtVal){showToast('Warehouse & Vehicle Type select karo','#EF4444');return;}
   if(!t1.driver){showToast('Driver select karo','#EF4444');return;}
   t1.wh = whVal; t1.vt = vtVal;
-  db.ref('trips').push(t1);
-  if(dualTrip){
-    const t2=buildTripObj('f2-',2,true);
+
+  let t2 = null;
+  if (dualTrip) {
+    t2 = buildTripObj('f2-',2,true);
     const wh2El=document.getElementById('f2-wh'), vt2El=document.getElementById('f2-vt');
-    // Fallback to Trip 1 values if Trip 2 WH/VT not explicitly set
     t2.wh     = (wh2El&&wh2El.value) ? wh2El.value : t1.wh;
     t2.vt     = (vt2El&&vt2El.value) ? vt2El.value : t1.vt;
     t2.driver = t1.driver;
@@ -2410,6 +2419,11 @@ function addTrip(){
     if(!t2.storeNames||!t2.storeNames.length){
       showToast('Trip 2 mein stores select karo','#EF4444'); return;
     }
+  }
+
+  // Now push both (Trip 2 object is already built — safe from re-render race)
+  db.ref('trips').push(t1);
+  if (t2) {
     db.ref('trips').push(t2);
     showToast(`✅ 2 trips added — ${t1.driver}`);
   } else {
