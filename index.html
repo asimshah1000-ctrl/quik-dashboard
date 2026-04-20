@@ -223,14 +223,14 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
   <div class="authbox">
     <div style="font-size:34px;margin-bottom:10px">🔐</div>
     <h2>QUIK Transport</h2>
-    <p>Apna naam aur PIN daalo</p>
+    <p>Enter your name and PIN</p>
     <div class="auth-err" id="auth-err"></div>
-    <input class="auth-input" id="auth-name-inp" type="text" placeholder="Aapka naam (e.g. Ahmed Ali)" maxlength="30">
-    <input class="auth-input" id="auth-pin-inp" type="password" placeholder="PIN (4-6 numbers)" maxlength="6"
+    <input class="auth-input" id="auth-name-inp" type="text" placeholder="Your name (e.g. Ahmed Ali)" maxlength="30">
+    <input class="auth-input" id="auth-pin-inp" type="password" placeholder="PIN (4-6 digits)" maxlength="6"
       onkeydown="if(event.key==='Enter')doLogin()">
     <button class="auth-btn" id="auth-submit-btn" onclick="doLogin()">Login ➜</button>
     <div style="font-size:10px;color:var(--muted);margin-top:14px;line-height:1.8">
-      Pehli baar? Admin se apna PIN lo.<br>
+      First time? Contact Admin for your PIN.<br>
       <strong style="color:var(--orange)">Admin PIN: contact Asim</strong>
     </div>
   </div>
