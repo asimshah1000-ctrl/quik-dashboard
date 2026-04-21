@@ -293,7 +293,7 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
       <div><label class="flabel">Driver</label><input class="finput" id="e-driver" type="text" style="font-size:12px;padding:8px 10px"></div>
       <div><label class="flabel">Warehouse</label>
         <select class="fselect" id="e-wh" style="font-size:12px;padding:8px 10px">
-          <option>Own Warehouse</option><option>3PL Warehouse</option>
+          <option>DIP Warehouse</option><option>RSA - DC</option><option>FNV Warehouse</option>
         </select>
       </div>
       <div><label class="flabel">Vehicle Type</label>
@@ -431,7 +431,7 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
       </div>
       <div><label class="flabel">Warehouse</label>
         <select class="fselect" id="ed-wh" style="font-size:12px;padding:8px 10px">
-          <option>Own Warehouse</option><option>3PL Warehouse</option>
+          <option>DIP Warehouse</option><option>RSA - DC</option><option>FNV Warehouse</option>
         </select>
       </div>
     </div>
@@ -627,19 +627,19 @@ const storage = firebase.storage();
 
 // ── DRIVER MASTER LIST ────────────────────────────────────────
 const DRIVERS = [
-  { name:'Awais',        vid:'22210',   vt:'Own Fleet', wh:'Own Warehouse' },
-  { name:'Azeem',        vid:'98744',   vt:'Own Fleet', wh:'Own Warehouse' },
-  { name:'Haroon',       vid:'31824',   vt:'Own Fleet', wh:'Own Warehouse' },
-  { name:'Iftikhar',     vid:'29594',   vt:'Own Fleet', wh:'Own Warehouse' },
-  { name:'Ijaz Ali',     vid:'23983',   vt:'Own Fleet', wh:'Own Warehouse' },
-  { name:'Ishtiaq',      vid:'22209',   vt:'Own Fleet', wh:'Own Warehouse' },
-  { name:'Ishtiaq Shah', vid:'33209',   vt:'Own Fleet', wh:'Own Warehouse' },
-  { name:'Tahir',        vid:'80095',   vt:'Own Fleet', wh:'Own Warehouse' },
-  { name:'Umair',        vid:'98745',   vt:'Own Fleet', wh:'Own Warehouse' },
-  { name:'Usman',        vid:'20194',   vt:'Own Fleet', wh:'Own Warehouse' },
-  { name:'Zaman',        vid:'70612',   vt:'Own Fleet', wh:'Own Warehouse' },
-  { name:'Ahmed',        vid:'13041',   vt:'Own Fleet', wh:'Own Warehouse' },
-  { name:'Ateeq',        vid:'31824-1', vt:'Own Fleet', wh:'Own Warehouse' },
+  { name:'Awais',        vid:'22210',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Azeem',        vid:'98744',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Haroon',       vid:'31824',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Iftikhar',     vid:'29594',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Ijaz Ali',     vid:'23983',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Ishtiaq',      vid:'22209',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Ishtiaq Shah', vid:'33209',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Tahir',        vid:'80095',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Umair',        vid:'98745',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Usman',        vid:'20194',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Zaman',        vid:'70612',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Ahmed',        vid:'13041',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Ateeq',        vid:'31824-1', vt:'Own Fleet', wh:'DIP Warehouse' },
 ];
 
 // ═══════════════════════════════════════════════════════
@@ -885,9 +885,11 @@ let liveCheckins = [];
 let whCheckins = [];
 let driversDB = {};   // Firebase-synced driver records
 let storesDB  = {};   // Firebase-synced store records
+const CATEGORIES = ['Ambient','Chiller','Chilled','Freezer','FNV','Fix - Chocolate'];
 let currentTab = 'overview';
 let currentUser = '';
 let whFilter = 'all';
+let catFilter = 'all'; // category filter
 let tripFilter = 'all';
 let schedFilter = 'all';
 let dualTrip = false;
@@ -948,7 +950,21 @@ function dateFilterBar() {
   </div>`;
 }
 
-// ── On-Time Dispatch calculator ───────────────────────────────
+function catFilterBar() {
+  return `<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+    <span style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-right:4px">📦 Category:</span>
+    <button onclick="catFilter='all';renderMain()" style="padding:5px 11px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${catFilter==='all'?'var(--blue)':'var(--border)'};background:${catFilter==='all'?'var(--blue)':'var(--bg3)'};color:${catFilter==='all'?'#fff':'var(--muted)'}">All</button>
+    ${CATEGORIES.map(c=>{
+      const active = catFilter===c;
+      return `<button onclick="catFilter='${c}';renderMain()" style="padding:5px 11px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${active?'var(--orange)':'var(--border)'};background:${active?'var(--orange)':'var(--bg3)'};color:${active?'#fff':'var(--muted)'}">${c}</button>`;
+    }).join('')}
+  </div>`;
+}
+
+function applyCatFilter(tripsArr) {
+  if (catFilter === 'all') return tripsArr;
+  return tripsArr.filter(t => t.category === catFilter);
+}
 function calcOnTime(tripList) {
   // Uses whCheckin.departed vs trip.dispatch
   const results = tripList.map(t => {
@@ -984,23 +1000,23 @@ function calcOnTime(tripList) {
 //  FIREBASE LISTENERS
 // ═══════════════════════════════════════════════════════
 const SAMPLE = [
-  {date:"2025-04-01",wh:"Own Warehouse",vt:"Own Fleet",vid:"DXB-T-001",driver:"Ahmed Ali",trip2:false,
+  {date:"2025-04-01",wh:"DIP Warehouse",vt:"Own Fleet",vid:"DXB-T-001",driver:"Ahmed Ali",trip2:false,
    storeNames:["QUIK_ALQUSAIS","QUIK_DEIRA","QUIK_BB","QUIK_RAFFA"],
    storeTimes:{QUIK_ALQUSAIS:{arr:"06:10",dep:"06:45"},QUIK_DEIRA:{arr:"07:00",dep:"07:30"},QUIK_BB:{arr:"05:40",dep:"06:00"},QUIK_RAFFA:{arr:"06:05",dep:"06:25"}},
    qty:2800,pallets:12,capacity:14,cost:420,dispatch:"05:20",status:"Completed",remarks:""},
-  {date:"2025-04-01",wh:"3PL Warehouse",vt:"3PL Fleet",vid:"3PL-V-011",driver:"Hassan Omar",trip2:false,
+  {date:"2025-04-01",wh:"RSA - DC",vt:"3PL Fleet",vid:"3PL-V-011",driver:"Hassan Omar",trip2:false,
    storeNames:["QUIK_MIRDIFF","QUIK_DSO","QUIK_DUBAILAND"],
    storeTimes:{QUIK_MIRDIFF:{arr:"07:20",dep:"07:50"},QUIK_DSO:{arr:"08:10",dep:"08:40"},QUIK_DUBAILAND:{arr:"09:00",dep:"09:25"}},
    qty:3200,pallets:13,capacity:16,cost:520,dispatch:"07:00",status:"Completed",remarks:""},
-  {date:"2025-04-02",wh:"Own Warehouse",vt:"Own Fleet",vid:"DXB-T-002",driver:"Ravi Kumar",trip2:false,
+  {date:"2025-04-02",wh:"DIP Warehouse",vt:"Own Fleet",vid:"DXB-T-002",driver:"Ravi Kumar",trip2:false,
    storeNames:["QUIK_MARINA","QUIK_JLT","QUIK_BARSHA"],
    storeTimes:{QUIK_MARINA:{arr:"06:20",dep:"06:50"},QUIK_JLT:{arr:"07:05",dep:"07:35"},QUIK_BARSHA:{arr:"08:00",dep:"08:30"}},
    qty:2100,pallets:9,capacity:14,cost:390,dispatch:"06:00",status:"Completed",remarks:""},
-  {date:"2025-04-02",wh:"Own Warehouse",vt:"Adhoc/Rental",vid:"ADHOC-001",driver:"Vijay Singh",trip2:false,
+  {date:"2025-04-02",wh:"DIP Warehouse",vt:"Adhoc/Rental",vid:"ADHOC-001",driver:"Vijay Singh",trip2:false,
    storeNames:["QUIK_MBZ","QUIK_SHAMKHA"],
    storeTimes:{QUIK_MBZ:{arr:"08:10",dep:"08:40"},QUIK_SHAMKHA:{arr:"09:15",dep:"09:45"}},
    qty:1400,pallets:6,capacity:10,cost:650,dispatch:"07:30",status:"Completed",remarks:"Rush order"},
-  {date:"2025-04-03",wh:"Own Warehouse",vt:"Own Fleet",vid:"DXB-T-001",driver:"Ahmed Ali",trip2:true,
+  {date:"2025-04-03",wh:"DIP Warehouse",vt:"Own Fleet",vid:"DXB-T-001",driver:"Ahmed Ali",trip2:true,
    storeNames:["QUIK_ALQUOZ","QUIK_DIP1","QUIK_MEYDAN"],
    storeTimes:{QUIK_ALQUOZ:{arr:"11:10",dep:"11:40"},QUIK_DIP1:{arr:"11:55",dep:"12:20"},QUIK_MEYDAN:{arr:"11:20",dep:"11:50"}},
    qty:1800,pallets:8,capacity:14,cost:420,dispatch:"10:30",status:"Completed",remarks:"2nd trip"},
@@ -2023,7 +2039,7 @@ function openEditModal(id) {
   document.getElementById('e-date').value      = t.date||'';
   document.getElementById('e-orderdate').value = t.orderDate||'';
   document.getElementById('e-driver').value    = t.driver||'';
-  document.getElementById('e-wh').value        = t.wh||'Own Warehouse';
+  document.getElementById('e-wh').value        = t.wh||'DIP Warehouse';
   document.getElementById('e-vt').value        = t.vt||'Own Fleet';
   document.getElementById('e-vid').value       = t.vid||'';
   document.getElementById('e-dispatch').value  = t.dispatch||'';
@@ -2306,6 +2322,7 @@ function toggleDualTrip(){
       ['f-wh',        'f2-wh'],
       ['f-vt',        'f2-vt'],
       ['f-vid',       'f2-vid'],
+      ['f-cat',       'f2-cat'],
     ];
     copyFields.forEach(([from, to]) => {
       const a = document.getElementById(from);
@@ -2450,6 +2467,7 @@ function buildTripObj(prefix,n,t2){
     totes:+gv(prefix+'totes')||0,
     capacity:+gv(prefix+'capacity')||14, cost:+gv(prefix+'cost')||0,
     dispatch:gv(prefix+'dispatch'), status:gv(prefix+'status')||'In Transit',
+    category:gv(prefix+'cat') || (t2?gv('f-cat'):''),
     remarks:gv(prefix+'remarks'),
     kmTotal:   Math.round(km*10)/10,
     fuelLitres: Math.round(fuel.litres*10)/10,
@@ -2498,8 +2516,8 @@ function addTrip(){
   recordMeta();resetForm();
 }
 function resetForm(){
-  ['f-date','f-orderdate','f-wh','f-vt','f-vid','f-qty','f-pallets','f-totes','f-capacity','f-cost','f-dispatch','f-status','f-remarks',
-   'f2-date','f2-orderdate','f2-wh','f2-vt','f2-vid','f2-qty','f2-pallets','f2-totes','f2-capacity','f2-cost','f2-dispatch','f2-status','f2-remarks']
+  ['f-date','f-orderdate','f-wh','f-vt','f-vid','f-qty','f-pallets','f-totes','f-capacity','f-cost','f-dispatch','f-status','f-cat','f-remarks',
+   'f2-date','f2-orderdate','f2-wh','f2-vt','f2-vid','f2-qty','f2-pallets','f2-totes','f2-capacity','f2-cost','f2-dispatch','f2-status','f2-cat','f2-remarks']
     .forEach(id=>{const el=document.getElementById(id);if(el&&!el.readOnly)el.value='';});
   // Reset driver dropdowns
   ['f-driver','f2-driver'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
@@ -2519,7 +2537,7 @@ function resetForm(){
 const TRIP_REQ=['date','warehouse','vehicle_type','driver','qty','pallets','cost_aed','status'];
 const STORE_REQ=['store_name','dispatch_time','window_start','window_end'];
 const DATE_RE=/^\d{4}-\d{2}-\d{2}$/,TIME_RE=/^\d{1,2}:\d{2}$/;
-const VALID_WH=['own warehouse','3pl warehouse'],VALID_VT=['own fleet','3pl fleet','adhoc/rental'];
+const VALID_WH=['dip warehouse','rsa - dc','fnv warehouse'],VALID_VT=['own fleet','3pl fleet','adhoc/rental'];
 const VALID_ST=['completed','in transit','delayed','partial'];
 
 // Map of friendly column header variations → internal key
@@ -2646,7 +2664,7 @@ function processUploadFile(file){
           if(!row.driver) errs.push({row:rn,col:'driver',val:'',msg:'Cannot be empty'});
           if(isNaN(+row.qty)||+row.qty<0) errs.push({row:rn,col:'qty',val:row.qty,msg:'Must be number ≥ 0'});
           if(isNaN(+row.cost_aed)||+row.cost_aed<0) errs.push({row:rn,col:'cost_aed',val:row.cost_aed,msg:'Must be number ≥ 0'});
-          if(row.warehouse&&!VALID_WH.includes(row.warehouse.toLowerCase())) warns.push({row:rn,col:'warehouse',val:row.warehouse,msg:'Expected Own Warehouse or 3PL Warehouse'});
+          if(row.warehouse&&!VALID_WH.includes(row.warehouse.toLowerCase())) warns.push({row:rn,col:'warehouse',val:row.warehouse,msg:'Expected DIP Warehouse or RSA - DC'});
           if(row.vehicle_type&&!VALID_VT.includes(row.vehicle_type.toLowerCase())) warns.push({row:rn,col:'vehicle_type',val:row.vehicle_type,msg:'Expected Own Fleet/3PL Fleet/Adhoc/Rental'});
           if(row.status&&!VALID_ST.includes(row.status.toLowerCase())) warns.push({row:rn,col:'status',val:row.status,msg:'Expected Completed/In Transit/Delayed/Partial'});
         } else {
@@ -2767,11 +2785,11 @@ function renderMain(){
   const m=document.getElementById('main');
   if(!m)return;
 
-  const whTrips=whFilter==='all'?trips:whFilter==='own'?trips.filter(t=>t.wh==='Own Warehouse'):trips.filter(t=>t.wh==='3PL Warehouse');
-  // Apply date filter to trips
-  const dateFilteredTrips = applyDateFilter(trips);
-  const whTripsFiltered   = whFilter==='all'?dateFilteredTrips:whFilter==='own'?dateFilteredTrips.filter(t=>t.wh==='Own Warehouse'):dateFilteredTrips.filter(t=>t.wh==='3PL Warehouse');
-  const filtTrips = tripFilter==='all'?trips:tripFilter==='Adhoc/Rental'?trips.filter(t=>t.vt===tripFilter):trips.filter(t=>t.wh===tripFilter);
+  const whTrips=whFilter==='all'?trips:trips.filter(t=>t.wh===(whFilter==='own'?'DIP Warehouse':whFilter==='3pl'?'RSA - DC':'FNV Warehouse'));
+  // Apply date + category filters
+  const dateFilteredTrips = applyCatFilter(applyDateFilter(trips));
+  const whTripsFiltered   = whFilter==='all'?dateFilteredTrips:dateFilteredTrips.filter(t=>t.wh===(whFilter==='own'?'DIP Warehouse':whFilter==='3pl'?'RSA - DC':'FNV Warehouse'));
+  const filtTrips = applyCatFilter(tripFilter==='all'?trips:tripFilter==='Adhoc/Rental'?trips.filter(t=>t.vt===tripFilter):trips.filter(t=>t.wh===tripFilter));
 
   // ── OVERVIEW ──
   if(currentTab==='overview'){
@@ -2784,6 +2802,7 @@ function renderMain(){
         <span style="font-size:11px;color:var(--muted)">${dateFilteredTrips.length} trips</span>
       </div>
       ${dateFilterBar()}
+      ${catFilterBar()}
       <div class="kpi-grid" id="kpi-main"></div>
 
       <!-- On-Time Dispatch Section -->
@@ -2843,33 +2862,39 @@ function renderMain(){
       <div class="bgrid" id="bg-wh"></div>
       <div class="section-title">By Vehicle Type <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div class="bgrid" id="bg-vt"></div>
+      <div class="section-title">By Category <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div class="bgrid" id="bg-cat"></div>
     </div>`;
 
     buildKpis(dateFilteredTrips,'kpi-main');
-    const own=dateFilteredTrips.filter(t=>t.wh==='Own Warehouse'),tpl=dateFilteredTrips.filter(t=>t.wh==='3PL Warehouse');
+    const own=dateFilteredTrips.filter(t=>t.wh==='DIP Warehouse'),tpl=dateFilteredTrips.filter(t=>t.wh==='RSA - DC'),fnv=dateFilteredTrips.filter(t=>t.wh==='FNV Warehouse');
     const of=dateFilteredTrips.filter(t=>t.vt==='Own Fleet'),tf=dateFilteredTrips.filter(t=>t.vt==='3PL Fleet'),ad=dateFilteredTrips.filter(t=>t.vt==='Adhoc/Rental');
-    document.getElementById('bg-wh').innerHTML=bcard('Own Warehouse','own',own,'#3B82F6')+bcard('3PL Warehouse','tpl',tpl,'#A855F7')+
-      `<div class="bcard" style="display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
-        <div style="font-size:26px">📊</div><div style="font-weight:700;color:var(--text)">Combined</div>
-        <div>Trips: ${dateFilteredTrips.length}</div><div>Units: ${dateFilteredTrips.reduce((a,t)=>a+(t.qty||0),0).toLocaleString()}</div>
-        <div>Cost: AED ${dateFilteredTrips.reduce((a,t)=>a+(t.cost||0),0).toLocaleString()}</div></div>`;
+    document.getElementById('bg-wh').innerHTML=bcard('DIP Warehouse','own',own,'#3B82F6')+bcard('RSA - DC','tpl',tpl,'#A855F7')+bcard('FNV Warehouse','fnv',fnv,'#22C55E');
     document.getElementById('bg-vt').innerHTML=bcard('Own Fleet','own',of,'#22C55E')+bcard('3PL Fleet','tpl',tf,'#A855F7')+bcard('Adhoc/Rental','adhoc',ad,'#F97316');
+    // Category breakdown
+    const catColors = {'Ambient':'#3B82F6','Chiller':'#06B6D4','Chilled':'#8B5CF6','Freezer':'#EF4444','FNV':'#22C55E','Fix - Chocolate':'#F97316'};
+    document.getElementById('bg-cat').innerHTML = CATEGORIES.map(c => {
+      const ct = dateFilteredTrips.filter(t=>t.category===c);
+      return bcard(c, c.toLowerCase().replace(/\s/g,''), ct, catColors[c]||'#64748B');
+    }).join('');
   }
 
   // ── WAREHOUSE DASHBOARD ──
   else if(currentTab==='wh'){
-    const bmap={'all':'📦 Showing: All Warehouses','own':'🏢 Showing: Own Warehouse Only','tpl':'🏭 Showing: 3PL Warehouse Only'};
+    const bmap={'all':'📦 All Warehouses','own':'🏢 DIP Warehouse','3pl':'🏭 RSA - DC','fnv':'🥬 FNV Warehouse'};
     const ot = calcOnTime(whTripsFiltered);
     m.innerHTML=`<div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
         <span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">Warehouse Dashboard</span>
         <div class="wh-filter">
           <button class="whbtn ${whFilter==='all'?'a-all':''}" onclick="whFilter='all';renderMain()">All</button>
-          <button class="whbtn ${whFilter==='own'?'a-own':''}" onclick="whFilter='own';renderMain()">Own Warehouse</button>
-          <button class="whbtn ${whFilter==='3pl'?'a-3pl':''}" onclick="whFilter='3pl';renderMain()">3PL Warehouse</button>
+          <button class="whbtn ${whFilter==='own'?'a-own':''}" onclick="whFilter='own';renderMain()">DIP WH</button>
+          <button class="whbtn ${whFilter==='3pl'?'a-3pl':''}" onclick="whFilter='3pl';renderMain()">RSA-DC</button>
+          <button class="whbtn ${whFilter==='fnv'?'a-own':''}" onclick="whFilter='fnv';renderMain()">FNV WH</button>
         </div>
       </div>
       ${dateFilterBar()}
+      ${catFilterBar()}
       <div class="whbanner ${whFilter}">${bmap[whFilter]}</div>
       <div class="kpi-grid" id="kpi-wh"></div>
 
@@ -2893,7 +2918,7 @@ function renderMain(){
       <div class="bgrid" id="bg-wh-vt"></div>
       <div class="section-title">Trip Log <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div class="twrap"><div style="overflow-x:auto"><table>
-        <thead><tr>${['Date','Warehouse','Veh Type','Driver','Trip','Stores','QTY','Pallets','Util%','Sched Dispatch','WH Departed','⏱️ Status','Cost','Status',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['Date','Warehouse','Veh Type','Driver','Category','Trip','Stores','QTY','Pallets','Util%','Sched Dispatch','WH Departed','⏱️ Status','Cost','Status',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>${whTripsFiltered.map(t=>{
           const u=((t.pallets||0)/(t.capacity||14)*100).toFixed(0);
           const whDep = t.whCheckin?.departed||'';
@@ -2907,8 +2932,9 @@ function renderMain(){
             otBadge = `<span style="color:var(--muted);font-size:9px">No WH scan</span>`;
           }
           return `<tr>
-            <td>${t.date}</td><td><span class="wpill wh-${t.wh==='Own Warehouse'?'own':'3pl'}">${t.wh==='Own Warehouse'?'Own':'3PL'}</span></td>
+            <td>${t.date}</td><td><span class="wpill wh-${t.wh==='DIP Warehouse'?'own':'3pl'}">${t.wh==='DIP Warehouse'?'DIP':t.wh==='FNV Warehouse'?'FNV':'RSA'}</span></td>
             <td>${t.vt}</td><td>${t.driver}${tripBadge(t.trip2)}</td>
+            <td style="font-size:10px;color:var(--orange)">${t.category||'—'}</td>
             <td style="text-align:center">${t.trip2?'2':'1'}</td>
             <td style="text-align:center">${(t.storeNames||[]).length}</td>
             <td>${(t.qty||0).toLocaleString()}</td><td style="text-align:center">${t.pallets||0}/${t.capacity||14}</td>
@@ -2934,14 +2960,15 @@ function renderMain(){
       <div class="ttbar">
         <div class="ttitle">Full Trip Log</div>
         <div class="tfiltrow">
-          ${[['all','All'],['Own Warehouse','Own WH'],['3PL Warehouse','3PL WH'],['Adhoc/Rental','Adhoc']].map(([f,l])=>
+          ${[['all','All'],['DIP Warehouse','DIP WH'],['RSA - DC','RSA-DC'],['FNV Warehouse','FNV WH'],['Adhoc/Rental','Adhoc']].map(([f,l])=>
             `<button class="tfbtn ${tripFilter===f?'act':''}" onclick="tripFilter='${f}';renderMain()">${l}</button>`).join('')}
         </div>
       </div>
       ${dateFilterBar()}
+      ${catFilterBar()}
       <div style="overflow-x:auto"><table>
-        <thead><tr>${['Trip Date','Order Date','WH','Veh','Plate','Driver','Trip','#','Store Names','QTY','Pallets','Totes','Util','Dispatch','1st Arr','Last Dep','Cost','Fuel','Status',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-        <tbody>${applyDateFilter(filtTrips).map(t=>{
+        <thead><tr>${['Trip Date','Order Date','WH','Veh','Plate','Driver','Trip','#','Category','Store Names','QTY','Pallets','Totes','Util','Dispatch','1st Arr','Last Dep','Cost','Fuel','Status','Remarks',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>${applyCatFilter(applyDateFilter(filtTrips)).map(t=>{
           const u=((t.pallets||0)/(t.capacity||14)*100).toFixed(0);
           const times=Object.values(t.storeTimes||{});
           const arrs=times.map(x=>x.arr).filter(Boolean).sort();
@@ -2954,12 +2981,13 @@ function renderMain(){
           return `<tr>
             <td>${iec('date',t.date,'date')}</td>
             <td>${iec('orderDate',t.orderDate||'','date')}</td>
-            <td>${iec('wh',t.wh,'select',['Own Warehouse','3PL Warehouse'])}</td>
+            <td>${iec('wh',t.wh,'select',['DIP Warehouse','RSA - DC','FNV Warehouse'])}</td>
             <td>${iec('vt',t.vt,'select',['Own Fleet','3PL Fleet','Adhoc/Rental'])}</td>
             <td>${iec('vid',t.vid||'','text')}</td>
             <td>${iec('driver',t.driver,'select',Object.values(driversDB).filter(d=>d.active!==false).map(d=>d.name))}${tripBadge(t.trip2)}</td>
             <td style="text-align:center">${t.trip2?'Trip 2':'Trip 1'}</td>
             <td style="text-align:center">${(t.storeNames||[]).length}</td>
+            <td>${iec('category',t.category||'','select',CATEGORIES)}</td>
             <td style="max-width:140px;white-space:normal">
               ${canEdit() ? `
               <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center">
@@ -3023,7 +3051,7 @@ function renderMain(){
           <td>${canEdit()?`<span class="ecell" onclick="startEdit(this,'${t._id}','${store}','arr')" title="Click to edit">${ttag(st.arr)} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:ttag(st.arr)}</td>
           <td>${canEdit()?`<span class="ecell" onclick="startEdit(this,'${t._id}','${store}','dep')" title="Click to edit">${ttag(st.dep)} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:ttag(st.dep)}</td>
           <td>${otTag}</td>
-          <td><span class="wpill wh-${t.wh==='Own Warehouse'?'own':'3pl'}">${t.wh==='Own Warehouse'?'Own':'3PL'}</span></td>
+          <td><span class="wpill wh-${t.wh==='DIP Warehouse'?'own':'3pl'}">${t.wh==='DIP Warehouse'?'Own':'3PL'}</span></td>
           <td>${canEdit()?`<button class="delbtn" onclick="openEditSch('${t._id}','${store}')" style="border-color:#3B82F640;color:#60A5FA">✏️</button>`:''}</td>
         </tr>`);
       });
@@ -3080,8 +3108,9 @@ function renderMain(){
   // ── ADD TRIP ──
   else if(currentTab==='add'){
     const sf=n=>`<select class="fselect" id="${n===1?'f':'f2'}-status"><option value="">Select…</option>${['Completed','In Transit','Delayed','Partial'].map(s=>`<option>${s}</option>`).join('')}</select>`;
-    const wf=n=>`<select class="fselect" id="${n===1?'f':'f2'}-wh"><option value="">Select…</option><option>Own Warehouse</option><option>3PL Warehouse</option></select>`;
+    const wf=n=>`<select class="fselect" id="${n===1?'f':'f2'}-wh"><option value="">Select…</option><option>DIP Warehouse</option><option>RSA - DC</option><option>FNV Warehouse</option></select>`;
     const vtf=n=>`<select class="fselect" id="${n===1?'f':'f2'}-vt"><option value="">Select…</option><option>Own Fleet</option><option>3PL Fleet</option><option>Adhoc/Rental</option></select>`;
+    const cf=n=>`<select class="fselect" id="${n===1?'f':'f2'}-cat"><option value="">Select Category…</option>${CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select>`;
     m.innerHTML=`<div>
       <div class="fsec">
         <div class="section-title">Add New Trip Entry <div style="flex:1;height:1px;background:var(--border)"></div></div>
@@ -3109,7 +3138,7 @@ function renderMain(){
               ${(Object.values(driversDB).length ? Object.values(driversDB) : DRIVERS)
                 .filter(d=>d.active!==false)
                 .sort((a,b)=>(a.name||'').localeCompare(b.name||''))
-                .map(d=>`<option value="${d.name}" data-vid="${d.vid}" data-vt="${d.vt||'Own Fleet'}" data-wh="${d.wh||'Own Warehouse'}">${d.name} — ${d.vid}</option>`).join('')}
+                .map(d=>`<option value="${d.name}" data-vid="${d.vid}" data-vt="${d.vt||'Own Fleet'}" data-wh="${d.wh||'DIP Warehouse'}">${d.name} — ${d.vid}</option>`).join('')}
               <option value="__custom">Other (type manually)</option>
             </select>
           </div>
@@ -3124,6 +3153,7 @@ function renderMain(){
           <div><label class="flabel">Trip Cost (AED)</label><input class="finput" type="number" id="f-cost" min="0" placeholder="0"></div>
           <div><label class="flabel">Dispatch Time (from WH)</label><input class="finput" type="time" id="f-dispatch"></div>
           <div><label class="flabel">Delivery Status</label>${sf(1)}</div>
+          <div><label class="flabel">Category</label>${cf(1)}</div>
           <div><label class="flabel">Remarks</label><input class="finput" type="text" id="f-remarks" placeholder="Optional"></div>
           ${spHTML(1)}
         </div>
@@ -3160,6 +3190,7 @@ function renderMain(){
             <div><label class="flabel">Trip Cost (AED)</label><input class="finput" type="number" id="f2-cost" min="0" placeholder="0"></div>
             <div><label class="flabel">Dispatch Time (from WH)</label><input class="finput" type="time" id="f2-dispatch"></div>
             <div><label class="flabel">Delivery Status</label>${sf(2)}</div>
+            <div><label class="flabel">Category</label>${cf(2)}</div>
             <div><label class="flabel">Remarks</label><input class="finput" type="text" id="f2-remarks" placeholder="Optional"></div>
             ${spHTML(2)}
           </div>
@@ -3916,11 +3947,11 @@ function getExportDateLabel() {
 // ── TRIPS EXPORT ─────────────────────────────────────────────
 function exportTrips(fmt) {
   const data = applyDateFilter(trips);
-  const headers = ['Date','Order Date','Driver','Vehicle','WH','Type','Trip#','Stores','QTY','Pallets','Totes','Capacity','Util%','Dispatch','Cost AED','Fuel Cost AED','Total Cost','Status','Remarks','Trip ID'];
+  const headers = ['Date','Order Date','Driver','Vehicle','WH','Type','Category','Trip#','Stores','QTY','Pallets','Totes','Capacity','Util%','Dispatch','Cost AED','Fuel Cost AED','Total Cost','Status','Remarks','Trip ID'];
   const rows = data.map(t => {
     const u = t.pallets&&t.capacity ? ((t.pallets/t.capacity)*100).toFixed(1) : 0;
     const total = (t.cost||0) + (t.fuelCostAED||0);
-    return [t.date,t.orderDate||'',t.driver,t.vid,t.wh,t.vt,t.trip2?2:1,
+    return [t.date,t.orderDate||'',t.driver,t.vid,t.wh,t.vt,t.category||'',t.trip2?2:1,
       (t.storeNames||[]).join(' | '),(t.qty||0),(t.pallets||0),(t.totes||0),
       (t.capacity||14),u,(t.dispatch||''),(t.cost||0),(t.fuelCostAED||0),
       Math.round(total),(t.status||''),(t.remarks||''),(t.tripId||'')];
@@ -4014,10 +4045,10 @@ function exportAll() {
   const label = getExportDateLabel();
   const data = applyDateFilter(trips);
 
-  const tripHeaders = ['Date','Order Date','Driver','Vehicle','WH','Type','Trip#','Stores','QTY','Pallets','Totes','Capacity','Util%','Dispatch','Cost AED','Fuel AED','Total AED','Status','Remarks'];
+  const tripHeaders = ['Date','Order Date','Driver','Vehicle','WH','Type','Category','Trip#','Stores','QTY','Pallets','Totes','Capacity','Util%','Dispatch','Cost AED','Fuel AED','Total AED','Status','Remarks'];
   const tripRows = data.map(t => {
     const u = t.pallets&&t.capacity?((t.pallets/t.capacity)*100).toFixed(1):0;
-    return [t.date,t.orderDate||'',t.driver,t.vid,t.wh,t.vt,t.trip2?2:1,
+    return [t.date,t.orderDate||'',t.driver,t.vid,t.wh,t.vt,t.category||'',t.trip2?2:1,
       (t.storeNames||[]).join(' | '),(t.qty||0),(t.pallets||0),(t.totes||0),(t.capacity||14),
       u,(t.dispatch||''),(t.cost||0),(t.fuelCostAED||0),Math.round((t.cost||0)+(t.fuelCostAED||0)),
       (t.status||''),(t.remarks||'')];
@@ -4090,7 +4121,7 @@ function renderDriversTab() {
 
     <div class="twrap">
       <div style="overflow-x:auto"><table>
-        <thead><tr>${['Status','Driver','Plate','Eff','Type','WH','Trip IDs','Stores',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['Status','Driver','Plate','Eff','Type','WH','Category','Trip IDs','Stores',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
         ${drivers.map(([key, d]) => {
           const isActive = d.active !== false;
@@ -4119,7 +4150,8 @@ function renderDriversTab() {
             <td style="font-family:'DM Mono',monospace;color:var(--orange);font-size:11px">${ied('vid',d.vid,'text')}</td>
             <td style="font-family:'DM Mono',monospace;font-size:11px">${ied('eff',d.eff,'number')} km/L</td>
             <td style="font-size:11px">${ied('vt',d.vt||'Own Fleet','select',['Own Fleet','3PL Fleet','Adhoc/Rental'])}</td>
-            <td style="font-size:11px">${ied('wh',d.wh||'Own Warehouse','select',['Own Warehouse','3PL Warehouse'])}</td>
+            <td style="font-size:11px">${ied('wh',d.wh||'DIP Warehouse','select',['DIP Warehouse','RSA - DC','FNV Warehouse'])}</td>
+            <td style="font-size:11px">${ied('category',d.category||'','select',CATEGORIES)}</td>
             <td style="font-size:10px;font-family:'DM Mono',monospace;color:var(--blue);max-width:120px">
               ${canEdit()?`<span class="ecell" title="Edit Trip IDs" onclick="editDriverTripIds('${key}','${tripIds.join(', ')}')">${tripIds.join(', ')||'—'} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:(tripIds.join(', ')||'—')}
             </td>
@@ -4152,7 +4184,7 @@ function openAddDriver() {
   document.getElementById('ed-model').value   = '';
   document.getElementById('ed-eff').value     = '5.5';
   document.getElementById('ed-vt').value      = 'Own Fleet';
-  document.getElementById('ed-wh').value      = 'Own Warehouse';
+  document.getElementById('ed-wh').value      = 'DIP Warehouse';
   document.getElementById('ed-tripids').value = '';
   document.getElementById('editdriverov').classList.add('show');
 }
@@ -4164,7 +4196,7 @@ function openEditDriver(key) {
   document.getElementById('ed-model').value   = d.model||'';
   document.getElementById('ed-eff').value     = d.eff||5.5;
   document.getElementById('ed-vt').value      = d.vt||'Own Fleet';
-  document.getElementById('ed-wh').value      = d.wh||'Own Warehouse';
+  document.getElementById('ed-wh').value      = d.wh||'DIP Warehouse';
   document.getElementById('ed-tripids').value = (d.tripIds||[]).join(', ');
   document.getElementById('editdriverov').classList.add('show');
 }
