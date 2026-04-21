@@ -1605,6 +1605,47 @@ function getActiveStoreNames() {
     const sc = storesDB[s]; return sc ? sc.active !== false : true;
   }).sort();
 }
+
+// ── ACTUAL STORE ORDER (by real arrival time, not planned) ───
+// If driver went to JVT before ARJAN, this returns [JVT, ARJAN]
+function getActualStoreOrder(trip) {
+  const stores = trip.storeNames || [];
+  if (!stores.length) return [];
+  const times = trip.storeTimes || {};
+  // Separate stores with arrival time vs without
+  const withArr = stores.filter(s => times[s]?.arr);
+  const withoutArr = stores.filter(s => !times[s]?.arr);
+  // Sort by actual arrival time
+  withArr.sort((a, b) => toMins(times[a].arr) - toMins(times[b].arr));
+  // Stores without arrival go at end in original order
+  return [...withArr, ...withoutArr];
+}
+
+// Build transit legs from a trip (used in Schedule, Live, Export)
+function buildTransitLegs(t) {
+  const whDep = t.whCheckin?.departed || '';
+  const stores = getActualStoreOrder(t);
+  const legs = [];
+  if (!stores.length) return legs;
+  // WH → first store
+  if (whDep && stores[0]) {
+    const st0 = (t.storeTimes && t.storeTimes[stores[0]]) || {};
+    const arr0 = st0.arr || '';
+    const mins = (whDep && arr0) ? toMins(arr0) - toMins(whDep) : null;
+    legs.push({ driver:t.driver, date:t.date, from:'WH', fromLabel:'🏭 WH',
+      to:stores[0], dep:whDep, arr:arr0, mins, tripId:t._id, isWH:true });
+  }
+  // Store → Store
+  for (let i = 0; i < stores.length - 1; i++) {
+    const sA = (t.storeTimes && t.storeTimes[stores[i]]) || {};
+    const sB = (t.storeTimes && t.storeTimes[stores[i + 1]]) || {};
+    const depA = sA.dep || '', arrB = sB.arr || '';
+    const mins = (depA && arrB) ? toMins(arrB) - toMins(depA) : null;
+    legs.push({ driver:t.driver, date:t.date, from:stores[i], fromLabel:stores[i].replace('QUIK_',''),
+      to:stores[i+1], dep:depA, arr:arrB, mins, tripId:t._id, isWH:false });
+  }
+  return legs;
+}
 function spKey(e,n){
   const vis=getActiveStoreNames().filter(s=>s.toLowerCase().includes((document.getElementById('spinp-'+n)||{}).value||''));
   if(e.key==='ArrowDown'){e.preventDefault();spHighlight[n]=Math.min(spHighlight[n]+1,vis.length-1);}
@@ -2998,50 +3039,23 @@ function renderMain(){
           <thead><tr>${['Date','Driver','From','To','Departed','Arrived','⏱️ Transit','Distance'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
           <tbody>
           ${schedTrips.flatMap(t => {
-            const whDep = t.whCheckin?.departed||'';
-            const stores = t.storeNames||[];
-            const legs = [];
-
-            // Leg 1: Warehouse → First Store
-            if (whDep && stores[0]) {
-              const st0 = (t.storeTimes&&t.storeTimes[stores[0]])||{};
-              const arr0 = st0.arr||'';
-              const mins = (whDep && arr0) ? toMins(arr0) - toMins(whDep) : null;
-              const c0 = STORE_COORDS[stores[0]];
-              const distKm = c0 ? Math.round(haversine(WAREHOUSE.lat,WAREHOUSE.lng,c0.lat,c0.lng)*1.3*10)/10 : null;
-              legs.push(`<tr style="background:#3B82F608">
-                <td>${t.date}</td>
-                <td style="font-weight:600">${t.driver}</td>
-                <td><span style="background:#3B82F620;color:#60A5FA;border:1px solid #3B82F640;border-radius:6px;font-size:9px;font-weight:700;padding:2px 7px">🏭 Warehouse</span></td>
-                <td style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${stores[0].replace('QUIK_','')}</td>
-                <td>${ttag(whDep||'—')}</td>
-                <td>${ttag(arr0||'—')}</td>
-                <td>${mins!==null ? (mins<0?`<span style="color:#EF4444;font-weight:700">⚠ -${Math.abs(mins)}min</span>`:`<span style="color:${mins<=30?'#22C55E':mins<=60?'#F97316':'#EF4444'};font-weight:700;font-family:'DM Mono',monospace">${mins} min</span>`) : '<span style="color:var(--muted);font-size:9px">—</span>'}</td>
+            const legs = buildTransitLegs(t);
+            return legs.map(r => {
+              const toShort = r.to.replace('QUIK_','');
+              const cFrom = r.isWH ? WAREHOUSE : STORE_COORDS[r.from];
+              const cTo = STORE_COORDS[r.to];
+              const distKm = (cFrom&&cTo) ? Math.round(haversine(cFrom.lat,cFrom.lng,cTo.lat,cTo.lng)*1.3*10)/10 : null;
+              return `<tr style="${r.isWH?'background:#3B82F608':''}">
+                <td>${r.date}</td>
+                <td style="font-weight:600">${r.driver}</td>
+                <td>${r.isWH?'<span style="background:#3B82F620;color:#60A5FA;border:1px solid #3B82F640;border-radius:6px;font-size:9px;font-weight:700;padding:2px 7px">🏭 Warehouse</span>':`<span style="font-family:'DM Mono',monospace;font-size:10px">${r.fromLabel}</span>`}</td>
+                <td style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${toShort}</td>
+                <td>${ttag(r.dep||'—')}</td>
+                <td>${ttag(r.arr||'—')}</td>
+                <td>${r.mins!==null ? (r.mins<0?`<span style="color:#EF4444;font-weight:700">⚠ -${Math.abs(r.mins)}min</span>`:`<span style="color:${r.mins<=30?'#22C55E':r.mins<=60?'#F97316':'#EF4444'};font-weight:700;font-family:'DM Mono',monospace">${r.mins} min</span>`) : '<span style="color:var(--muted);font-size:9px">—</span>'}</td>
                 <td style="font-size:10px;color:var(--muted)">${distKm?distKm+' km':'—'}</td>
-              </tr>`);
-            }
-
-            // Legs: Store N Departed → Store N+1 Arrived
-            for (let i=0; i<stores.length-1; i++) {
-              const stA = (t.storeTimes&&t.storeTimes[stores[i]])||{};
-              const stB = (t.storeTimes&&t.storeTimes[stores[i+1]])||{};
-              const depA = stA.dep||'';
-              const arrB = stB.arr||'';
-              const mins = (depA && arrB) ? toMins(arrB) - toMins(depA) : null;
-              const cA = STORE_COORDS[stores[i]], cB = STORE_COORDS[stores[i+1]];
-              const distKm = (cA&&cB) ? Math.round(haversine(cA.lat,cA.lng,cB.lat,cB.lng)*1.3*10)/10 : null;
-              legs.push(`<tr>
-                <td>${t.date}</td>
-                <td style="font-weight:600">${t.driver}</td>
-                <td style="font-family:'DM Mono',monospace;font-size:10px">${stores[i].replace('QUIK_','')}</td>
-                <td style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${stores[i+1].replace('QUIK_','')}</td>
-                <td>${ttag(depA||'—')}</td>
-                <td>${ttag(arrB||'—')}</td>
-                <td>${mins!==null ? `<span style="color:${mins<=30?'#22C55E':mins<=60?'#F97316':'#EF4444'};font-weight:700;font-family:'DM Mono',monospace">${mins} min</span>` : '<span style="color:var(--muted);font-size:9px">—</span>'}</td>
-                <td style="font-size:10px;color:var(--muted)">${distKm?distKm+' km':'—'}</td>
-              </tr>`);
-            }
-            return legs;
+              </tr>`;
+            });
           }).join('')||`<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted)">Koi check-in data nahi — drivers QR scan karen</td></tr>`}
           </tbody>
         </table></div>
@@ -3217,30 +3231,9 @@ function renderMain(){
       if(c.driver) storeSummary[c.store].driver = c.driver;
     });
 
-    // Build transit times per trip (WH dep → Store arr → Store dep → next store arr)
+    // Build transit times per trip using actual arrival order
     const todayTrips = applyDateFilter(trips);
-    const transitRows = [];
-    todayTrips.forEach(t => {
-      const whDep = t.whCheckin?.departed||'';
-      const stores = t.storeNames||[];
-      if(!stores.length) return;
-      // WH → Store 1
-      if(whDep) {
-        const st0 = (t.storeTimes&&t.storeTimes[stores[0]])||{};
-        const arr0 = st0.arr||'';
-        const mins = (whDep&&arr0) ? toMins(arr0)-toMins(whDep) : null;
-        transitRows.push({ driver:t.driver, from:'🏭 WH', to:stores[0].replace('QUIK_',''),
-          dep:whDep, arr:arr0, mins, tripId:t._id });
-      }
-      // Store → Store
-      for(let i=0;i<stores.length-1;i++) {
-        const sA=(t.storeTimes&&t.storeTimes[stores[i]])||{};
-        const sB=(t.storeTimes&&t.storeTimes[stores[i+1]])||{};
-        const mins=(sA.dep&&sB.arr)?toMins(sB.arr)-toMins(sA.dep):null;
-        transitRows.push({ driver:t.driver, from:stores[i].replace('QUIK_',''), to:stores[i+1].replace('QUIK_',''),
-          dep:sA.dep||'', arr:sB.arr||'', mins, tripId:t._id });
-      }
-    });
+    const transitRows = todayTrips.flatMap(t => buildTransitLegs(t));
 
     const todayTripsAll = trips.filter(t=>t.date===today);
 
@@ -3299,13 +3292,12 @@ function renderMain(){
           <thead><tr>${['Driver','From','To','Departed','Arrived','⏱️ Time','Status'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
           <tbody>
           ${transitRows.map(r => {
-            const hasData = r.dep && r.arr;
             const color = r.mins===null?'var(--muted)':r.mins<=30?'#22C55E':r.mins<=60?'#F97316':'#EF4444';
             const label = r.mins===null ? (r.dep?'En route…':'Pending') : r.mins+' min';
             return `<tr>
               <td style="font-weight:600">${r.driver}</td>
-              <td style="font-family:'DM Mono',monospace;font-size:10px">${r.from}</td>
-              <td style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${r.to}</td>
+              <td style="font-family:'DM Mono',monospace;font-size:10px">${r.isWH?'🏭 WH':r.fromLabel}</td>
+              <td style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${r.to.replace('QUIK_','')}</td>
               <td>${r.dep ? `<span class="ttag">${r.dep}</span>` : '<span style="color:var(--muted);font-size:9px">—</span>'}</td>
               <td>${r.arr ? `<span class="ttag">${r.arr}</span>` : (r.dep ? '<span style="color:var(--orange);font-size:9px">En route ⏳</span>' : '<span style="color:var(--muted);font-size:9px">—</span>')}</td>
               <td><span style="font-family:'DM Mono',monospace;font-weight:700;color:${color}">${label}</span></td>
@@ -3965,25 +3957,13 @@ function exportTransit(fmt) {
   const headers = ['Date','Driver','From','To','Departed','Arrived','Transit Mins','Dist KM (est)'];
   const rows = [];
   data.forEach(t => {
-    const whDep = t.whCheckin?.departed||'';
-    const stores = t.storeNames||[];
-    if (whDep && stores[0]) {
-      const st0 = (t.storeTimes&&t.storeTimes[stores[0]])||{};
-      const arr0 = st0.arr||'';
-      const mins = (whDep&&arr0) ? toMins(arr0)-toMins(whDep) : '';
-      const c0 = STORE_COORDS[stores[0]];
-      const km = c0 ? Math.round(haversine(WAREHOUSE.lat,WAREHOUSE.lng,c0.lat,c0.lng)*1.3*10)/10 : '';
-      rows.push([t.date,t.driver,'Warehouse',stores[0].replace('QUIK_',''),whDep,arr0,mins,km]);
-    }
-    for (let i=0;i<stores.length-1;i++) {
-      const stA=(t.storeTimes&&t.storeTimes[stores[i]])||{};
-      const stB=(t.storeTimes&&t.storeTimes[stores[i+1]])||{};
-      const depA=stA.dep||'', arrB=stB.arr||'';
-      const mins=(depA&&arrB)?toMins(arrB)-toMins(depA):'';
-      const cA=STORE_COORDS[stores[i]],cB=STORE_COORDS[stores[i+1]];
-      const km=(cA&&cB)?Math.round(haversine(cA.lat,cA.lng,cB.lat,cB.lng)*1.3*10)/10:'';
-      rows.push([t.date,t.driver,stores[i].replace('QUIK_',''),stores[i+1].replace('QUIK_',''),depA,arrB,mins,km]);
-    }
+    buildTransitLegs(t).forEach(r => {
+      const cFrom = r.isWH ? WAREHOUSE : STORE_COORDS[r.from];
+      const cTo = STORE_COORDS[r.to];
+      const km = (cFrom&&cTo) ? Math.round(haversine(cFrom.lat,cFrom.lng,cTo.lat,cTo.lng)*1.3*10)/10 : '';
+      rows.push([r.date, r.driver, r.isWH?'Warehouse':r.from.replace('QUIK_',''),
+        r.to.replace('QUIK_',''), r.dep, r.arr, r.mins??'', km]);
+    });
   });
   const label = getExportDateLabel();
   if (fmt==='csv') downloadCSV(`QUIK_Transit_${label}.csv`, toCSV(headers,rows));
@@ -4054,14 +4034,10 @@ function exportAll() {
   const trHeaders = ['Date','Driver','From','To','Departed','Arrived','Transit Mins'];
   const trRows = [];
   data.forEach(t => {
-    const whDep=t.whCheckin?.departed||'', stores=t.storeNames||[];
-    if(whDep&&stores[0]){ const st0=(t.storeTimes&&t.storeTimes[stores[0]])||{};
-      const m=(whDep&&st0.arr)?toMins(st0.arr)-toMins(whDep):'';
-      trRows.push([t.date,t.driver,'Warehouse',stores[0].replace('QUIK_',''),whDep,st0.arr||'',m]); }
-    for(let i=0;i<stores.length-1;i++){ const sA=(t.storeTimes&&t.storeTimes[stores[i]])||{};
-      const sB=(t.storeTimes&&t.storeTimes[stores[i+1]])||{};
-      const m=(sA.dep&&sB.arr)?toMins(sB.arr)-toMins(sA.dep):'';
-      trRows.push([t.date,t.driver,stores[i].replace('QUIK_',''),stores[i+1].replace('QUIK_',''),sA.dep||'',sB.arr||'',m]); }
+    buildTransitLegs(t).forEach(r => {
+      trRows.push([r.date, r.driver, r.isWH?'Warehouse':r.from.replace('QUIK_',''),
+        r.to.replace('QUIK_',''), r.dep, r.arr, r.mins??'']);
+    });
   });
 
   const fuelHeaders = ['Date','Driver','Trip ID','Stores','KMs','Eff','Litres','Fuel AED'];
