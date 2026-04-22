@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QUIK — Transport Dashboard</title>
+<title>Careem Quik — Transport</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
 <!-- Firebase CDN — no installation needed -->
@@ -16,28 +16,28 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#071A0F;--bg2:#0D2416;--bg3:#133020;--border:#1A4229;
-  --blue:#1DB864;--blue-dim:#17954F;--orange:#3DC468;--green:#3DC468;
-  --red:#EF4444;--purple:#A855F7;--text:#F1F5F9;--muted:#6B9E7F;
-  --careem:#3DC468;--careem-dark:#17954F;
+  --bg:#F5F7FA;--bg2:#FFFFFF;--bg3:#F0F2F5;--border:#E1E5EA;
+  --blue:#1CE783;--blue-dim:#17B865;--orange:#1CE783;--green:#1CE783;
+  --red:#EF4444;--purple:#8B5CF6;--text:#1A2332;--muted:#6B7280;
+  --careem:#1CE783;--careem-dark:#17B865;
 }
 body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
-header{background:linear-gradient(135deg,#0A3D22 0%,#0D4A28 50%,#0B3D20 100%);border-bottom:1px solid #1A5C30;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:58px;position:sticky;top:0;z-index:100}
-.logo{display:flex;align-items:center;gap:10px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:17px;color:#fff}
+header{background:#FFFFFF;border-bottom:1px solid #E1E5EA;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:58px;position:sticky;top:0;z-index:100;box-shadow:0 1px 6px rgba(0,0,0,0.06)}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:17px;color:#1A2332}
 .logo-icon{width:32px;height:32px;flex-shrink:0}
 .hmeta{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace}
 .ldot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.6s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
-nav{display:flex;background:linear-gradient(135deg,#082E18,#0A3820);padding:0 8px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;scroll-behavior:smooth;flex:1}
+nav{display:flex;background:linear-gradient(135deg,#F8F9FA,#F0F2F5);padding:0 8px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;scroll-behavior:smooth;flex:1}
 nav::-webkit-scrollbar{display:none}
-.nav-wrap{position:relative;background:linear-gradient(135deg,#082E18,#0A3820);border-bottom:1px solid #1A5C30;display:flex;align-items:stretch}
-.nav-arrow{background:transparent;border:none;color:#3DC46880;font-size:20px;padding:0 10px;cursor:pointer;transition:all .2s;flex-shrink:0;display:flex;align-items:center;line-height:1}
-.nav-arrow:hover{color:#3DC468;background:#3DC46815}
-.nav-arrow-left{border-right:1px solid #1A5C30}
-.nav-arrow-right{border-left:1px solid #1A5C30}
-.tab{padding:12px 15px;font-size:11px;font-weight:600;color:#6B9E7F;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;letter-spacing:.4px;text-transform:uppercase;position:relative}
-.tab:hover{color:#A8E6BE;background:#3DC46810}
-.tab.active{color:#3DC468;border-bottom-color:#3DC468;background:linear-gradient(180deg,transparent,rgba(61,196,104,0.08))}
+.nav-wrap{position:relative;background:linear-gradient(135deg,#F8F9FA,#F0F2F5);border-bottom:1px solid #E1E5EA;display:flex;align-items:stretch;box-shadow:0 2px 4px rgba(0,0,0,0.04)}
+.nav-arrow{background:transparent;border:none;color:#9CA3AF;font-size:20px;padding:0 10px;cursor:pointer;transition:all .2s;flex-shrink:0;display:flex;align-items:center;line-height:1}
+.nav-arrow:hover{color:#1CE783;background:#1CE78312}
+.nav-arrow-left{border-right:1px solid #E1E5EA}
+.nav-arrow-right{border-left:1px solid #E1E5EA}
+.tab{padding:12px 15px;font-size:11px;font-weight:600;color:#6B7280;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;letter-spacing:.4px;text-transform:uppercase;position:relative}
+.tab:hover{color:#374151;background:linear-gradient(180deg,#FFFFFF,#F3F4F6)}
+.tab.active{color:#059652;border-bottom-color:#1CE783;background:linear-gradient(180deg,#FFFFFF,#E8FEF2);font-weight:700}
 .tab:hover{color:var(--text)}.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
 main{padding:20px 24px;max-width:1500px;margin:0 auto}
 .panel{display:none}.panel.active{display:block}
@@ -224,7 +224,7 @@ tbody td{padding:7px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;
 <div id="authov" class="authov">
   <div class="authbox">
     <div style="font-size:34px;margin-bottom:10px">🔐</div>
-    <h2>QUIK Transport</h2>
+    <h2>Careem Quik</h2>
     <p>Enter your name and PIN</p>
     <div class="auth-err" id="auth-err"></div>
     <input class="auth-input" id="auth-name-inp" type="text" placeholder="Your name (e.g. Ahmed Ali)" maxlength="30">
@@ -589,14 +589,16 @@ tbody td{padding:7px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;
 <header>
   <div class="logo">
     <!-- Careem logo SVG -->
+    <!-- Careem C-wink logo -->
     <svg class="logo-icon" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="100" cy="100" r="100" fill="#3DC468"/>
-      <!-- Careem smile icon -->
-      <path d="M58 85 Q100 130 142 85" stroke="#fff" stroke-width="14" stroke-linecap="round" fill="none"/>
-      <circle cx="70" cy="72" r="10" fill="#fff"/>
-      <circle cx="130" cy="72" r="10" fill="#fff"/>
+      <circle cx="100" cy="100" r="100" fill="#1CE783"/>
+      <!-- Careem C shape with wink -->
+      <path d="M138 68 C138 68 115 52 88 58 C61 64 45 84 45 104 C45 124 61 144 88 150 C115 156 138 140 138 140"
+        stroke="#fff" stroke-width="20" stroke-linecap="round" fill="none"/>
+      <!-- Wink dot -->
+      <circle cx="148" cy="118" r="11" fill="#fff"/>
     </svg>
-    <span style="color:#fff;letter-spacing:-.3px">QUIK</span><span style="color:#3DC468;margin:0 5px">⬡</span><span style="color:#A8E6BE;font-weight:600;font-size:13px">Transport</span>
+    <span style="color:#1A2332;font-weight:800;letter-spacing:-.3px">Careem</span><span style="color:#1CE783;font-weight:800;margin-left:6px">Quik</span>
   </div>
   <div class="hmeta">
     <div class="ldot"></div>
@@ -1765,7 +1767,7 @@ function openDelModal(id){
 }
 function closeDelModal(){pendingDeleteId=null;document.getElementById('delov').classList.remove('show');}
 const THEME_PRESETS = [
-  ['Careem 🟢', '#071A0F','#0D2416','#3DC468','#1DB864'],
+  ['Careem 🟢', '#F5F7FA','#FFFFFF','#1CE783','#17B865'],
   ['Dark Blue', '#0B1120','#111827','#3B82F6','#F97316'],
   ['Deep Dark', '#050810','#0D1117','#6366F1','#EC4899'],
   ['Forest',    '#071510','#0D1F18','#10B981','#F59E0B'],
@@ -1807,10 +1809,10 @@ function openTheme() {
 }
 
 const DEFAULT_THEME = {
-  '--bg':'#071A0F','--bg2':'#0D2416','--bg3':'#133020','--border':'#1A4229',
-  '--blue':'#1DB864','--blue-dim':'#17954F','--orange':'#3DC468',
-  '--green':'#3DC468','--red':'#EF4444','--purple':'#A855F7',
-  '--text':'#F1F5F9','--muted':'#6B9E7F'
+  '--bg':'#F5F7FA','--bg2':'#FFFFFF','--bg3':'#F0F2F5','--border':'#E1E5EA',
+  '--blue':'#1CE783','--blue-dim':'#17B865','--orange':'#1CE783',
+  '--green':'#1CE783','--red':'#EF4444','--purple':'#8B5CF6',
+  '--text':'#1A2332','--muted':'#6B7280'
 };
 
 function closeTheme() { document.getElementById('themeov').classList.remove('show'); }
@@ -1855,9 +1857,9 @@ function saveTheme() {
 
 function loadTheme() {
   try {
-    // If saved theme is old blue theme, clear it and use new Careem default
     const saved = JSON.parse(localStorage.getItem('quik_theme')||'{}');
-    if (saved['--bg'] === '#0B1120' || saved['--bg'] === '#111827') {
+    const oldBgs = ['#071A0F','#0B1120','#111827','#0D2416','#0F1117'];
+    if (oldBgs.includes(saved['--bg'])) {
       localStorage.removeItem('quik_theme');
       return;
     }
