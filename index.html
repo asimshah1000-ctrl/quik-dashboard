@@ -628,16 +628,18 @@ const storage = firebase.storage();
 // ── DRIVER MASTER LIST ────────────────────────────────────────
 const DRIVERS = [
   { name:'Awais',        vid:'22210',   vt:'Own Fleet', wh:'DIP Warehouse' },
-  { name:'Azeem',        vid:'98744',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Ali Hasan',    vid:'',        vt:'Own Fleet', wh:'DIP Warehouse' },
   { name:'Haroon',       vid:'31824',   vt:'Own Fleet', wh:'DIP Warehouse' },
   { name:'Iftikhar',     vid:'29594',   vt:'Own Fleet', wh:'DIP Warehouse' },
   { name:'Ijaz Ali',     vid:'23983',   vt:'Own Fleet', wh:'DIP Warehouse' },
   { name:'Ishtiaq',      vid:'22209',   vt:'Own Fleet', wh:'DIP Warehouse' },
   { name:'Ishtiaq Shah', vid:'33209',   vt:'Own Fleet', wh:'DIP Warehouse' },
   { name:'Tahir',        vid:'80095',   vt:'Own Fleet', wh:'DIP Warehouse' },
-  { name:'Umair',        vid:'98745',   vt:'Own Fleet', wh:'DIP Warehouse' },
   { name:'Usman',        vid:'20194',   vt:'Own Fleet', wh:'DIP Warehouse' },
   { name:'Zaman',        vid:'70612',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  // Legacy drivers (kept for historical trip records)
+  { name:'Azeem',        vid:'98744',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Umair',        vid:'98745',   vt:'Own Fleet', wh:'DIP Warehouse' },
   { name:'Ahmed',        vid:'13041',   vt:'Own Fleet', wh:'DIP Warehouse' },
   { name:'Ateeq',        vid:'31824-1', vt:'Own Fleet', wh:'DIP Warehouse' },
 ];
@@ -1076,12 +1078,32 @@ function startDBListeners() {
     const data = snap.val();
     if (data) {
       driversDB = data;
+      // ✅ Auto-sync: add new drivers from DRIVERS array, update tripIds
+      const updates = {};
+      DRIVERS.forEach(d => {
+        const key = d.name.replace(/[^a-zA-Z0-9]/g,'_');
+        const newTripIds = TRIP_MASTER.filter(t=>t.driver===d.name).map(t=>t.id);
+        if (!data[key]) {
+          // New driver — seed to Firebase
+          updates[key] = { ...d, active:true, tripIds: newTripIds, stores: TRIP_MASTER.filter(t=>t.driver===d.name).flatMap(t=>t.stores) };
+        } else {
+          // Update tripIds if changed
+          const existing = (data[key].tripIds||[]).join(',');
+          if (newTripIds.length && existing !== newTripIds.join(',')) {
+            updates[key+'/tripIds'] = newTripIds;
+            updates[key+'/stores'] = TRIP_MASTER.filter(t=>t.driver===d.name).flatMap(t=>t.stores);
+          }
+        }
+      });
+      if (Object.keys(updates).length > 0) db.ref('drivers_config').update(updates);
     } else {
       // Seed from DRIVERS array
       const seed = {};
       DRIVERS.forEach(d => {
         const key = d.name.replace(/[^a-zA-Z0-9]/g,'_');
-        seed[key] = { ...d, active:true, tripIds: TRIP_MASTER.filter(t=>t.driver===d.name).map(t=>t.id) };
+        const tripIds = TRIP_MASTER.filter(t=>t.driver===d.name).map(t=>t.id);
+        const stores  = TRIP_MASTER.filter(t=>t.driver===d.name).flatMap(t=>t.stores);
+        seed[key] = { ...d, active:true, tripIds, stores };
       });
       db.ref('drivers_config').set(seed);
       driversDB = seed;
@@ -1094,11 +1116,32 @@ function startDBListeners() {
     const data = snap.val();
     if (data) {
       storesDB = data;
+      // ✅ Auto-sync: update any store whose lat/lng/radius differs from STORE_COORDS
+      // This ensures code-level coordinate updates reflect in Firebase & Stores tab
+      const updates = {};
+      Object.entries(STORE_COORDS).forEach(([name, c]) => {
+        const existing = data[name];
+        if (!existing) {
+          // New store in code — add to Firebase
+          updates[name] = { name, lat:c.lat, lng:c.lng, radius:c.radius||100, active:true };
+        } else {
+          // Update coords if changed (keep active/custom fields intact)
+          const latChanged  = Math.abs((existing.lat||0) - c.lat) > 0.000001;
+          const lngChanged  = Math.abs((existing.lng||0) - c.lng) > 0.000001;
+          if (latChanged || lngChanged) {
+            updates[name+'/lat'] = c.lat;
+            updates[name+'/lng'] = c.lng;
+          }
+        }
+      });
+      if (Object.keys(updates).length > 0) {
+        db.ref('stores_config').update(updates);
+      }
     } else {
-      // Seed from STORE_COORDS
+      // First time — seed from STORE_COORDS
       const seed = {};
       Object.entries(STORE_COORDS).forEach(([name, c]) => {
-        seed[name] = { name, lat:c.lat, lng:c.lng, radius:c.radius||10, active:true };
+        seed[name] = { name, lat:c.lat, lng:c.lng, radius:c.radius||100, active:true };
       });
       db.ref('stores_config').set(seed);
       storesDB = seed;
@@ -1199,18 +1242,20 @@ const STORE_COORDS = {
 // ═══════════════════════════════════════════════════════
 const VEHICLE_EFFICIENCY = {
   'Awais':        5.5,
-  'Azeem':        5.0,
+  'Ali Hasan':    5.5,
   'Ijaz Ali':     5.5,
   'Haroon':       5.5,
-  'Umair':        4.0,
   'Usman':        5.5,
-  'Ateeq':        5.5,
-  'Zaman':        4.0,
-  'Ahmed':        5.5,
   'Ishtiaq':      5.5,
   'Ishtiaq Shah': 5.5,
+  'Zaman':        4.0,
   'Iftikhar':     4.0,
   'Tahir':        4.0,
+  // Legacy
+  'Azeem':        5.0,
+  'Umair':        4.0,
+  'Ahmed':        5.5,
+  'Ateeq':        5.5,
 };
 const DIESEL_PRICE = 4.69; // AED per litre
 
@@ -1220,22 +1265,20 @@ const DIESEL_PRICE = 4.69; // AED per litre
 const TRIP_MASTER = [
   { id:'T0001', driver:'Awais',        stores:['QUIK_UMS','QUIK_MEYDAN'] },
   { id:'T0002', driver:'Usman',        stores:['QUIK_ARJAN','QUIK_JVT'] },
-  { id:'T0003', driver:'Azeem',        stores:['QUIK_BB2'] },
-  { id:'T0004', driver:'Haroon',       stores:['QUIK_BARSHA','QUIK_JADDAF'] },
-  { id:'T0005', driver:'Umair',        stores:['QUIK_BB','QUIK_BB3'] },
+  { id:'T0003', driver:'Ali Hasan',    stores:['QUIK_BB2','QUIK_WASL'] },
+  { id:'T0004', driver:'Haroon',       stores:['QUIK_BARSHA','QUIK_BB','QUIK_BB3'] },
+  { id:'T0005', driver:'Zaman',        stores:['QUIK_MOTORC','QUIK_SPORTSCITY'] },
   { id:'T0006', driver:'Ijaz Ali',     stores:['QUIK_DEIRA','QUIK_RAFFA','QUIK_ALQUSAIS'] },
-  { id:'T0007', driver:'Zaman',        stores:['QUIK_MOTORC','QUIK_SPORTSCITY'] },
-  { id:'T0010', driver:'Ishtiaq Shah', stores:['QUIK_RAHA','QUIK_REEM','QUIK_MURJAN','QUIK_MBZ'] },
-  { id:'T0011', driver:'Ishtiaq',      stores:['QUIK_WAHA','QUIK_SHAMKHA','QUIK_BANIYAS','QUIK_ETISALAT'] },
-  { id:'T0012', driver:'Awais',        stores:['QUIK_DSO','QUIK_CITYLAND'] },
-  { id:'T0013', driver:'Azeem',        stores:['QUIK_ALQUOZ','QUIK_JLT','QUIK_WASL','QUIK_MAJAN'] },
-  { id:'T0014', driver:'Usman',        stores:['QUIK_JVC','QUIK_DIP1'] },
-  { id:'T0016', driver:'Umair',        stores:['QUIK_DFP','QUIK_DUBAILAND'] },
-  { id:'T0017', driver:'Ijaz Ali',     stores:['QUIK_MARINA2','QUIK_MARINA'] },
-  { id:'T0019', driver:'Haroon',       stores:['QUIK_DFC','QUIK_DWTC'] },
-  { id:'T0020', driver:'Zaman',        stores:['QUIK_INTERNETC','QUIK_JVC_PLAZA'] },
-  { id:'T0021', driver:'Tahir',        stores:['QUIK_JVC','QUIK_WASL'] },
-  { id:'T0022', driver:'Iftikhar',     stores:['QUIK_BB','QUIK_MEYDAN'] },
+  { id:'T0007', driver:'Ishtiaq Shah', stores:['QUIK_RAHA','QUIK_MURJAN','QUIK_REEM','QUIK_MBZ'] },
+  { id:'T0008', driver:'Ishtiaq',      stores:['QUIK_WAHA','QUIK_SHAMKA','QUIK_BANIYAS','QUIK_ETISALAT'] },
+  { id:'T0009', driver:'Awais',        stores:['QUIK_DSO','QUIK_CITYLAND','QUIK_DUBAILAND'] },
+  { id:'T0010', driver:'Ali Hasan',    stores:['QUIK_ALQUOZ','QUIK_JLT'] },
+  { id:'T0011', driver:'Usman',        stores:['QUIK_JVC','QUIK_DIP1'] },
+  { id:'T0012', driver:'Zaman',        stores:['QUIK_DWTC','QUIK_INTERNETC','QUIK_FURJAN'] },
+  { id:'T0013', driver:'Ijaz Ali',     stores:['QUIK_MARINA2','QUIK_MARINA'] },
+  { id:'T0014', driver:'Haroon',       stores:['QUIK_DFC','QUIK_JVC_PLAZA','QUIK_JADDAF'] },
+  { id:'T0015', driver:'Iftikhar',     stores:['QUIK_WASL_2','QUIK_BB_2','QUIK_JVC_2'] },
+  { id:'T0016', driver:'Tahir',        stores:['QUIK_MEYDAN_2'] },
 ];
 
 // ═══════════════════════════════════════════════════════
@@ -4338,7 +4381,11 @@ function renderStoresTab() {
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">🏪 Stores & Locations</div>
         <div style="font-size:11px;color:var(--muted);margin-top:3px">${active} active · ${stores.length - active} inactive</div>
       </div>
-      ${canEdit()?`<button onclick="openAddStore()" class="btn-p" style="font-size:12px">+ Add New Store</button>`:''}
+      ${canEdit()?`
+        <div style="display:flex;gap:8px">
+          <button onclick="openAddStore()" class="btn-p" style="font-size:12px">+ Add New Store</button>
+          <button onclick="syncAllCoords()" class="btn-s" style="font-size:12px">🔄 Sync Coordinates</button>
+        </div>`:''}
     </div>
 
     <div class="twrap">
@@ -4378,6 +4425,21 @@ function renderStoresTab() {
       </table></div>
     </div>
   </div>`;
+}
+
+async function syncAllCoords() {
+  if (!canEdit()) { showToast('Access nahi hai','#EF4444'); return; }
+  const updates = {};
+  let count = 0;
+  Object.entries(STORE_COORDS).forEach(([name, c]) => {
+    updates[name+'/lat'] = c.lat;
+    updates[name+'/lng'] = c.lng;
+    if (!storesDB[name]) updates[name+'/active'] = true;
+    if (!storesDB[name]) updates[name+'/name'] = name;
+    count++;
+  });
+  await db.ref('stores_config').update(updates);
+  showToast(`✅ ${count} stores ke coordinates sync ho gaye!`);
 }
 
 function openAddStore() {
