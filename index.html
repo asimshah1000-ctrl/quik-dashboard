@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QUIK — Transport Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
 <!-- Firebase CDN — no installation needed -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -16,30 +16,32 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0B1120;--bg2:#111827;--bg3:#1E293B;--border:#1E2D45;
-  --blue:#3B82F6;--blue-dim:#1D4ED8;--orange:#F97316;--green:#22C55E;
-  --red:#EF4444;--purple:#A855F7;--text:#F1F5F9;--muted:#64748B;
+  --bg:#071A0F;--bg2:#0D2416;--bg3:#133020;--border:#1A4229;
+  --blue:#1DB864;--blue-dim:#17954F;--orange:#3DC468;--green:#3DC468;
+  --red:#EF4444;--purple:#A855F7;--text:#F1F5F9;--muted:#6B9E7F;
+  --careem:#3DC468;--careem-dark:#17954F;
 }
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
-header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:58px;position:sticky;top:0;z-index:100}
-.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:19px;color:#fff}.logo span{color:var(--orange)}
-.hmeta{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+header{background:linear-gradient(135deg,#0A3D22 0%,#0D4A28 50%,#0B3D20 100%);border-bottom:1px solid #1A5C30;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:58px;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:17px;color:#fff}
+.logo-icon{width:32px;height:32px;flex-shrink:0}
+.hmeta{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace}
 .ldot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.6s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
-nav{display:flex;background:var(--bg2);padding:0 8px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;scroll-behavior:smooth;flex:1}
+nav{display:flex;background:linear-gradient(135deg,#082E18,#0A3820);padding:0 8px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;scroll-behavior:smooth;flex:1}
 nav::-webkit-scrollbar{display:none}
-.nav-wrap{position:relative;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:stretch}
-.nav-arrow{background:transparent;border:none;color:var(--muted);font-size:20px;padding:0 10px;cursor:pointer;transition:all .2s;flex-shrink:0;display:flex;align-items:center;line-height:1}
-.nav-arrow:hover{color:var(--text);background:var(--bg3)}
-.nav-arrow-left{border-right:1px solid var(--border)}
-.nav-arrow-right{border-left:1px solid var(--border)}
-.tab{padding:12px 15px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;letter-spacing:.4px;text-transform:uppercase;position:relative}
-.tab:hover{color:var(--text);background:var(--bg3)}
-.tab.active{color:var(--blue);border-bottom-color:var(--blue);background:linear-gradient(180deg,transparent,rgba(59,130,246,0.06))}
+.nav-wrap{position:relative;background:linear-gradient(135deg,#082E18,#0A3820);border-bottom:1px solid #1A5C30;display:flex;align-items:stretch}
+.nav-arrow{background:transparent;border:none;color:#3DC46880;font-size:20px;padding:0 10px;cursor:pointer;transition:all .2s;flex-shrink:0;display:flex;align-items:center;line-height:1}
+.nav-arrow:hover{color:#3DC468;background:#3DC46815}
+.nav-arrow-left{border-right:1px solid #1A5C30}
+.nav-arrow-right{border-left:1px solid #1A5C30}
+.tab{padding:12px 15px;font-size:11px;font-weight:600;color:#6B9E7F;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;letter-spacing:.4px;text-transform:uppercase;position:relative}
+.tab:hover{color:#A8E6BE;background:#3DC46810}
+.tab.active{color:#3DC468;border-bottom-color:#3DC468;background:linear-gradient(180deg,transparent,rgba(61,196,104,0.08))}
 .tab:hover{color:var(--text)}.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
 main{padding:20px 24px;max-width:1500px;margin:0 auto}
 .panel{display:none}.panel.active{display:block}
-.section-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.section-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 12px;display:flex;align-items:center;gap:8px}
 .section-title::after{content:'';flex:1;height:1px;background:var(--border)}
 .kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
 @media(max-width:1050px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
@@ -51,26 +53,26 @@ main{padding:20px 24px;max-width:1500px;margin:0 auto}
 .kpi-card.purple::before{background:linear-gradient(90deg,var(--purple),#C084FC)}
 .kpi-card.red::before{background:linear-gradient(90deg,var(--red),#FCA5A5)}
 .kpi-label{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
-.kpi-value{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;line-height:1}
-.kpi-sub{font-size:10px;color:var(--muted);margin-top:5px;font-family:'DM Mono',monospace}
+.kpi-value{font-family:'Plus Jakarta Sans',sans-serif;font-size:24px;font-weight:800;line-height:1}
+.kpi-sub{font-size:10px;color:var(--muted);margin-top:5px;font-family:'JetBrains Mono',monospace}
 .bgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
 @media(max-width:900px){.bgrid{grid-template-columns:1fr}}
 .bcard{background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:16px}
 .bc-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.bc-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700}
+.bc-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:700}
 .bc-badge{padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700}
 .bc-badge.own{background:#1D4ED820;color:#60A5FA;border:1px solid #1D4ED8}
 .bc-badge.tpl{background:#7C3AED20;color:#C084FC;border:1px solid #7C3AED}
 .bc-badge.adhoc{background:#EA580C20;color:#FCD34D;border:1px solid #EA580C}
 .brow{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:10px}
 .brow:last-child{border-bottom:none}
-.brow-l{color:var(--muted)}.brow-v{font-family:'DM Mono',monospace;font-size:11px}
+.brow-l{color:var(--muted)}.brow-v{font-family:'JetBrains Mono',monospace;font-size:11px}
 .ubar{margin-top:8px}.ubar-lbl{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:4px}
 .ubar-track{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
 .ubar-fill{height:100%;border-radius:3px;transition:width .5s ease}
 .twrap{background:var(--bg2);border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:20px}
 .ttbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px}
-.ttitle{font-family:'Syne',sans-serif;font-size:13px;font-weight:700}
+.ttitle{font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:700}
 .tfiltrow{display:flex;gap:5px;flex-wrap:wrap}
 .tfbtn{padding:4px 10px;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text);transition:all .2s}
 .tfbtn:hover,.tfbtn.act{border-color:var(--blue);color:var(--blue)}
@@ -78,16 +80,16 @@ table{width:100%;border-collapse:collapse}
 thead th{padding:8px 10px;text-align:left;font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);background:var(--bg3);border-bottom:1px solid var(--border);white-space:nowrap}
 tbody tr{border-bottom:1px solid var(--border);transition:background .15s}
 tbody tr:hover{background:var(--bg3)}
-tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertical-align:middle}
-.sbadge{padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700;font-family:'Inter',sans-serif}
+tbody td{padding:7px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;vertical-align:middle}
+.sbadge{padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif}
 .s-Completed{background:#16A34A20;color:#4ADE80;border:1px solid #16A34A40}
 .s-InTransit{background:#2563EB20;color:#60A5FA;border:1px solid #2563EB40}
 .s-Delayed{background:#DC262620;color:#F87171;border:1px solid #DC262640}
 .s-Partial{background:#D9770620;color:#FCD34D;border:1px solid #D9770640}
-.wpill{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600;font-family:'Inter',sans-serif}
+.wpill{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600;font-family:'Plus Jakarta Sans',sans-serif}
 .wh-own{background:#1D4ED820;color:#60A5FA}.wh-3pl{background:#7C3AED20;color:#C084FC}
 .vt-Own{background:#16A34A20;color:#4ADE80}.vt-3PL{background:#7C3AED20;color:#C084FC}.vt-Adhoc{background:#EA580C20;color:#FCD34D}
-.ttag{display:inline-block;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 5px;font-size:9px;font-family:'DM Mono',monospace}
+.ttag{display:inline-block;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 5px;font-size:9px;font-family:'JetBrains Mono',monospace}
 .ttag.warn{border-color:#F9731660;color:#FCD34D;background:#F9731610}
 .ttag.ok{border-color:#16A34A60;color:#4ADE80;background:#16A34A10}
 .ttag.late{border-color:#DC262660;color:#F87171;background:#DC262610}
@@ -95,11 +97,11 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 .delbtn:hover{background:#DC262620;border-color:var(--red)}
 .ecell{cursor:pointer;border-radius:3px;padding:2px 3px;transition:background .15s;display:inline-block}
 .ecell:hover{background:var(--bg3);outline:1px dashed var(--border)}
-.einput{background:var(--bg2);border:1px solid var(--blue);border-radius:4px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:2px 5px;outline:none;width:82px}
+.einput{background:var(--bg2);border:1px solid var(--blue);border-radius:4px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 5px;outline:none;width:82px}
 .fsec{background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:20px;margin-bottom:20px}
 .fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
 .flabel{display:block;font-size:9px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
-.finput,.fselect{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:11px;font-family:'Inter',sans-serif;outline:none;transition:border-color .2s}
+.finput,.fselect{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:11px;font-family:'Plus Jakarta Sans',sans-serif;outline:none;transition:border-color .2s}
 .finput:focus,.fselect:focus{border-color:var(--blue)}
 .fselect option{background:var(--bg2)}
 .btn-p{padding:9px 20px;background:var(--blue);border:none;border-radius:7px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s}
@@ -107,7 +109,7 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 .btn-s{padding:9px 18px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer}
 .btn-s:hover{border-color:var(--muted);color:var(--text)}
 .spwrap{position:relative;grid-column:1/-1}
-.spinput{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:11px;font-family:'Inter',sans-serif;outline:none}
+.spinput{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:11px;font-family:'Plus Jakarta Sans',sans-serif;outline:none}
 .spinput:focus{border-color:var(--blue)}
 .spdrop{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg2);border:1px solid var(--blue);border-radius:8px;max-height:180px;overflow-y:auto;z-index:60;display:none;box-shadow:0 8px 24px rgba(0,0,0,.6)}
 .spdrop.open{display:block}
@@ -125,9 +127,9 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 .dinfo-title{font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--orange);margin-bottom:7px}
 .drow{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:10px;flex-wrap:wrap}
 .drow:last-child{border-bottom:none}
-.dsn{font-family:'DM Mono',monospace;font-weight:600;width:138px;flex-shrink:0}
-.dtime{font-family:'DM Mono',monospace;color:var(--orange)}
-.dwin{font-family:'DM Mono',monospace;color:var(--muted);font-size:9px}
+.dsn{font-family:'JetBrains Mono',monospace;font-weight:600;width:138px;flex-shrink:0}
+.dtime{font-family:'JetBrains Mono',monospace;color:var(--orange)}
+.dwin{font-family:'JetBrains Mono',monospace;color:var(--muted);font-size:9px}
 .ttogwrap{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:12px 14px;background:var(--bg3);border-radius:9px;border:1px solid var(--border)}
 .ttog-lbl{font-size:12px;font-weight:600}.ttog-sub{font-size:9px;color:var(--muted);margin-top:2px}
 .togswitch{position:relative;width:38px;height:21px;flex-shrink:0;margin-left:auto;cursor:pointer}
@@ -154,22 +156,22 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 .modal-box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:24px;width:370px;max-width:92vw;transform:scale(.95);transition:transform .2s;text-align:center}
 .modal-ov.show .modal-box{transform:scale(1)}
 .modal-icon{font-size:32px;margin-bottom:10px}
-.modal-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:5px}
+.modal-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:700;margin-bottom:5px}
 .modal-sub{font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px}
-.modal-info{background:var(--bg3);border-radius:7px;padding:10px;margin-bottom:14px;font-size:10px;font-family:'DM Mono',monospace;text-align:left;line-height:1.9}
+.modal-info{background:var(--bg3);border-radius:7px;padding:10px;margin-bottom:14px;font-size:10px;font-family:'JetBrains Mono',monospace;text-align:left;line-height:1.9}
 .modal-acts{display:flex;gap:8px;justify-content:center}
 .mcancel{padding:8px 18px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer}
 .mconfirm{padding:8px 18px;background:var(--red);border:none;border-radius:7px;color:#fff;font-size:11px;font-weight:700;cursor:pointer}
 .nameov{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:300;display:flex;align-items:center;justify-content:center}
 .namebox{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;width:340px;max-width:92vw;text-align:center}
-.namebox h2{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;margin-bottom:6px}
+.namebox h2{font-family:'Plus Jakarta Sans',sans-serif;font-size:17px;font-weight:800;margin-bottom:6px}
 .namebox p{font-size:11px;color:var(--muted);margin-bottom:18px;line-height:1.6}
 .toast{position:fixed;bottom:20px;right:20px;background:var(--green);color:#fff;padding:10px 15px;border-radius:8px;font-size:12px;font-weight:600;opacity:0;transform:translateY(20px);transition:all .3s;pointer-events:none;z-index:999}
 .toast.show{opacity:1;transform:translateY(0)}
 .schgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(305px,1fr));gap:8px;margin-bottom:16px}
 .schrow{background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:9px 12px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.schn{font-family:'DM Mono',monospace;font-size:10px;font-weight:600;width:138px;flex-shrink:0}
-.schinput{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:4px 6px;color:var(--text);font-size:10px;font-family:'DM Mono',monospace;outline:none;width:74px}
+.schn{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;width:138px;flex-shrink:0}
+.schinput{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:4px 6px;color:var(--text);font-size:10px;font-family:'JetBrains Mono',monospace;outline:none;width:74px}
 .schinput:focus{border-color:var(--blue)}
 .schlbl{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
 /* Upload */
@@ -184,12 +186,12 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 /* AUTH */
 .authov{position:fixed;inset:0;background:rgba(0,0,0,.92);backdrop-filter:blur(8px);z-index:400;display:flex;align-items:center;justify-content:center}
 .authbox{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:32px 28px;width:380px;max-width:94vw;text-align:center}
-.authbox h2{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;margin-bottom:6px}
+.authbox h2{font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;font-weight:800;margin-bottom:6px}
 .authbox p{font-size:12px;color:var(--muted);margin-bottom:22px;line-height:1.6}
 .auth-tabs{display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:20px}
 .auth-tab{flex:1;padding:8px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:var(--bg3);color:var(--muted);transition:all .2s}
 .auth-tab.active{background:var(--blue);color:#fff}
-.auth-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 13px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none;margin-bottom:10px;transition:border-color .2s}
+.auth-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 13px;color:var(--text);font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;outline:none;margin-bottom:10px;transition:border-color .2s}
 .auth-input:focus{border-color:var(--blue)}
 .auth-btn{width:100%;padding:11px;background:var(--blue);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:10px;transition:all .2s}
 .auth-btn:hover{background:var(--blue-dim)}
@@ -206,9 +208,9 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 .umov{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);z-index:300;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
 .umov.show{opacity:1;pointer-events:all}
 .umbox{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:24px;width:520px;max-width:94vw;max-height:85vh;overflow-y:auto}
-.umbox h3{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:16px}
+.umbox h3{font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:700;margin-bottom:16px}
 .urow{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:8px;flex-wrap:wrap}
-.uemail{font-family:'DM Mono',monospace;font-size:11px;flex:1;min-width:160px}
+.uemail{font-family:'JetBrains Mono',monospace;font-size:11px;flex:1;min-width:160px}
 .urole-sel{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--text);font-size:11px;outline:none;cursor:pointer}
 .uremove{background:transparent;border:1px solid #DC262640;color:#F87171;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer}
 /* Lock overlay for no-access */
@@ -284,7 +286,7 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 <div id="editov" class="modal-ov">
   <div class="modal-box" style="width:480px;max-width:95vw;text-align:left">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">✏️ Edit Trip</div>
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:700">✏️ Edit Trip</div>
       <button onclick="closeEditModal()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
@@ -326,7 +328,7 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 <div id="pinov" class="modal-ov">
   <div class="modal-box" style="width:360px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">🔑 Change PIN</div>
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:700">🔑 Change PIN</div>
       <button onclick="closePinModal()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
     </div>
     <div id="pin-for-user" style="font-size:11px;color:var(--orange);margin-bottom:12px;font-weight:600"></div>
@@ -355,7 +357,7 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 <div id="editckov" class="modal-ov">
   <div class="modal-box" style="width:380px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700" id="editck-title">✏️ Edit Check-in</div>
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:700" id="editck-title">✏️ Edit Check-in</div>
       <button onclick="closeEditCk()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
     </div>
     <div style="margin-bottom:10px">
@@ -377,7 +379,7 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 <div id="editschov" class="modal-ov">
   <div class="modal-box" style="width:520px;max-width:95vw;text-align:left;max-height:85vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">✏️ Edit Schedule Entry</div>
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:700">✏️ Edit Schedule Entry</div>
       <button onclick="closeEditSch()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
@@ -416,7 +418,7 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 <div id="editdriverov" class="modal-ov">
   <div class="modal-box" style="width:500px;max-width:95vw;max-height:88vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">🚗 Edit Driver</div>
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:700">🚗 Edit Driver</div>
       <button onclick="closeEditDriver()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
@@ -450,7 +452,7 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 <div id="editstoreov" class="modal-ov">
   <div class="modal-box" style="width:420px;max-width:95vw">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">🏪 Edit Store</div>
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:700">🏪 Edit Store</div>
       <button onclick="closeEditStore()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
@@ -471,7 +473,7 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 <div id="manualckov" class="modal-ov">
   <div class="modal-box" style="width:420px;max-width:95vw">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">➕ Manual Check-in</div>
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:700">➕ Manual Check-in</div>
       <button onclick="closeManualCheckin()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
@@ -514,7 +516,7 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 <div id="themeov" class="modal-ov">
   <div class="modal-box" style="width:420px;max-width:95vw">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">🎨 Theme</div>
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:700">🎨 Theme</div>
       <button onclick="closeTheme()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
     </div>
 
@@ -542,7 +544,7 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 <div id="tripeditorov" class="modal-ov">
   <div class="modal-box" style="width:560px;max-width:95vw;max-height:88vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">✏️ Edit Trip Stores</div>
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:700">✏️ Edit Trip Stores</div>
       <button onclick="closeTripEditor()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">×</button>
     </div>
     <div id="te-trip-info" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px"></div>
@@ -585,7 +587,17 @@ tbody td{padding:7px 10px;font-family:'DM Mono',monospace;font-size:10px;vertica
 <div id="toast" class="toast"></div>
 
 <header>
-  <div class="logo">QUIK <span>⬡</span> Transport</div>
+  <div class="logo">
+    <!-- Careem logo SVG -->
+    <svg class="logo-icon" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="100" cy="100" r="100" fill="#3DC468"/>
+      <!-- Careem smile icon -->
+      <path d="M58 85 Q100 130 142 85" stroke="#fff" stroke-width="14" stroke-linecap="round" fill="none"/>
+      <circle cx="70" cy="72" r="10" fill="#fff"/>
+      <circle cx="130" cy="72" r="10" fill="#fff"/>
+    </svg>
+    <span style="color:#fff;letter-spacing:-.3px">QUIK</span><span style="color:#3DC468;margin:0 5px">⬡</span><span style="color:#A8E6BE;font-weight:600;font-size:13px">Transport</span>
+  </div>
   <div class="hmeta">
     <div class="ldot"></div>
     <span id="sync-txt">Connecting…</span>
@@ -1650,7 +1662,7 @@ function renderStoreTimeInputs(n){
   wrap.style.display='block';
   con.innerHTML=selectedStores[n].map(s=>`
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:9px 11px">
-      <div style="font-size:9px;font-weight:700;color:var(--orange);margin-bottom:6px;font-family:'DM Mono',monospace">${s} <span style="color:var(--muted);font-weight:400">Sched: ${storeSchedule[s]?.dispatch||'—'}</span></div>
+      <div style="font-size:9px;font-weight:700;color:var(--orange);margin-bottom:6px;font-family:'JetBrains Mono',monospace">${s} <span style="color:var(--muted);font-weight:400">Sched: ${storeSchedule[s]?.dispatch||'—'}</span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <div><label class="flabel">Arrival</label><input class="schinput" type="time" id="sta-${n}-${s}" style="width:88px"></div>
         <div><label class="flabel">Depart</label><input class="schinput" type="time" id="std-${n}-${s}" style="width:88px"></div>
@@ -1753,6 +1765,7 @@ function openDelModal(id){
 }
 function closeDelModal(){pendingDeleteId=null;document.getElementById('delov').classList.remove('show');}
 const THEME_PRESETS = [
+  ['Careem 🟢', '#071A0F','#0D2416','#3DC468','#1DB864'],
   ['Dark Blue', '#0B1120','#111827','#3B82F6','#F97316'],
   ['Deep Dark', '#050810','#0D1117','#6366F1','#EC4899'],
   ['Forest',    '#071510','#0D1F18','#10B981','#F59E0B'],
@@ -1794,10 +1807,10 @@ function openTheme() {
 }
 
 const DEFAULT_THEME = {
-  '--bg':'#0B1120','--bg2':'#111827','--bg3':'#1E293B','--border':'#1E2D45',
-  '--blue':'#3B82F6','--blue-dim':'#1D4ED8','--orange':'#F97316',
-  '--green':'#22C55E','--red':'#EF4444','--purple':'#A855F7',
-  '--text':'#F1F5F9','--muted':'#64748B'
+  '--bg':'#071A0F','--bg2':'#0D2416','--bg3':'#133020','--border':'#1A4229',
+  '--blue':'#1DB864','--blue-dim':'#17954F','--orange':'#3DC468',
+  '--green':'#3DC468','--red':'#EF4444','--purple':'#A855F7',
+  '--text':'#F1F5F9','--muted':'#6B9E7F'
 };
 
 function closeTheme() { document.getElementById('themeov').classList.remove('show'); }
@@ -1842,7 +1855,12 @@ function saveTheme() {
 
 function loadTheme() {
   try {
+    // If saved theme is old blue theme, clear it and use new Careem default
     const saved = JSON.parse(localStorage.getItem('quik_theme')||'{}');
+    if (saved['--bg'] === '#0B1120' || saved['--bg'] === '#111827') {
+      localStorage.removeItem('quik_theme');
+      return;
+    }
     Object.entries(saved).forEach(([k,v]) => {
       if(v) document.documentElement.style.setProperty(k,v);
     });
@@ -1885,7 +1903,7 @@ function teRender() {
   // Current stores chips
   document.getElementById('te-current-stores').innerHTML = teStores.length
     ? teStores.map(s=>`
-        <span style="background:#1E293B;border:1px solid #3B82F640;border-radius:6px;padding:5px 8px;font-size:11px;font-family:'DM Mono',monospace;color:#F1F5F9;display:inline-flex;align-items:center;gap:5px">
+        <span style="background:#1E293B;border:1px solid #3B82F640;border-radius:6px;padding:5px 8px;font-size:11px;font-family:'JetBrains Mono',monospace;color:#F1F5F9;display:inline-flex;align-items:center;gap:5px">
           ${s.replace('QUIK_','')}
           <span onclick="teRemoveStore('${s}')" style="cursor:pointer;color:#EF4444;font-size:13px;line-height:1;font-weight:700" title="Remove">×</span>
         </span>`).join('')
@@ -1914,7 +1932,7 @@ function teRenderSearch() {
 
   document.getElementById('te-search-results').innerHTML = results.length
     ? results.map(s=>`
-        <span onclick="teAddStore('${s}')" style="background:#16A34A15;border:1px solid #16A34A40;border-radius:6px;padding:4px 8px;font-size:11px;font-family:'DM Mono',monospace;color:#4ADE80;cursor:pointer;display:inline-flex;align-items:center;gap:4px">
+        <span onclick="teAddStore('${s}')" style="background:#16A34A15;border:1px solid #16A34A40;border-radius:6px;padding:4px 8px;font-size:11px;font-family:'JetBrains Mono',monospace;color:#4ADE80;cursor:pointer;display:inline-flex;align-items:center;gap:4px">
           + ${s.replace('QUIK_','')}
         </span>`).join('')
     : '<span style="color:var(--muted);font-size:11px">Sab stores already added hain</span>';
@@ -2790,7 +2808,7 @@ function renderUploadPanel(){
     if(uploadWarns.length) h+=`<div class="upwarn"><strong>${uploadWarns.length} Warning(s) — check karo:</strong><ul style="margin:7px 0 0 16px">${uploadWarns.map(w=>`<li>Row ${w.row} · ${w.col} = "${w.val}" — ${w.msg}</li>`).join('')}</ul></div>`;
     h+=`<div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600">Preview — first ${Math.min(uploadRows.length,8)} rows</div>
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:7px;margin-bottom:14px">
-      <table style="font-size:10px;font-family:'DM Mono',monospace">
+      <table style="font-size:10px;font-family:'JetBrains Mono',monospace">
         <thead><tr>${previewCols.map(c=>`<th style="padding:6px 9px;background:var(--bg3);border-bottom:1px solid var(--border);color:var(--muted);font-size:9px;text-align:left;white-space:nowrap">${c}</th>`).join('')}</tr></thead>
         <tbody>${uploadRows.slice(0,8).map((row,i)=>{
           const rn=i+2,rbg=errRows.has(rn)?'#450A0A':warnRows.has(rn)?'#431407':'transparent';
@@ -2841,7 +2859,7 @@ function renderMain(){
 
     m.innerHTML=`<div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-        <span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">Operations Overview</span>
+        <span style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700">Operations Overview</span>
         <span style="font-size:11px;color:var(--muted)">${dateFilteredTrips.length} trips</span>
       </div>
       ${dateFilterBar()}
@@ -2890,10 +2908,10 @@ function renderMain(){
                   <div style="flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;min-width:60px">
                     <div style="width:${pct}%;height:100%;background:${color};border-radius:3px"></div>
                   </div>
-                  <span style="color:${color};font-weight:700;font-family:'DM Mono',monospace;font-size:11px">${pct}%</span>
+                  <span style="color:${color};font-weight:700;font-family:'JetBrains Mono',monospace;font-size:11px">${pct}%</span>
                 </div>
               </td>
-              <td style="color:${d.totalDelay>0?'#F97316':'#22C55E'};font-family:'DM Mono',monospace">
+              <td style="color:${d.totalDelay>0?'#F97316':'#22C55E'};font-family:'JetBrains Mono',monospace">
                 ${d.totalDelay>0&&d.late>0?'+'+Math.round(d.totalDelay/d.late)+' min':'✓ On time'}
               </td>
             </tr>`;
@@ -2928,7 +2946,7 @@ function renderMain(){
     const ot = calcOnTime(whTripsFiltered);
     m.innerHTML=`<div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-        <span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">Warehouse Dashboard</span>
+        <span style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700">Warehouse Dashboard</span>
         <div class="wh-filter">
           <button class="whbtn ${whFilter==='all'?'a-all':''}" onclick="whFilter='all';renderMain()">All</button>
           <button class="whbtn ${whFilter==='own'?'a-own':''}" onclick="whFilter='own';renderMain()">DIP WH</button>
@@ -2945,15 +2963,15 @@ function renderMain(){
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px">
         <div style="background:var(--bg2);border:1px solid ${ot.pct>=90?'#22C55E40':ot.pct>=70?'#F9731640':'#EF444440'};border-radius:10px;padding:13px;text-align:center">
           <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.7px;margin-bottom:5px">On-Time Rate</div>
-          <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:${ot.pct>=90?'#22C55E':ot.pct>=70?'#F97316':'#EF4444'}">${ot.pct!==null?ot.pct+'%':'—'}</div>
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:800;color:${ot.pct>=90?'#22C55E':ot.pct>=70?'#F97316':'#EF4444'}">${ot.pct!==null?ot.pct+'%':'—'}</div>
         </div>
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:13px;text-align:center">
           <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.7px;margin-bottom:5px">On-Time</div>
-          <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#22C55E">${ot.ontime}</div>
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:800;color:#22C55E">${ot.ontime}</div>
         </div>
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:13px;text-align:center">
           <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.7px;margin-bottom:5px">Late</div>
-          <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#EF4444">${ot.late}</div>
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:800;color:#EF4444">${ot.late}</div>
         </div>
       </div>
 
@@ -3035,7 +3053,7 @@ function renderMain(){
               ${canEdit() ? `
               <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center">
                 ${(t.storeNames||[]).map(s=>`
-                  <span style="background:#1E293B;border:1px solid #3B82F640;border-radius:4px;padding:2px 5px;font-size:8px;font-family:'DM Mono',monospace;color:#94A3B8;display:inline-flex;align-items:center;gap:3px">
+                  <span style="background:#1E293B;border:1px solid #3B82F640;border-radius:4px;padding:2px 5px;font-size:8px;font-family:'JetBrains Mono',monospace;color:#94A3B8;display:inline-flex;align-items:center;gap:3px">
                     ${s.replace('QUIK_','')}
                     <span onclick="removeStoreFromTrip('${t._id}','${s}')" style="cursor:pointer;color:#EF4444;font-size:10px;line-height:1" title="Remove">×</span>
                   </span>`).join('')}
@@ -3085,7 +3103,7 @@ function renderMain(){
         const otTag=ot==='on'?ttag('✓ On Time','ok'):ot==='late'?ttag('⚠ Late','late'):'<span style="color:var(--muted);font-size:9px">—</span>';
         rows.push(`<tr>
           <td>${t.date}</td><td>${t.driver}</td><td>${tripBadge(t.trip2)}</td>
-          <td style="font-weight:600;font-family:'DM Mono',monospace;font-size:10px">${store}</td>
+          <td style="font-weight:600;font-family:'JetBrains Mono',monospace;font-size:10px">${store}</td>
           <td>${ttag(sch.dispatch)}</td>
           <td>${ttag((sch.ws||'—')+' – '+(sch.we||'—'))}</td>
           <td>${canEdit()?`<span class="ecell" onclick="startEdit(this,'${t._id}','${store}','dispatch')" title="Click to edit">${ttag(t.dispatch,'warn')} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:ttag(t.dispatch,'warn')}</td>
@@ -3119,11 +3137,11 @@ function renderMain(){
               return `<tr style="${r.isWH?'background:#3B82F608':''}">
                 <td>${r.date}</td>
                 <td style="font-weight:600">${r.driver}</td>
-                <td>${r.isWH?'<span style="background:#3B82F620;color:#60A5FA;border:1px solid #3B82F640;border-radius:6px;font-size:9px;font-weight:700;padding:2px 7px">🏭 Warehouse</span>':`<span style="font-family:'DM Mono',monospace;font-size:10px">${r.fromLabel}</span>`}</td>
-                <td style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${toShort}</td>
+                <td>${r.isWH?'<span style="background:#3B82F620;color:#60A5FA;border:1px solid #3B82F640;border-radius:6px;font-size:9px;font-weight:700;padding:2px 7px">🏭 Warehouse</span>':`<span style="font-family:'JetBrains Mono',monospace;font-size:10px">${r.fromLabel}</span>`}</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600">${toShort}</td>
                 <td>${ttag(r.dep||'—')}</td>
                 <td>${ttag(r.arr||'—')}</td>
-                <td>${r.mins!==null ? (r.mins<0?`<span style="color:#EF4444;font-weight:700">⚠ -${Math.abs(r.mins)}min</span>`:`<span style="color:${r.mins<=30?'#22C55E':r.mins<=60?'#F97316':'#EF4444'};font-weight:700;font-family:'DM Mono',monospace">${r.mins} min</span>`) : '<span style="color:var(--muted);font-size:9px">—</span>'}</td>
+                <td>${r.mins!==null ? (r.mins<0?`<span style="color:#EF4444;font-weight:700">⚠ -${Math.abs(r.mins)}min</span>`:`<span style="color:${r.mins<=30?'#22C55E':r.mins<=60?'#F97316':'#EF4444'};font-weight:700;font-family:'JetBrains Mono',monospace">${r.mins} min</span>`) : '<span style="color:var(--muted);font-size:9px">—</span>'}</td>
                 <td style="font-size:10px;color:var(--muted)">${distKm?distKm+' km':'—'}</td>
               </tr>`;
             });
@@ -3252,7 +3270,7 @@ function renderMain(){
     m.innerHTML=`<div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px">
         <div>
-          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">Data Upload</div>
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700">Data Upload</div>
           <div style="font-size:11px;color:var(--muted);margin-top:3px">Excel (.xlsx) ya CSV (.csv) upload karo — preview ke baad Firebase mein save hoga</div>
         </div>
       </div>
@@ -3264,7 +3282,7 @@ function renderMain(){
         <div style="font-size:11px;color:var(--muted);line-height:1.9">
           <strong style="color:var(--text)">Required columns:</strong> &nbsp;
           ${(uploadTab==='trips'?['date','warehouse','vehicle_type','driver','qty','pallets','cost_aed','status']:['store_name','dispatch_time','window_start','window_end'])
-            .map(c=>`<code style="background:var(--bg3);padding:1px 5px;border-radius:3px;font-size:10px;margin-right:3px;font-family:'DM Mono',monospace">${c}</code>`).join('')}
+            .map(c=>`<code style="background:var(--bg3);padding:1px 5px;border-radius:3px;font-size:10px;margin-right:3px;font-family:'JetBrains Mono',monospace">${c}</code>`).join('')}
         </div>
       </div>
       <div id="upload-inner"></div>
@@ -3314,11 +3332,11 @@ function renderMain(){
     m.innerHTML = `<div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
         <div>
-          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">🟢 Live Driver Check-ins</div>
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700">🟢 Live Driver Check-ins</div>
           <div style="font-size:11px;color:var(--muted);margin-top:3px">Real-time + manual check-in entry</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--green);background:#16A34A15;border:1px solid #16A34A40;padding:5px 12px;border-radius:6px">🔴 LIVE</div>
+          <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--green);background:#16A34A15;border:1px solid #16A34A40;padding:5px 12px;border-radius:6px">🔴 LIVE</div>
           ${canEdit()?`<button onclick="openManualCheckin()" class="btn-p" style="font-size:11px">+ Manual Check-in</button>`:''}
         </div>
       </div>
@@ -3335,7 +3353,7 @@ function renderMain(){
         ].map(([l,v,color])=>`
           <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
             <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${l}</div>
-            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:${color}">${v}</div>
+            <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:800;color:${color}">${v}</div>
           </div>`).join('')}
       </div>
 
@@ -3348,7 +3366,7 @@ function renderMain(){
           const sc=done?'#22C55E':dep?'#F97316':arr?'#3B82F6':'#64748B';
           const sl=done?'✅ Completed':dep?'🚛 Departed':arr?'📍 Arrived':'⏳ Pending';
           return `<div style="background:var(--bg2);border:1px solid ${sc}40;border-radius:10px;padding:12px;border-left:3px solid ${sc}">
-            <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;margin-bottom:5px">${store.replace('QUIK_','')}</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;margin-bottom:5px">${store.replace('QUIK_','')}</div>
             <div style="font-size:11px;font-weight:600;color:${sc};margin-bottom:3px">${sl}</div>
             ${s.driver?`<div style="font-size:10px;color:var(--muted)">👤 ${s.driver}</div>`:''}
             <div style="font-size:9px;color:var(--muted);margin-top:3px">
@@ -3370,11 +3388,11 @@ function renderMain(){
             const label = r.mins===null ? (r.dep?'En route…':'Pending') : r.mins+' min';
             return `<tr>
               <td style="font-weight:600">${r.driver}</td>
-              <td style="font-family:'DM Mono',monospace;font-size:10px">${r.isWH?'🏭 WH':r.fromLabel}</td>
-              <td style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${r.to.replace('QUIK_','')}</td>
+              <td style="font-family:'JetBrains Mono',monospace;font-size:10px">${r.isWH?'🏭 WH':r.fromLabel}</td>
+              <td style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600">${r.to.replace('QUIK_','')}</td>
               <td>${r.dep ? `<span class="ttag">${r.dep}</span>` : '<span style="color:var(--muted);font-size:9px">—</span>'}</td>
               <td>${r.arr ? `<span class="ttag">${r.arr}</span>` : (r.dep ? '<span style="color:var(--orange);font-size:9px">En route ⏳</span>' : '<span style="color:var(--muted);font-size:9px">—</span>')}</td>
-              <td><span style="font-family:'DM Mono',monospace;font-weight:700;color:${color}">${label}</span></td>
+              <td><span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${color}">${label}</span></td>
               <td><span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${color}20;color:${color};border:1px solid ${color}40">${
                 r.mins===null?(r.dep?'🚛 Moving':'⏳ Waiting'):r.mins<=30?'🟢 Fast':r.mins<=60?'🟡 Normal':'🔴 Slow'
               }</span></td>
@@ -3401,13 +3419,13 @@ function renderMain(){
               ? `<img src="${c.photoURL}" onclick="viewPhoto('${c.photoURL}')" style="width:36px;height:36px;object-fit:cover;border-radius:5px;cursor:pointer;border:1px solid var(--border)">`
               : `<span style="font-size:9px;color:var(--muted)">—</span>`;
             return `<tr style="${isToday?'background:#16A34A08':''}">
-              <td><span style="font-family:'DM Mono',monospace;color:${color};font-weight:600">${c.time||'—'}</span></td>
+              <td><span style="font-family:'JetBrains Mono',monospace;color:${color};font-weight:600">${c.time||'—'}</span></td>
               <td style="color:${isToday?'var(--green)':'var(--muted)'}">${isToday?'Today':c.date}</td>
               <td style="font-weight:600">${driverName}</td>
-              <td style="font-family:'DM Mono',monospace;font-weight:600">${(c.store||'').replace('QUIK_','')}</td>
+              <td style="font-family:'JetBrains Mono',monospace;font-weight:600">${(c.store||'').replace('QUIK_','')}</td>
               <td><span style="background:${color}20;color:${color};border:1px solid ${color}40;border-radius:20px;font-size:9px;font-weight:700;padding:2px 8px">${icon} ${label}</span></td>
               <td>${photoThumb}</td>
-              <td style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">${(c.tripId||'').slice(0,8)}…</td>
+              <td style="font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace">${(c.tripId||'').slice(0,8)}…</td>
               <td>${canEdit()?`
                 <button class="delbtn" onclick="openEditCk('checkins/${c._id}','checkin','${label} — ${(c.store||'').replace('QUIK_','')}','${c.time||''}','${driverName}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button>
                 <button class="delbtn" onclick="deleteCheckin('checkins/${c._id}')">✕</button>
@@ -3537,10 +3555,10 @@ function renderWHActivity() {
   m.innerHTML = `<div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
       <div>
-        <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">🏭 Warehouse Activity</div>
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700">🏭 Warehouse Activity</div>
         <div style="font-size:11px;color:var(--muted);margin-top:3px">Driver warehouse arrivals, loading, aur departures</div>
       </div>
-      <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--green);background:#16A34A15;border:1px solid #16A34A40;padding:5px 12px;border-radius:6px">🔴 LIVE</div>
+      <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--green);background:#16A34A15;border:1px solid #16A34A40;padding:5px 12px;border-radius:6px">🔴 LIVE</div>
     </div>
 
     ${dateFilterBar()}
@@ -3555,7 +3573,7 @@ function renderWHActivity() {
       ].map(([l,v,color])=>`
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
           <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${l}</div>
-          <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:${color}">${v}</div>
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:800;color:${color}">${v}</div>
         </div>`).join('')}
     </div>
 
@@ -3570,7 +3588,7 @@ function renderWHActivity() {
         const tripDriver = d.tripId ? getTripDriver(d.tripId) : d.driver;
         return `<div style="background:var(--bg2);border:1px solid ${color}40;border-radius:10px;padding:12px;border-left:3px solid ${color}">
           <div style="font-size:12px;font-weight:700;margin-bottom:3px">👤 ${tripDriver||d.driver}</div>
-          <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:5px">${d.tripId?d.tripId.slice(-8):'—'}</div>
+          <div style="font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:5px">${d.tripId?d.tripId.slice(-8):'—'}</div>
           <div style="font-size:11px;font-weight:600;color:${color};margin-bottom:4px">${label}</div>
           <div style="font-size:9px;color:var(--muted)">
             ${arrived?`🏭 ${arrived}`:''}${arrived&&loaded?' · ':''}${loaded?`📦 ${loaded}`:''}${loaded&&done?' · ':''}${done?`🚛 ${done}`:''}
@@ -3593,11 +3611,11 @@ function renderWHActivity() {
           const isToday = c.date===today;
           const tripDriver = c.tripId ? getTripDriver(c.tripId) : '';
           return `<tr style="${isToday?'background:#3B82F608':''}">
-            <td style="font-family:'DM Mono',monospace;color:${color};font-weight:600">${c.time||'—'}</td>
+            <td style="font-family:'JetBrains Mono',monospace;color:${color};font-weight:600">${c.time||'—'}</td>
             <td style="color:${isToday?'var(--green)':'var(--text)'};font-weight:${isToday?'600':'400'}">${isToday?'Today ✓':c.date}</td>
             <td style="font-weight:600">${tripDriver||c.driver||'—'}</td>
             <td><span style="background:${color}20;color:${color};border:1px solid ${color}40;border-radius:20px;font-size:9px;font-weight:700;padding:2px 8px">${actionIcon[c.action]||''} ${actionLabel[c.action]||c.action}</span></td>
-            <td style="font-family:'DM Mono',monospace;font-size:10px;color:var(--orange)">${c.tripId||'—'}</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--orange)">${c.tripId||'—'}</td>
             <td style="font-size:10px;color:var(--muted)">${tripDriver}</td>
             <td>${canEdit()?`
               <button class="delbtn" onclick="openEditCk('wh_checkins/${c._id}','wh','${actionLabel[c.action]||c.action}','${c.time||''}','${tripDriver||c.driver||''}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button>
@@ -3617,7 +3635,7 @@ async function renderFuelTab() {
 
   // Show loading first
   m.innerHTML = `<div>
-    <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:16px">⛽ KMs & Fuel Cost</div>
+    <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700;margin-bottom:16px">⛽ KMs & Fuel Cost</div>
     ${dateFilterBar()}
     <div style="text-align:center;padding:40px;color:var(--muted)">
       <div style="font-size:28px;margin-bottom:12px">🗺️</div>
@@ -3670,7 +3688,7 @@ async function renderFuelTab() {
   m.innerHTML = `<div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
       <div>
-        <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">⛽ KMs & Fuel Cost</div>
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700">⛽ KMs & Fuel Cost</div>
         <div style="font-size:11px;color:var(--muted);margin-top:3px">Warehouse → Stores → Warehouse · Diesel @ AED ${DIESEL_PRICE}/L</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
@@ -3709,11 +3727,11 @@ async function renderFuelTab() {
           <tr>
             <td style="font-weight:600">${driver}</td>
             <td style="text-align:center">${d.trips}</td>
-            <td style="font-family:'DM Mono',monospace;font-weight:600">${Math.round(d.km)} km</td>
-            <td style="font-family:'DM Mono',monospace">${d.eff} km/L</td>
-            <td style="font-family:'DM Mono',monospace">${Math.round(d.litres)} L</td>
-            <td style="font-family:'DM Mono',monospace;color:var(--orange);font-weight:600">AED ${Math.round(d.cost).toLocaleString()}</td>
-            <td style="font-family:'DM Mono',monospace;color:var(--muted)">${d.km>0?(d.cost/d.km).toFixed(2):0}</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-weight:600">${Math.round(d.km)} km</td>
+            <td style="font-family:'JetBrains Mono',monospace">${d.eff} km/L</td>
+            <td style="font-family:'JetBrains Mono',monospace">${Math.round(d.litres)} L</td>
+            <td style="font-family:'JetBrains Mono',monospace;color:var(--orange);font-weight:600">AED ${Math.round(d.cost).toLocaleString()}</td>
+            <td style="font-family:'JetBrains Mono',monospace;color:var(--muted)">${d.km>0?(d.cost/d.km).toFixed(2):0}</td>
           </tr>`).join('')}
         </tbody>
       </table></div>
@@ -3727,13 +3745,13 @@ async function renderFuelTab() {
         <tbody>
         ${tripFuel.map(t=>`<tr>
           <td>${t.date}</td>
-          <td style="font-family:'DM Mono',monospace;font-size:9px;color:var(--orange)">${t.tripId||'—'}</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--orange)">${t.tripId||'—'}</td>
           <td>${t.driver}</td>
           <td style="text-align:center">${(t.storeNames||[]).length}</td>
-          <td style="font-family:'DM Mono',monospace;font-weight:600;color:${t.km>80?'var(--red)':t.km>40?'var(--orange)':'var(--green)'}">${Math.round(t.km*10)/10} km</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-weight:600;color:${t.km>80?'var(--red)':t.km>40?'var(--orange)':'var(--green)'}">${Math.round(t.km*10)/10} km</td>
           <td><span style="font-size:9px;padding:2px 6px;border-radius:10px;background:${t.source==='osrm'?'#16A34A20':'#F9731620'};color:${t.source==='osrm'?'#4ADE80':'#FCD34D'};border:1px solid ${t.source==='osrm'?'#16A34A40':'#F9731640'}">${t.source==='osrm'?'✅ Road':'~ Est.'}</span></td>
-          <td style="font-family:'DM Mono',monospace">${Math.round(t.litres*10)/10} L</td>
-          <td style="font-family:'DM Mono',monospace;color:var(--orange);font-weight:600">AED ${Math.round(t.cost)}</td>
+          <td style="font-family:'JetBrains Mono',monospace">${Math.round(t.litres*10)/10} L</td>
+          <td style="font-family:'JetBrains Mono',monospace;color:var(--orange);font-weight:600">AED ${Math.round(t.cost)}</td>
           <td style="font-size:9px;color:var(--muted);max-width:180px;white-space:normal;line-height:1.6">
             🏭→${(t.storeNames||[]).map(s=>s.replace('QUIK_','')).join('→')}→🏭
           </td>
@@ -3785,7 +3803,7 @@ function renderStoreView() {
   m.innerHTML = `<div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
       <div>
-        <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">🏪 Store-wise Pallets & Totes</div>
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700">🏪 Store-wise Pallets & Totes</div>
         <div style="font-size:11px;color:var(--muted);margin-top:3px">Pallets aur totes per store — trip ke stores mein equally distribute</div>
       </div>
     </div>
@@ -3813,15 +3831,15 @@ function renderStoreView() {
         <tbody>
         ${sorted.map(([store,s])=>`
           <tr>
-            <td style="font-family:'DM Mono',monospace;font-weight:600;font-size:10px">${store.replace('QUIK_','')}</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:10px">${store.replace('QUIK_','')}</td>
             <td style="text-align:center">${s.trips}</td>
             <td>
               <div style="display:flex;align-items:center;gap:6px">
-                <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--orange);min-width:32px">${Math.round(s.pallets*10)/10}</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--orange);min-width:32px">${Math.round(s.pallets*10)/10}</span>
               </div>
             </td>
             <td>
-              <span style="font-family:'DM Mono',monospace;color:var(--purple)">${Math.round(s.totes*10)/10}</span>
+              <span style="font-family:'JetBrains Mono',monospace;color:var(--purple)">${Math.round(s.totes*10)/10}</span>
             </td>
             <td style="font-size:10px;color:var(--muted)">${[...s.drivers].join(', ')}</td>
             <td style="min-width:100px">
@@ -3842,7 +3860,7 @@ function renderExportTab() {
   const m = document.getElementById('main');
   const today = getToday();
   m.innerHTML = `<div>
-    <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:6px">⬇️ Data Export</div>
+    <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700;margin-bottom:6px">⬇️ Data Export</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:20px">Sab data CSV ya Excel format mein export karo</div>
 
     ${dateFilterBar()}
@@ -4156,7 +4174,7 @@ function renderDriversTab() {
   m.innerHTML = `<div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
       <div>
-        <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">🚗 Drivers & Vehicles</div>
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700">🚗 Drivers & Vehicles</div>
         <div style="font-size:11px;color:var(--muted);margin-top:3px">${active} active · ${drivers.length - active} inactive</div>
       </div>
       ${canEdit()?`<button onclick="openAddDriver()" class="btn-p" style="font-size:12px">+ Add Driver</button>`:''}
@@ -4190,18 +4208,18 @@ function renderDriversTab() {
               </label>
             </td>
             <td style="font-weight:700">${ied('name',d.name,'text')}</td>
-            <td style="font-family:'DM Mono',monospace;color:var(--orange);font-size:11px">${ied('vid',d.vid,'text')}</td>
-            <td style="font-family:'DM Mono',monospace;font-size:11px">${ied('eff',d.eff,'number')} km/L</td>
+            <td style="font-family:'JetBrains Mono',monospace;color:var(--orange);font-size:11px">${ied('vid',d.vid,'text')}</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${ied('eff',d.eff,'number')} km/L</td>
             <td style="font-size:11px">${ied('vt',d.vt||'Own Fleet','select',['Own Fleet','3PL Fleet','Adhoc/Rental'])}</td>
             <td style="font-size:11px">${ied('wh',d.wh||'DIP Warehouse','select',['DIP Warehouse','RSA - DC','FNV Warehouse'])}</td>
             <td style="font-size:11px">${ied('category',d.category||'','select',CATEGORIES)}</td>
-            <td style="font-size:10px;font-family:'DM Mono',monospace;color:var(--blue);max-width:120px">
+            <td style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--blue);max-width:120px">
               ${canEdit()?`<span class="ecell" title="Edit Trip IDs" onclick="editDriverTripIds('${key}','${tripIds.join(', ')}')">${tripIds.join(', ')||'—'} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:(tripIds.join(', ')||'—')}
             </td>
             <td style="max-width:220px;min-width:150px">
               <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center">
                 ${uniqueStores.map(s=>`
-                  <span style="background:#1E293B;border:1px solid #3B82F640;border-radius:4px;padding:2px 5px;font-size:8px;font-family:'DM Mono',monospace;color:#94A3B8;display:inline-flex;align-items:center;gap:3px">
+                  <span style="background:#1E293B;border:1px solid #3B82F640;border-radius:4px;padding:2px 5px;font-size:8px;font-family:'JetBrains Mono',monospace;color:#94A3B8;display:inline-flex;align-items:center;gap:3px">
                     ${s.replace('QUIK_','')}
                     ${canEdit()?`<span onclick="removeDriverStore('${key}','${s}')" style="cursor:pointer;color:#EF4444;font-size:10px;line-height:1" title="Remove">×</span>`:''}
                   </span>`).join('')}
@@ -4378,7 +4396,7 @@ function renderStoresTab() {
   m.innerHTML = `<div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
       <div>
-        <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">🏪 Stores & Locations</div>
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700">🏪 Stores & Locations</div>
         <div style="font-size:11px;color:var(--muted);margin-top:3px">${active} active · ${stores.length - active} inactive</div>
       </div>
       ${canEdit()?`
@@ -4410,10 +4428,10 @@ function renderStoresTab() {
                 <span style="font-size:10px;color:${isActive?'#22C55E':'var(--muted)'};font-weight:600">${isActive?'ON':'OFF'}</span>
               </label>
             </td>
-            <td style="font-weight:700;font-family:'DM Mono',monospace;font-size:11px">${shortName}</td>
+            <td style="font-weight:700;font-family:'JetBrains Mono',monospace;font-size:11px">${shortName}</td>
             <td style="font-size:10px;color:var(--muted);max-width:180px;white-space:normal">${addr}</td>
-            <td style="font-family:'DM Mono',monospace;font-size:10px">${ies('lat',(s.lat||0).toFixed(5),'number')}</td>
-            <td style="font-family:'DM Mono',monospace;font-size:10px">${ies('lng',(s.lng||0).toFixed(5),'number')}</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-size:10px">${ies('lat',(s.lat||0).toFixed(5),'number')}</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-size:10px">${ies('lng',(s.lng||0).toFixed(5),'number')}</td>
             <td>
               <span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${isBasement?'#7C3AED20':'#16A34A20'};color:${isBasement?'#A855F7':'#4ADE80'};border:1px solid ${isBasement?'#7C3AED40':'#16A34A40'}">
                 ${ies('radius',s.radius||100,'number')}m
