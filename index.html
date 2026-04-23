@@ -1456,6 +1456,7 @@ function getNavTabs() {
   if (canAdmin()) all.push(['users-tab','👥 Users']);
   all.push(['drivers-tab','🚗 Drivers']);
   all.push(['stores-tab','🏪 Stores']);
+  all.push(['store-regions','🗺️ Store Regions']);
   all.push(['export-tab','⬇️ Export']);
   all.push(['qty-pallet','📦 QTY/Pallet']);
   all.push(['store-times','⚙️ Store Times']);
@@ -3481,6 +3482,7 @@ function renderMain(){
   else if(currentTab==='stores-tab'){ renderStoresTab(); }
   else if(currentTab==='drivers-tab'){ renderDriversTab(); }
   else if(currentTab==='export-tab'){ renderExportTab(); }
+  else if(currentTab==='store-regions'){ renderStoreRegionsTab(); }
   else if(currentTab==='qty-pallet'){ renderQtyPalletTab(); }
   else if(currentTab==='store-times'){
     m.innerHTML=`<div class="fsec">
@@ -3892,6 +3894,136 @@ function renderStoreView() {
       </table></div>
     </div>
   </div>`;
+}
+
+// ── STORE REGIONS TAB ────────────────────────────────────────
+const STORE_REGIONS = {
+  'AUH + Al Ain': [
+    'QUIK_REEM','QUIK_ETISALAT','QUIK_MURJAN','QUIK_RAHA',
+    'QUIK_SHAMKHA','QUIK_MBZ','QUIK_BANIYAS','QUIK_WAHA'
+  ],
+  'North Dubai': [
+    'QUIK_ALQUSAIS','QUIK_DEIRA','QUIK_RAFFA','QUIK_JADDAF','QUIK_DFC','QUIK_DWTC'
+  ],
+  'Center Dubai': [
+    'QUIK_WASL','QUIK_BB','QUIK_BB2','QUIK_BB3','QUIK_MEYDAN','QUIK_UMS',
+    'QUIK_DSO','QUIK_ALQUOZ','QUIK_BARSHA','QUIK_INTERNETC'
+  ],
+  'South Dubai': [
+    'QUIK_DUBAILAND','QUIK_MARINA','QUIK_MARINA2','QUIK_JLT','QUIK_CITYLAND',
+    'QUIK_ARJAN','QUIK_JVC_PLAZA','QUIK_JVC','QUIK_MOTORC','QUIK_JVT',
+    'QUIK_SPORTSCITY','QUIK_FURJAN','QUIK_DIP1'
+  ],
+};
+
+function fmt12(t) {
+  if (!t) return '—';
+  const [h,mn] = t.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  return `${h%12||12}:${String(mn).padStart(2,'0')} ${ampm}`;
+}
+
+function timeDiffMins(t1, t2) {
+  if (!t1 || !t2) return null;
+  const diff = toMins(t2) - toMins(t1);
+  return diff < 0 ? diff + 1440 : diff;
+}
+
+function buildStoreTimingMap() {
+  const filtered = (() => {
+    const td = getToday();
+    switch(dateFilterMode) {
+      case 'today':     return liveCheckins.filter(c => c.date === td);
+      case 'yesterday': return liveCheckins.filter(c => c.date === getYesterday());
+      case 'week':      return liveCheckins.filter(c => c.date >= getWeekStart() && c.date <= td);
+      case 'month':     return liveCheckins.filter(c => c.date >= getMonthStart() && c.date <= td);
+      case 'all':       return liveCheckins;
+      case 'custom': {
+        const fr = dateFilterFrom||'2000-01-01', to2 = dateFilterTo||td;
+        return liveCheckins.filter(c => c.date >= fr && c.date <= to2);
+      }
+      default: return liveCheckins.filter(c => c.date === td);
+    }
+  })();
+  const map = {};
+  filtered.forEach(c => {
+    if (!c.store) return;
+    if (!map[c.store]) map[c.store] = { arr:null, dep:null, comp:null, driver:'' };
+    const s = map[c.store];
+    if (c.driver) s.driver = c.driver;
+    if (c.action === 'arrived'   && (!s.arr  || c.time > s.arr))  s.arr  = c.time;
+    if (c.action === 'departed'  && (!s.dep  || c.time > s.dep))  s.dep  = c.time;
+    if (c.action === 'completed' && (!s.comp || c.time > s.comp)) s.comp = c.time;
+  });
+  return map;
+}
+
+function renderStoreRegionsTab() {
+  const m = document.getElementById('main');
+  m.innerHTML = `<div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:14px;font-weight:700">🗺️ Store Regions — Check-in Status</div>
+        <div style="font-size:11px;color:#6B7280;margin-top:2px">Check-in · Check-out · Time at store (Dubai Standard Time)</div>
+      </div>
+    </div>
+    ${dateFilterBar()}
+    <div id="regions-content"></div>
+  </div>`;
+  renderRegionsContent();
+}
+
+function renderRegionsContent() {
+  const rc = document.getElementById('regions-content');
+  if (!rc) return;
+  const storeMap = buildStoreTimingMap();
+  const regionColors = {
+    'AUH + Al Ain':'#8B5CF6','North Dubai':'#3B82F6',
+    'Center Dubai':'#1CE783','South Dubai':'#F97316',
+  };
+
+  rc.innerHTML = Object.entries(STORE_REGIONS).map(([region, stores]) => {
+    const color = regionColors[region]||'#6B7280';
+    const arrivedCount = stores.filter(s => storeMap[s]?.arr).length;
+    const doneCount    = stores.filter(s => storeMap[s]?.dep || storeMap[s]?.comp).length;
+
+    const rows = stores.map(store => {
+      const s = storeMap[store]||{};
+      const arr  = s.arr||null, dep = s.dep||null;
+      const mins = timeDiffMins(arr, dep);
+      const status = dep?'departed':s.comp?'completed':arr?'arrived':'pending';
+      const sc = {arrived:'#3B82F6',completed:'#1CE783',departed:'#F97316',pending:'#D1D5DB'}[status];
+      const sl = {arrived:'📍 In Store',completed:'✅ Done',departed:'🚛 Left',pending:'⏳ Pending'}[status];
+      return `<tr style="${status==='pending'?'opacity:0.45':''}">
+        <td>
+          <div style="display:flex;align-items:center;gap:7px">
+            <div style="width:7px;height:7px;border-radius:50%;background:${sc};flex-shrink:0"></div>
+            <span style="font-weight:600;font-size:12px">${store.replace('QUIK_','')}</span>
+          </div>
+          ${s.driver?`<div style="font-size:10px;color:#9CA3AF;padding-left:14px">👤 ${s.driver}</div>`:''}
+        </td>
+        <td><span style="font-size:9px;padding:2px 8px;border-radius:8px;background:${sc}18;color:${sc};font-weight:700">${sl}</span></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#1A2332">${fmt12(arr)}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#1A2332">${fmt12(dep)}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${mins!==null?(mins<=30?'#1CE783':mins<=60?'#F97316':'#EF4444'):'#D1D5DB'}">${mins!==null?mins+' min':'—'}</td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="twrap" style="margin-bottom:16px">
+      <div class="ttbar" style="border-left:4px solid ${color};padding-left:12px">
+        <div>
+          <div class="ttitle" style="color:${color}">${region}</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:2px">${stores.length} stores · ${arrivedCount} arrived · ${doneCount} completed</div>
+        </div>
+      </div>
+      <div style="overflow-x:auto"><table>
+        <thead><tr style="background:#F8F9FA">
+          ${['Store','Status','Check-in','Check-out','Time at Store'].map(h=>`<th style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#6B7280">${h}</th>`).join('')}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
+  }).join('');
 }
 
 // ── EXPORT TAB ───────────────────────────────────────────────
