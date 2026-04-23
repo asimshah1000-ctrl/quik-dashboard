@@ -1456,6 +1456,7 @@ function getNavTabs() {
   all.push(['drivers-tab','🚗 Drivers']);
   all.push(['stores-tab','🏪 Stores']);
   all.push(['export-tab','⬇️ Export']);
+  all.push(['qty-pallet','📦 QTY/Pallet']);
   all.push(['store-times','⚙️ Store Times']);
   return all;
 }
@@ -2891,35 +2892,9 @@ function renderMain(){
         </div>`:''}
       </div>
 
-      <!-- Per-driver on-time table -->
-      ${Object.keys(ot.driverMap).length>0?`
-      <div class="twrap" style="margin-bottom:20px">
-        <div class="ttbar"><div class="ttitle">Driver On-Time Performance</div></div>
-        <div style="overflow-x:auto"><table>
-          <thead><tr>${['Driver','On-Time','Late','On-Time %','Avg Delay'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-          <tbody>${Object.entries(ot.driverMap).map(([driver,d])=>{
-            const total=d.ontime+d.late;
-            const pct=total?Math.round(d.ontime/total*100):0;
-            const color=pct>=90?'#22C55E':pct>=70?'#F97316':'#EF4444';
-            return `<tr>
-              <td style="font-weight:600">${driver}</td>
-              <td><span style="color:#22C55E;font-weight:700">${d.ontime}</span></td>
-              <td><span style="color:#EF4444;font-weight:700">${d.late}</span></td>
-              <td>
-                <div style="display:flex;align-items:center;gap:8px">
-                  <div style="flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;min-width:60px">
-                    <div style="width:${pct}%;height:100%;background:${color};border-radius:3px"></div>
-                  </div>
-                  <span style="color:${color};font-weight:700;font-family:'JetBrains Mono',monospace;font-size:11px">${pct}%</span>
-                </div>
-              </td>
-              <td style="color:${d.totalDelay>0?'#F97316':'#22C55E'};font-family:'JetBrains Mono',monospace">
-                ${d.totalDelay>0&&d.late>0?'+'+Math.round(d.totalDelay/d.late)+' min':'✓ On time'}
-              </td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table></div>
-      </div>`:''}
+      <!-- Store Arrival Times from Live Check-ins -->
+      <div class="section-title">🏪 Store Arrivals — Today <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div id="store-arrivals-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px"></div>
 
       <div class="section-title">By Warehouse <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div class="bgrid" id="bg-wh"></div>
@@ -2930,6 +2905,33 @@ function renderMain(){
     </div>`;
 
     buildKpis(dateFilteredTrips,'kpi-main');
+
+    // Store arrival times from live check-ins (today)
+    const today = getToday();
+    const todayCks = liveCheckins.filter(c => c.date === today && c.action === 'arrived');
+    const storeArrMap = {};
+    todayCks.forEach(c => {
+      if (!storeArrMap[c.store] || c.time < storeArrMap[c.store].time) {
+        storeArrMap[c.store] = { time: c.time, driver: c.driver };
+      }
+    });
+    const arrGrid = document.getElementById('store-arrivals-grid');
+    if (arrGrid) {
+      const storeKeys = Object.keys(storeArrMap).sort();
+      if (storeKeys.length) {
+        arrGrid.innerHTML = storeKeys.map(store => {
+          const a = storeArrMap[store];
+          return `<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:11px 13px;border-left:3px solid #1CE783">
+            <div style="font-size:9px;font-weight:700;color:#6B7280;letter-spacing:.4px;text-transform:uppercase;margin-bottom:4px">${store.replace('QUIK_','')}</div>
+            <div style="font-size:14px;font-weight:700;color:#1A2332;font-family:'JetBrains Mono',monospace">${a.time}</div>
+            <div style="font-size:10px;color:#6B7280;margin-top:3px">👤 ${a.driver||'—'}</div>
+          </div>`;
+        }).join('');
+      } else {
+        arrGrid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:20px;color:#6B7280;font-size:12px">No store arrivals yet today — drivers scan karo</div>`;
+      }
+    }
+
     const own=dateFilteredTrips.filter(t=>t.wh==='DIP Warehouse'),tpl=dateFilteredTrips.filter(t=>t.wh==='RSA - DC'),fnv=dateFilteredTrips.filter(t=>t.wh==='FNV Warehouse');
     const of=dateFilteredTrips.filter(t=>t.vt==='Own Fleet'),tf=dateFilteredTrips.filter(t=>t.vt==='3PL Fleet'),ad=dateFilteredTrips.filter(t=>t.vt==='Adhoc/Rental');
     document.getElementById('bg-wh').innerHTML=bcard('DIP Warehouse','own',own,'#3B82F6')+bcard('RSA - DC','tpl',tpl,'#A855F7')+bcard('FNV Warehouse','fnv',fnv,'#22C55E');
@@ -3445,6 +3447,7 @@ function renderMain(){
   else if(currentTab==='stores-tab'){ renderStoresTab(); }
   else if(currentTab==='drivers-tab'){ renderDriversTab(); }
   else if(currentTab==='export-tab'){ renderExportTab(); }
+  else if(currentTab==='qty-pallet'){ renderQtyPalletTab(); }
   else if(currentTab==='store-times'){
     m.innerHTML=`<div class="fsec">
       <div class="section-title">Store Dispatch Schedule — Edit Times <div style="flex:1;height:1px;background:var(--border)"></div></div>
@@ -3858,6 +3861,141 @@ function renderStoreView() {
 }
 
 // ── EXPORT TAB ───────────────────────────────────────────────
+// ── QTY PER PALLET TAB ───────────────────────────────────────
+function renderQtyPalletTab() {
+  const m = document.getElementById('main');
+  const filtered = applyCatFilter(applyDateFilter(trips));
+
+  // Per-trip QTY/Pallet
+  const rows = filtered.filter(t => t.pallets > 0).map(t => {
+    const qpp = t.pallets ? Math.round((t.qty||0) / t.pallets) : 0;
+    return { ...t, qpp };
+  }).sort((a,b) => b.qpp - a.qpp);
+
+  // Per-driver summary
+  const driverMap = {};
+  rows.forEach(t => {
+    if (!driverMap[t.driver]) driverMap[t.driver] = { trips:0, totalQty:0, totalPallets:0 };
+    driverMap[t.driver].trips++;
+    driverMap[t.driver].totalQty += (t.qty||0);
+    driverMap[t.driver].totalPallets += (t.pallets||0);
+  });
+
+  // Per-category summary
+  const catMap = {};
+  rows.forEach(t => {
+    const cat = t.category || 'Uncategorized';
+    if (!catMap[cat]) catMap[cat] = { trips:0, totalQty:0, totalPallets:0 };
+    catMap[cat].trips++;
+    catMap[cat].totalQty += (t.qty||0);
+    catMap[cat].totalPallets += (t.pallets||0);
+  });
+
+  const totalQty = rows.reduce((a,t)=>a+(t.qty||0),0);
+  const totalPallets = rows.reduce((a,t)=>a+(t.pallets||0),0);
+  const avgQpp = totalPallets ? Math.round(totalQty/totalPallets) : 0;
+
+  const colorQpp = v => v >= 150 ? '#1CE783' : v >= 100 ? '#F97316' : '#EF4444';
+
+  m.innerHTML = `<div>
+    <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700;margin-bottom:6px">📦 QTY per Pallet Analysis</div>
+    <div style="font-size:11px;color:#6B7280;margin-bottom:16px">Units per pallet loaded — efficiency metric</div>
+
+    ${dateFilterBar()}
+    ${catFilterBar()}
+
+    <!-- Summary KPIs -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+      ${[
+        ['Total QTY', totalQty.toLocaleString(), '#1CE783'],
+        ['Total Pallets', totalPallets.toLocaleString(), '#3B82F6'],
+        ['Avg QTY / Pallet', avgQpp, colorQpp(avgQpp)],
+        ['Trips Analysed', rows.length, '#6B7280'],
+      ].map(([l,v,color])=>`
+        <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;box-shadow:0 1px 3px #0000000a">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#6B7280;margin-bottom:8px">${l}</div>
+          <div style="font-size:24px;font-weight:800;color:${color};font-family:'JetBrains Mono',monospace">${v}</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- Per Driver -->
+    <div class="section-title">By Driver <div style="flex:1;height:1px;background:var(--border)"></div></div>
+    <div class="twrap" style="margin-bottom:20px">
+      <div style="overflow-x:auto"><table>
+        <thead><tr>${['Driver','Trips','Total QTY','Total Pallets','Avg QTY/Pallet','Efficiency'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>
+        ${Object.entries(driverMap).sort((a,b)=>{
+          const aqpp = a[1].totalPallets ? a[1].totalQty/a[1].totalPallets : 0;
+          const bqpp = b[1].totalPallets ? b[1].totalQty/b[1].totalPallets : 0;
+          return bqpp - aqpp;
+        }).map(([driver,d])=>{
+          const qpp = d.totalPallets ? Math.round(d.totalQty/d.totalPallets) : 0;
+          const color = colorQpp(qpp);
+          const pct = avgQpp ? Math.min(Math.round(qpp/avgQpp*100),100) : 0;
+          return `<tr>
+            <td style="font-weight:600">${driver}</td>
+            <td style="color:#6B7280">${d.trips}</td>
+            <td style="font-family:'JetBrains Mono',monospace">${d.totalQty.toLocaleString()}</td>
+            <td style="font-family:'JetBrains Mono',monospace">${d.totalPallets}</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${color}">${qpp}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="flex:1;height:7px;background:#F0F2F5;border-radius:4px;overflow:hidden;min-width:80px">
+                  <div style="width:${pct}%;height:100%;background:${color};border-radius:4px"></div>
+                </div>
+                <span style="font-size:10px;font-weight:700;color:${color}">${qpp >= avgQpp ? '▲':'▼'} ${Math.abs(qpp-avgQpp)} vs avg</span>
+              </div>
+            </td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- Per Category -->
+    ${Object.keys(catMap).length > 1 ? `
+    <div class="section-title">By Category <div style="flex:1;height:1px;background:var(--border)"></div></div>
+    <div class="twrap" style="margin-bottom:20px">
+      <div style="overflow-x:auto"><table>
+        <thead><tr>${['Category','Trips','Total QTY','Total Pallets','Avg QTY/Pallet'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>
+        ${Object.entries(catMap).map(([cat,d])=>{
+          const qpp = d.totalPallets ? Math.round(d.totalQty/d.totalPallets) : 0;
+          return `<tr>
+            <td style="font-weight:600">${cat}</td>
+            <td>${d.trips}</td>
+            <td style="font-family:'JetBrains Mono',monospace">${d.totalQty.toLocaleString()}</td>
+            <td style="font-family:'JetBrains Mono',monospace">${d.totalPallets}</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${colorQpp(qpp)}">${qpp}</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table></div>
+    </div>` : ''}
+
+    <!-- Full Trip Detail -->
+    <div class="section-title">Per Trip Detail <div style="flex:1;height:1px;background:var(--border)"></div></div>
+    <div class="twrap">
+      <div style="overflow-x:auto"><table>
+        <thead><tr>${['Date','Driver','WH','Category','Stores','QTY','Pallets','QTY/Pallet','Status'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>
+        ${rows.map(t=>`<tr>
+          <td>${t.date}</td>
+          <td style="font-weight:600">${t.driver}</td>
+          <td style="font-size:10px">${t.wh}</td>
+          <td style="font-size:10px;color:#6B7280">${t.category||'—'}</td>
+          <td style="font-size:9px;color:#6B7280;max-width:120px;white-space:normal">${(t.storeNames||[]).map(s=>s.replace('QUIK_','')).join(', ')||'—'}</td>
+          <td style="font-family:'JetBrains Mono',monospace">${(t.qty||0).toLocaleString()}</td>
+          <td style="font-family:'JetBrains Mono',monospace;color:#3B82F6;font-weight:600">${t.pallets||0}</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${colorQpp(t.qpp)}">${t.qpp}</td>
+          <td>${statusBadge(t.status)}</td>
+        </tr>`).join('')||`<tr><td colspan="9" style="text-align:center;padding:20px;color:#6B7280">No data — trips with pallets add karo</td></tr>`}
+        </tbody>
+      </table></div>
+    </div>
+  </div>`;
+}
+
 function renderExportTab() {
   const m = document.getElementById('main');
   const today = getToday();
