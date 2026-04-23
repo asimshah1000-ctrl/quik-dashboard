@@ -2906,29 +2906,62 @@ function renderMain(){
 
     buildKpis(dateFilteredTrips,'kpi-main');
 
-    // Store arrival times from live check-ins (today)
-    const today = getToday();
-    const todayCks = liveCheckins.filter(c => c.date === today && c.action === 'arrived');
-    const storeArrMap = {};
-    todayCks.forEach(c => {
-      if (!storeArrMap[c.store] || c.time < storeArrMap[c.store].time) {
-        storeArrMap[c.store] = { time: c.time, driver: c.driver };
+    // Store arrival times — respects date filter
+    const filteredCks = (() => {
+      const today2 = getToday();
+      switch(dateFilterMode) {
+        case 'today':     return liveCheckins.filter(c => c.date === today2);
+        case 'yesterday': return liveCheckins.filter(c => c.date === getYesterday());
+        case 'week':      return liveCheckins.filter(c => c.date >= getWeekStart() && c.date <= today2);
+        case 'month':     return liveCheckins.filter(c => c.date >= getMonthStart() && c.date <= today2);
+        case 'all':       return liveCheckins;
+        case 'custom': {
+          const from = dateFilterFrom||'2000-01-01', to = dateFilterTo||today2;
+          return liveCheckins.filter(c => c.date >= from && c.date <= to);
+        }
+        default: return liveCheckins.filter(c => c.date === today2);
       }
+    })();
+
+    // Per store — collect arrived/completed/departed times
+    const storeDetailMap = {};
+    filteredCks.forEach(c => {
+      if (!c.store) return;
+      if (!storeDetailMap[c.store]) storeDetailMap[c.store] = { arrived:[], completed:[], departed:[], driver:'' };
+      if (c.action === 'arrived')   storeDetailMap[c.store].arrived.push({ time:c.time, date:c.date, driver:c.driver });
+      if (c.action === 'completed') storeDetailMap[c.store].completed.push({ time:c.time, date:c.date });
+      if (c.action === 'departed')  storeDetailMap[c.store].departed.push({ time:c.time, date:c.date });
+      if (c.driver) storeDetailMap[c.store].driver = c.driver;
     });
+
     const arrGrid = document.getElementById('store-arrivals-grid');
     if (arrGrid) {
-      const storeKeys = Object.keys(storeArrMap).sort();
+      const storeKeys = Object.keys(storeDetailMap).sort();
       if (storeKeys.length) {
         arrGrid.innerHTML = storeKeys.map(store => {
-          const a = storeArrMap[store];
-          return `<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:11px 13px;border-left:3px solid #1CE783">
-            <div style="font-size:9px;font-weight:700;color:#6B7280;letter-spacing:.4px;text-transform:uppercase;margin-bottom:4px">${store.replace('QUIK_','')}</div>
-            <div style="font-size:14px;font-weight:700;color:#1A2332;font-family:'JetBrains Mono',monospace">${a.time}</div>
-            <div style="font-size:10px;color:#6B7280;margin-top:3px">👤 ${a.driver||'—'}</div>
+          const s = storeDetailMap[store];
+          const lastArr  = s.arrived.sort((a,b)=>a.date===b.date?a.time.localeCompare(b.time):a.date.localeCompare(b.date)).pop();
+          const lastComp = s.completed.sort((a,b)=>a.date===b.date?a.time.localeCompare(b.time):a.date.localeCompare(b.date)).pop();
+          const lastDep  = s.departed.sort((a,b)=>a.date===b.date?a.time.localeCompare(b.time):a.date.localeCompare(b.date)).pop();
+          const status   = lastDep ? 'departed' : lastComp ? 'completed' : lastArr ? 'arrived' : 'pending';
+          const statusColor = {arrived:'#3B82F6', completed:'#1CE783', departed:'#F97316', pending:'#9CA3AF'}[status];
+          const statusLabel = {arrived:'📍 Arrived', completed:'✅ Done', departed:'🚛 Departed', pending:'⏳'}[status];
+          return `<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;border-left:3px solid ${statusColor};box-shadow:0 1px 3px #0000000a">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="font-size:10px;font-weight:700;color:#1A2332;letter-spacing:.3px">${store.replace('QUIK_','')}</div>
+              <span style="font-size:8px;padding:2px 6px;border-radius:8px;background:${statusColor}18;color:${statusColor};font-weight:700">${statusLabel}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              ${lastArr ? `<div style="font-size:10px;color:#6B7280">📍 <span style="font-family:'JetBrains Mono',monospace;color:#1A2332;font-weight:600">${lastArr.time}</span>${dateFilterMode!=='today'?` <span style="color:#9CA3AF">${lastArr.date}</span>`:''}</div>` : ''}
+              ${lastComp? `<div style="font-size:10px;color:#6B7280">✅ <span style="font-family:'JetBrains Mono',monospace;color:#1CE783;font-weight:600">${lastComp.time}</span></div>` : ''}
+              ${lastDep ? `<div style="font-size:10px;color:#6B7280">🚛 <span style="font-family:'JetBrains Mono',monospace;color:#F97316;font-weight:600">${lastDep.time}</span></div>` : ''}
+              ${s.driver ? `<div style="font-size:9px;color:#9CA3AF;margin-top:2px">👤 ${s.driver}</div>` : ''}
+            </div>
+            <div style="font-size:8px;color:#9CA3AF;margin-top:5px">${s.arrived.length} visit${s.arrived.length!==1?'s':''}</div>
           </div>`;
         }).join('');
       } else {
-        arrGrid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:20px;color:#6B7280;font-size:12px">No store arrivals yet today — drivers scan karo</div>`;
+        arrGrid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:#9CA3AF;font-size:12px">No store arrivals for selected period — try different date filter</div>`;
       }
     }
 
