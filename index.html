@@ -2069,13 +2069,33 @@ async function saveManualCheckin() {
   if (!store)   { showErr('Store select karo'); return; }
   if (!time)    { showErr('Time daalo'); return; }
 
-  // Save to Firebase checkins
+  const updates = {};
+
+  // If action is 'arrived' — auto-depart any previous store that's stuck
+  // so driver's sequential block is cleared
+  if (action === 'arrived') {
+    const today = date || getToday();
+    const snap = await db.ref('checkins').orderByChild('date').equalTo(today).once('value');
+    const all = snap.val() ? Object.values(snap.val()) : [];
+    const driverCks = all.filter(c => c.driver === driver || !driver).sort((a,b)=>(b.ts||0)-(a.ts||0));
+    // Find any store that has arrived but not departed (excluding current store)
+    const stuckStore = driverCks.find(c => c.store && c.store !== store && c.action === 'arrived' &&
+      !driverCks.some(d => d.store === c.store && d.action === 'departed'));
+    if (stuckStore) {
+      // Auto-depart stuck store with same time
+      await db.ref('checkins').push({ tripId, store: stuckStore.store, driver, action:'departed', time, date, ts: Date.now()-1 });
+      await db.ref(`trips/${tripId}/storeTimes/${stuckStore.store}/dep`).set(time);
+      showToast(`↩️ ${stuckStore.store.replace('QUIK_','')} auto-departed`, '#F97316');
+    }
+  }
+
+  // Save the manual check-in
   await db.ref('checkins').push({ tripId, store, driver, action, time, date, ts: Date.now() });
 
-  // Also update storeTimes in trip
-  if (action === 'arrived')   await db.ref(`trips/${tripId}/storeTimes/${store}/arr`).set(time);
-  if (action === 'departed')  await db.ref(`trips/${tripId}/storeTimes/${store}/dep`).set(time);
-  if (action === 'completed') await db.ref(`trips/${tripId}/status`).set('Completed');
+  // Update storeTimes
+  if (action === 'arrived')  updates[`trips/${tripId}/storeTimes/${store}/arr`] = time;
+  if (action === 'departed') updates[`trips/${tripId}/storeTimes/${store}/dep`] = time;
+  if (Object.keys(updates).length) await db.ref().update(updates);
 
   recordMeta();
   closeManualCheckin();
