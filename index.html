@@ -3391,8 +3391,6 @@ function renderMain(){
   else if(currentTab==='live'){
     const today = new Date().toISOString().split('T')[0];
     const todayCheckins = liveCheckins.filter(c => c.date === today);
-
-    // Apply date filter to full log
     const allCheckins = (() => {
       switch(dateFilterMode) {
         case 'today':     return liveCheckins.filter(c => c.date === today);
@@ -3412,125 +3410,148 @@ function renderMain(){
     const actionIcon  = { arrived:'📍', departed:'🚛', completed:'✅' };
     const actionLabel = { arrived:'Arrived', departed:'Departed', completed:'Completed' };
 
-    // Build store-level summary for today
+    // Store summary from today
     const storeSummary = {};
     todayCheckins.forEach(c => {
-      if(!storeSummary[c.store]) storeSummary[c.store] = { arrived:null, departed:null, completed:null, driver:'' };
-      storeSummary[c.store][c.action] = c.time;
+      if(!storeSummary[c.store]) storeSummary[c.store] = { arrived:null, departed:null, driver:'' };
+      if(c.action==='arrived')  storeSummary[c.store].arrived  = c.time;
+      if(c.action==='departed') storeSummary[c.store].departed = c.time;
       if(c.driver) storeSummary[c.store].driver = c.driver;
     });
 
-    // Build transit times per trip using actual arrival order
-    const todayTrips = applyDateFilter(trips);
-    const transitRows = todayTrips.flatMap(t => buildTransitLegs(t));
-
-    const todayTripsAll = trips.filter(t=>t.date===today);
+    // Transit times
+    const transitRows = applyDateFilter(trips).flatMap(t => buildTransitLegs(t));
 
     m.innerHTML = `<div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+
+      <!-- ── HEADER ── -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
         <div>
-          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700">🟢 Live Driver Check-ins</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:3px">Real-time + manual check-in entry</div>
+          <div style="font-size:15px;font-weight:700;color:var(--text)">🟢 Live Check-ins</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Real-time store check-in tracking</div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--green);background:#16A34A15;border:1px solid #16A34A40;padding:5px 12px;border-radius:6px">🔴 LIVE</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:11px;color:#16A34A;background:#DCFCE7;border:1px solid #BBF7D0;padding:4px 12px;border-radius:20px;font-weight:600">🔴 LIVE</span>
           ${canEdit()?`<button onclick="openManualCheckin()" class="btn-p" style="font-size:11px">+ Manual Check-in</button>`:''}
           ${tabExportBar('live')}
+        </div>
       </div>
 
       ${dateFilterBar()}
 
-      <!-- KPIs — always today's, horizontal compact -->
+      <!-- ── KPI ROW ── -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
         ${[
-          ['Total Scans', todayCheckins.length, '#3B82F6'],
-          ['Arrived', todayCheckins.filter(c=>c.action==='arrived').length, '#3B82F6'],
-          ['Completed', todayCheckins.filter(c=>c.action==='completed').length, '#22C55E'],
-          ['Departed', todayCheckins.filter(c=>c.action==='departed').length, '#F97316'],
+          ['Total Scans', allCheckins.length, '#1A2332'],
+          ['Arrived', allCheckins.filter(c=>c.action==='arrived').length, '#3B82F6'],
+          ['Departed', allCheckins.filter(c=>c.action==='departed').length, '#F97316'],
+          ['In Store Now', Object.values(storeSummary).filter(s=>s.arrived&&!s.departed).length, '#1CE783'],
         ].map(([l,v,color])=>`
-          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
-            <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${l}</div>
-            <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:800;color:${color}">${v}</div>
+          <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px;box-shadow:0 1px 3px #0000000a">
+            <div style="font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#9CA3AF;margin-bottom:6px">${l}</div>
+            <div style="font-size:26px;font-weight:800;color:${color};font-family:'Plus Jakarta Sans',sans-serif">${v}</div>
           </div>`).join('')}
       </div>
 
-      <!-- Store status grid -->
-      ${Object.keys(storeSummary).length > 0 ? `
-      <div class="section-title">Today's Store Status <div style="flex:1;height:1px;background:var(--border)"></div></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:20px">
-        ${Object.entries(storeSummary).map(([store, s]) => {
-          const done=s.completed,dep=s.departed,arr=s.arrived;
-          const sc=done?'#22C55E':dep?'#F97316':arr?'#3B82F6':'#64748B';
-          const sl=done?'✅ Completed':dep?'🚛 Departed':arr?'📍 Arrived':'⏳ Pending';
-          return `<div style="background:var(--bg2);border:1px solid ${sc}40;border-radius:10px;padding:12px;border-left:3px solid ${sc}">
-            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;margin-bottom:5px">${store.replace('QUIK_','')}</div>
-            <div style="font-size:11px;font-weight:600;color:${sc};margin-bottom:3px">${sl}</div>
-            ${s.driver?`<div style="font-size:10px;color:var(--muted)">👤 ${s.driver}</div>`:''}
-            <div style="font-size:9px;color:var(--muted);margin-top:3px">
-              ${arr?`📍${arr}`:''}${arr&&dep?' · ':''}${dep?`🚛${dep}`:''}${dep&&done?' · ':''}${done?`✅${s.completed}`:''}
-            </div>
-          </div>`;
-        }).join('')}
-      </div>` : ''}
-
-      <!-- TRANSIT TIMES -->
-      ${transitRows.length ? `
-      <div class="section-title">⏱️ Transit Times — Aaj <div style="flex:1;height:1px;background:var(--border)"></div></div>
-      <div class="twrap" style="margin-bottom:20px">
-        <div style="overflow-x:auto"><table>
-          <thead><tr>${['Driver','From','To','Departed','Arrived','⏱️ Time','Status'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-          <tbody>
-          ${transitRows.map(r => {
-            const color = r.mins===null?'var(--muted)':r.mins<=30?'#22C55E':r.mins<=60?'#F97316':'#EF4444';
-            const label = r.mins===null ? (r.dep?'En route…':'Pending') : r.mins+' min';
-            return `<tr>
-              <td style="font-weight:600">${r.driver}</td>
-              <td style="font-family:'JetBrains Mono',monospace;font-size:10px">${r.isWH?'🏭 WH':r.fromLabel}</td>
-              <td style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600">${r.to.replace('QUIK_','')}</td>
-              <td>${r.dep ? `<span class="ttag">${r.dep}</span>` : '<span style="color:var(--muted);font-size:9px">—</span>'}</td>
-              <td>${r.arr ? `<span class="ttag">${r.arr}</span>` : (r.dep ? '<span style="color:var(--orange);font-size:9px">En route ⏳</span>' : '<span style="color:var(--muted);font-size:9px">—</span>')}</td>
-              <td><span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${color}">${label}</span></td>
-              <td><span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${color}20;color:${color};border:1px solid ${color}40">${
-                r.mins===null?(r.dep?'🚛 Moving':'⏳ Waiting'):r.mins<=30?'🟢 Fast':r.mins<=60?'🟡 Normal':'🔴 Slow'
-              }</span></td>
-            </tr>`;
+      <!-- ── TODAY'S STORE STATUS (only show if data) ── -->
+      ${Object.keys(storeSummary).length ? `
+      <div style="margin-bottom:20px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#9CA3AF;margin-bottom:10px">Today's Store Status</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px">
+          ${Object.entries(storeSummary).map(([store, s]) => {
+            const active = s.arrived && !s.departed;
+            const done   = s.departed;
+            const sc     = done?'#F97316':active?'#1CE783':'#3B82F6';
+            const sl     = done?'🚛 Departed':active?'📍 In Store':'📍 Arrived';
+            const mins   = (s.arrived&&s.departed) ? (() => { const d=toMins(s.departed)-toMins(s.arrived); return d<0?d+1440:d; })() : null;
+            return `<div style="background:#fff;border:1px solid ${sc}30;border-radius:10px;padding:10px 12px;border-top:3px solid ${sc};box-shadow:0 1px 3px #0000000a">
+              <div style="font-weight:700;font-size:12px;color:#1A2332;margin-bottom:4px">${store.replace('QUIK_','')}</div>
+              <div style="font-size:11px;font-weight:600;color:${sc}">${sl}</div>
+              ${s.driver?`<div style="font-size:10px;color:#9CA3AF;margin-top:3px">👤 ${s.driver}</div>`:''}
+              <div style="font-size:10px;color:#9CA3AF;margin-top:3px;font-family:'JetBrains Mono',monospace">
+                ${s.arrived?s.arrived:''}${s.arrived&&s.departed?' → ':''}${s.departed?s.departed:''}
+                ${mins!==null?` (${mins}m)`:''}
+              </div>
+            </div>`;
           }).join('')}
-          </tbody>
-        </table></div>
+        </div>
       </div>` : ''}
 
-      <!-- Live feed table -->
-      <div class="section-title">Full Check-in Log <span style="font-size:10px;color:var(--muted);margin-left:8px">${allCheckins.length} records</span> <div style="flex:1;height:1px;background:var(--border)"></div></div>
-      <div class="twrap">
-        <div style="overflow-x:auto"><table>
-          <thead><tr>${['Time','Date','Driver','Store','Action','Photo','Trip ID',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-          <tbody>
-          ${allCheckins.length ? allCheckins.slice(0,100).map(c => {
-            const color = actionColor[c.action] || '#64748B';
-            const icon  = actionIcon[c.action]  || '🔔';
-            const label = actionLabel[c.action]  || c.action;
-            const isToday = c.date === today;
-            const tripObj = trips.find(t => t._id === c.tripId);
-            const driverName = c.driver || tripObj?.driver || '—';
-            const photoThumb = c.photoURL
-              ? `<img src="${c.photoURL}" onclick="viewPhoto('${c.photoURL}')" style="width:36px;height:36px;object-fit:cover;border-radius:5px;cursor:pointer;border:1px solid var(--border)">`
-              : `<span style="font-size:9px;color:var(--muted)">—</span>`;
-            return `<tr style="${isToday?'background:#16A34A08':''}">
-              <td><span style="font-family:'JetBrains Mono',monospace;color:${color};font-weight:600">${c.time||'—'}</span></td>
-              <td style="color:${isToday?'var(--green)':'var(--muted)'}">${isToday?'Today':c.date}</td>
-              <td style="font-weight:600">${driverName}</td>
-              <td style="font-family:'JetBrains Mono',monospace;font-weight:600">${(c.store||'').replace('QUIK_','')}</td>
-              <td><span style="background:${color}20;color:${color};border:1px solid ${color}40;border-radius:20px;font-size:9px;font-weight:700;padding:2px 8px">${icon} ${label}</span></td>
-              <td>${photoThumb}</td>
-              <td style="font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace">${(c.tripId||'').slice(0,8)}…</td>
-              <td>${canEdit()?`
-                <button class="delbtn" onclick="openEditCk('checkins/${c._id}','checkin','${label} — ${(c.store||'').replace('QUIK_','')}','${c.time||''}','${driverName}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button>
-                <button class="delbtn" onclick="deleteCheckin('checkins/${c._id}')">✕</button>
-              `:''}</td>
-            </tr>`;
-          }).join('') : `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">Koi check-in nahi hua abhi tak</td></tr>`}
-          </tbody>
-        </table></div>
+      <!-- ── TRANSIT TIMES ── -->
+      ${transitRows.length ? `
+      <div style="margin-bottom:20px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#9CA3AF;margin-bottom:10px">⏱ Transit Times</div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px #0000000a">
+          <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+            <thead><tr style="background:#F8F9FA;border-bottom:1px solid var(--border)">
+              ${['Driver','Route','Departed','Arrived','Time',''].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9CA3AF">${h}</th>`).join('')}
+            </tr></thead>
+            <tbody>
+            ${transitRows.map((r,i) => {
+              const color = r.mins===null?'#9CA3AF':r.mins<=30?'#1CE783':r.mins<=60?'#F97316':'#EF4444';
+              const label = r.mins===null ? (r.dep?'En route…':'Pending') : r.mins+' min';
+              const badge = r.mins===null?(r.dep?'Moving':'Waiting'):r.mins<=30?'Fast':r.mins<=60?'Normal':'Slow';
+              return `<tr style="border-bottom:1px solid #F3F4F6;${i%2===0?'':'background:#FAFAFA'}">
+                <td style="padding:10px 14px;font-weight:600;font-size:12px">${r.driver}</td>
+                <td style="padding:10px 14px">
+                  <div style="display:flex;align-items:center;gap:6px;font-size:11px">
+                    <span style="color:#9CA3AF">${r.isWH?'🏭 WH':r.fromLabel}</span>
+                    <span style="color:#D1D5DB">→</span>
+                    <span style="font-weight:600;color:#1A2332">${r.to.replace('QUIK_','')}</span>
+                  </div>
+                </td>
+                <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#6B7280">${r.dep||'—'}</td>
+                <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#6B7280">${r.arr||(r.dep?'<span style="color:#F97316;font-size:10px">En route ⏳</span>':'—')}</td>
+                <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-weight:700;color:${color}">${label}</td>
+                <td style="padding:10px 14px"><span style="font-size:9px;padding:2px 8px;border-radius:8px;background:${color}15;color:${color};font-weight:700">${badge}</span></td>
+              </tr>`;
+            }).join('')}
+            </tbody>
+          </table></div>
+        </div>
+      </div>` : ''}
+
+      <!-- ── CHECK-IN LOG ── -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#9CA3AF">Check-in Log</div>
+          <div style="font-size:11px;color:#9CA3AF">${allCheckins.length} records</div>
+        </div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px #0000000a">
+          <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+            <thead><tr style="background:#F8F9FA;border-bottom:1px solid var(--border)">
+              ${['Time','Date','Driver','Store','Action','Photo',''].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9CA3AF">${h}</th>`).join('')}
+            </tr></thead>
+            <tbody>
+            ${allCheckins.length ? allCheckins.slice(0,100).map((c,i) => {
+              const color = actionColor[c.action]||'#9CA3AF';
+              const icon  = actionIcon[c.action]||'🔔';
+              const label = actionLabel[c.action]||c.action;
+              const isToday = c.date===today;
+              const tripObj = trips.find(t=>t._id===c.tripId);
+              const driverName = c.driver||tripObj?.driver||'—';
+              const photoThumb = c.photoURL
+                ? `<img src="${c.photoURL}" onclick="viewPhoto('${c.photoURL}')" style="width:32px;height:32px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #E5E7EB">`
+                : `<span style="font-size:9px;color:#D1D5DB">—</span>`;
+              return `<tr style="border-bottom:1px solid #F3F4F6;${i%2===0?'':'background:#FAFAFA'}">
+                <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${color}">${c.time||'—'}</td>
+                <td style="padding:10px 14px;font-size:11px;color:${isToday?'#1CE783':'#9CA3AF'};font-weight:${isToday?'600':'400'}">${isToday?'Today':c.date}</td>
+                <td style="padding:10px 14px;font-size:12px;font-weight:600;color:#1A2332">${driverName}</td>
+                <td style="padding:10px 14px;font-size:12px;font-weight:600;font-family:'JetBrains Mono',monospace;color:#374151">${(c.store||'').replace('QUIK_','')}</td>
+                <td style="padding:10px 14px">
+                  <span style="display:inline-flex;align-items:center;gap:4px;background:${color}12;color:${color};border:1px solid ${color}30;border-radius:20px;font-size:10px;font-weight:700;padding:3px 10px">
+                    ${icon} ${label}
+                  </span>
+                </td>
+                <td style="padding:10px 14px">${photoThumb}</td>
+                <td style="padding:10px 14px">${canEdit()?`
+                  <button class="delbtn" onclick="openEditCk('checkins/${c._id}','checkin','${label}','${c.time||''}','${driverName}')" style="border-color:#E5E7EB;color:#6B7280">✏️</button>
+                  <button class="delbtn" onclick="deleteCheckin('checkins/${c._id}')">✕</button>`:''}</td>
+              </tr>`;
+            }).join('') : `<tr><td colspan="7" style="text-align:center;padding:32px;color:#9CA3AF;font-size:12px">No check-ins yet — drivers will appear here when they scan</td></tr>`}
+            </tbody>
+          </table></div>
+        </div>
       </div>
     </div>`;
   }
