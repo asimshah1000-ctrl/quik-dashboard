@@ -223,7 +223,15 @@ tbody td{padding:7px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;
 <!-- AUTH OVERLAY — Simple PIN based, no Firebase Auth needed -->
 <div id="authov" class="authov">
   <div class="authbox">
-    <div style="font-size:34px;margin-bottom:10px">🔐</div>
+    <div style="margin:0 auto 12px;width:60px;height:60px">
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="cgl" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7AFFD4"/><stop offset="100%" stop-color="#1CE783"/></linearGradient></defs>
+        <rect width="100" height="100" rx="22" fill="url(#cgl)"/>
+        <path d="M 72 58 A 26 26 0 1 1 72 42" stroke="#0D4A2A" stroke-width="14" fill="none" stroke-linecap="round"/>
+        <circle cx="36" cy="34" r="7" fill="#0D4A2A"/>
+        <rect x="54" y="22" width="11" height="16" rx="3" fill="#0D4A2A" transform="rotate(20,59,30)"/>
+      </svg>
+    </div>
     <h2>Careem Quik</h2>
     <p>Enter your name and PIN</p>
     <div class="auth-err" id="auth-err"></div>
@@ -589,14 +597,13 @@ tbody td{padding:7px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;
 <header>
   <div class="logo">
     <!-- Careem logo SVG -->
-    <!-- Careem C-wink logo -->
-    <svg class="logo-icon" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="100" cy="100" r="100" fill="#1CE783"/>
-      <!-- Careem C shape with wink -->
-      <path d="M138 68 C138 68 115 52 88 58 C61 64 45 84 45 104 C45 124 61 144 88 150 C115 156 138 140 138 140"
-        stroke="#fff" stroke-width="20" stroke-linecap="round" fill="none"/>
-      <!-- Wink dot -->
-      <circle cx="148" cy="118" r="11" fill="#fff"/>
+    <!-- Careem logo -->
+    <svg class="logo-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7AFFD4"/><stop offset="100%" stop-color="#1CE783"/></linearGradient></defs>
+      <rect width="100" height="100" rx="22" fill="url(#cg)"/>
+      <path d="M 72 58 A 26 26 0 1 1 72 42" stroke="#0D4A2A" stroke-width="14" fill="none" stroke-linecap="round"/>
+      <circle cx="36" cy="34" r="7" fill="#0D4A2A"/>
+      <rect x="54" y="22" width="11" height="16" rx="3" fill="#0D4A2A" transform="rotate(20,59,30)"/>
     </svg>
     <span style="color:#1A2332;font-weight:800;letter-spacing:-.3px">Careem</span><span style="color:#1CE783;font-weight:800;margin-left:6px">Quik</span>
   </div>
