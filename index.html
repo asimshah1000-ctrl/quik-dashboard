@@ -4682,7 +4682,7 @@ function renderDriversTab() {
 
     <div class="twrap">
       <div style="overflow-x:auto"><table>
-        <thead><tr>${['Status','Driver','Plate','Eff','Type','WH','Category','Trip IDs','Stores',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['Status','Driver','Plate','Eff','Type','WH','Category','PIN','Trip IDs','Stores',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
         ${drivers.map(([key, d]) => {
           const isActive = d.active !== false;
@@ -4713,6 +4713,11 @@ function renderDriversTab() {
             <td style="font-size:11px">${ied('vt',d.vt||'Own Fleet','select',['Own Fleet','3PL Fleet','Adhoc/Rental'])}</td>
             <td style="font-size:11px">${ied('wh',d.wh||'DIP Warehouse','select',['DIP Warehouse','RSA - DC','FNV Warehouse'])}</td>
             <td style="font-size:11px">${ied('category',d.category||'','select',CATEGORIES)}</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-size:11px">
+              ${canEdit()?`<span class="ecell" title="Click to set PIN" onclick="ie(this,'drivers_config/${key}/pin','${d.pin||''}','number')" style="display:inline-flex;align-items:center;gap:4px">
+                ${d.pin ? `<span style="background:#1CE78315;color:#059652;border:1px solid #1CE78340;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700">••••</span>` : `<span style="color:#9CA3AF;font-size:10px">Set PIN ✏</span>`}
+              </span>`:(d.pin?'Set':'—')}
+            </td>
             <td style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--blue);max-width:120px">
               ${canEdit()?`<span class="ecell" title="Edit Trip IDs" onclick="editDriverTripIds('${key}','${tripIds.join(', ')}')">${tripIds.join(', ')||'—'} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:(tripIds.join(', ')||'—')}
             </td>
