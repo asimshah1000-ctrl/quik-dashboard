@@ -1504,19 +1504,49 @@ function switchTab(t){
 // ═══════════════════════════════════════════════════════
 //  KPI BUILDER
 // ═══════════════════════════════════════════════════════
+// ── UTILIZATION CALCULATOR ───────────────────────────────────
+// Fix-Chocolate: stores-based util (stores delivered / total stores assigned)
+// All others: pallets-based util (pallets / capacity)
+function calcTripUtil(t) {
+  if ((t.category||'').toLowerCase().includes('chocolate') || (t.category||'').toLowerCase().includes('fix')) {
+    const total  = (t.storeNames||[]).length;
+    const done   = Object.values(t.storeTimes||{}).filter(s=>s.dep||s.completed).length;
+    if (!total) return 0;
+    return Math.round(done / total * 100);
+  }
+  return t.capacity ? Math.round((t.pallets||0) / t.capacity * 100) : 0;
+}
+
+function calcAvgUtil(data) {
+  if (!data.length) return 0;
+  // Split by category
+  const choc = data.filter(t=>(t.category||'').toLowerCase().includes('chocolate')||(t.category||'').toLowerCase().includes('fix'));
+  const norm = data.filter(t=>!choc.includes(t));
+  let total = 0, count = 0;
+  choc.forEach(t => {
+    const tot = (t.storeNames||[]).length;
+    const done = Object.values(t.storeTimes||{}).filter(s=>s.dep||s.completed).length;
+    if (tot) { total += done/tot*100; count++; }
+  });
+  norm.forEach(t => {
+    if (t.capacity) { total += (t.pallets||0)/t.capacity*100; count++; }
+  });
+  return count ? (total/count).toFixed(1) : 0;
+}
+
 function buildKpis(data,cid){
   const n=data.length,u=data.reduce((a,t)=>a+(t.qty||0),0),p=data.reduce((a,t)=>a+(t.pallets||0),0);
   const tripCost=data.reduce((a,t)=>a+(t.cost||0),0);
   const fuelCost=data.reduce((a,t)=>a+(t.fuelCostAED||0),0);
   const totalCost=tripCost+fuelCost;
-  const util=n?(data.reduce((a,t)=>a+((t.pallets||0)/(t.capacity||14)),0)/n*100).toFixed(1):0;
+  const util = calcAvgUtil(data);
   const dual=data.filter(t=>t.trip2).length;
   const cards=[
     {l:'Total Trips',v:n,s:`${data.filter(t=>t.status==='Completed').length} done · ${dual} 2nd-runs`,c:'blue'},
     {l:'Units Delivered',v:u.toLocaleString(),s:'FMCG units',c:'purple'},
     {l:'Pallets Loaded',v:p.toLocaleString(),s:'all vehicles',c:'orange'},
     {l:'Total Cost (AED)',v:'AED '+Math.round(totalCost).toLocaleString(),s:`Trip: ${tripCost.toLocaleString()} · Fuel: ${Math.round(fuelCost)}`,c:'red'},
-    {l:'Avg Utilization',v:util+'%',s:'pallets only (excl. totes)',c:'green'},
+    {l:'Avg Utilization',v:util+'%',s:'pallets / stores basis per category',c:'green'},
   ];
   document.getElementById(cid).innerHTML=cards.map(k=>
     `<div class="kpi-card ${k.c}"><div class="kpi-label">${k.l}</div><div class="kpi-value">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`
@@ -1528,9 +1558,9 @@ function buildKpis(data,cid){
 // ═══════════════════════════════════════════════════════
 function bcard(title,badge,data,color){
   const n=data.length,u=data.reduce((a,t)=>a+(t.qty||0),0),p=data.reduce((a,t)=>a+(t.pallets||0),0),c=data.reduce((a,t)=>a+(t.cost||0),0);
-  const util=n?(data.reduce((a,t)=>a+((t.pallets||0)/(t.capacity||14)),0)/n*100).toFixed(1):0;
+  const util = calcAvgUtil(data);
   const cpp=p?(c/p).toFixed(2):'0.00';
-  const bl=badge==='own'?'OWN WH':badge==='tpl'?'3PL WH':'ADHOC';
+  const bl=badge==='own'?'OWN WH':badge==='tpl'?'3PL WH':badge==='fnv'?'FNV WH':'ADHOC';
   return `<div class="bcard">
     <div class="bc-hdr"><div class="bc-title">${title}</div><div class="bc-badge ${badge}">${bl}</div></div>
     <div class="brow"><span class="brow-l">Trips</span><span class="brow-v">${n}</span></div>
@@ -3077,7 +3107,7 @@ function renderMain(){
       <div class="twrap"><div style="overflow-x:auto"><table>
         <thead><tr>${['Date','Warehouse','Veh Type','Driver','Category','Trip','Stores','QTY','Pallets','Util%','Sched Dispatch','WH Departed','⏱️ Status','Cost','Status',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>${whTripsFiltered.map(t=>{
-          const u=((t.pallets||0)/(t.capacity||14)*100).toFixed(0);
+          const u=calcTripUtil(t);
           const whDep = t.whCheckin?.departed||'';
           let otBadge = '—';
           if(t.dispatch && whDep){
@@ -3140,7 +3170,7 @@ function renderMain(){
       <div style="overflow-x:auto"><table>
         <thead><tr>${['Trip Date','Order Date','WH','Veh','Plate','Driver','Trip','#','Category','Store Names','QTY','Pallets','Totes','Util','Dispatch','1st Arr','Last Dep','Cost','Fuel','Status','Remarks',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>${applyCatFilter(applyDateFilter(filtTrips)).map(t=>{
-          const u=((t.pallets||0)/(t.capacity||14)*100).toFixed(0);
+          const u=calcTripUtil(t);
           const times=Object.values(t.storeTimes||{});
           const arrs=times.map(x=>x.arr).filter(Boolean).sort();
           const deps=times.map(x=>x.dep).filter(Boolean).sort();
@@ -4493,7 +4523,7 @@ function exportTrips(fmt) {
   const data = applyDateFilter(trips);
   const headers = ['Date','Order Date','Driver','Vehicle','WH','Type','Category','Trip#','Stores','QTY','Pallets','Totes','Capacity','Util%','Dispatch','Cost AED','Fuel Cost AED','Total Cost','Status','Remarks','Trip ID'];
   const rows = data.map(t => {
-    const u = t.pallets&&t.capacity ? ((t.pallets/t.capacity)*100).toFixed(1) : 0;
+    const u = calcTripUtil(t);
     const total = (t.cost||0) + (t.fuelCostAED||0);
     return [t.date,t.orderDate||'',t.driver,t.vid,t.wh,t.vt,t.category||'',t.trip2?2:1,
       (t.storeNames||[]).join(' | '),(t.qty||0),(t.pallets||0),(t.totes||0),
@@ -4591,7 +4621,7 @@ function exportAll() {
 
   const tripHeaders = ['Date','Order Date','Driver','Vehicle','WH','Type','Category','Trip#','Stores','QTY','Pallets','Totes','Capacity','Util%','Dispatch','Cost AED','Fuel AED','Total AED','Status','Remarks'];
   const tripRows = data.map(t => {
-    const u = t.pallets&&t.capacity?((t.pallets/t.capacity)*100).toFixed(1):0;
+    const u = calcTripUtil(t);
     return [t.date,t.orderDate||'',t.driver,t.vid,t.wh,t.vt,t.category||'',t.trip2?2:1,
       (t.storeNames||[]).join(' | '),(t.qty||0),(t.pallets||0),(t.totes||0),(t.capacity||14),
       u,(t.dispatch||''),(t.cost||0),(t.fuelCostAED||0),Math.round((t.cost||0)+(t.fuelCostAED||0)),
