@@ -921,16 +921,18 @@ function getMonthStart(){ const d=new Date();d.setDate(1);return d.toISOString()
 
 function applyDateFilter(tripList) {
   const today = getToday();
+  // Use orderDate if available, fallback to trip date
+  const d = t => t.orderDate || t.date;
   switch(dateFilterMode) {
-    case 'today':     return tripList.filter(t => t.date === today);
-    case 'yesterday': return tripList.filter(t => t.date === getYesterday());
-    case 'week':      return tripList.filter(t => t.date >= getWeekStart() && t.date <= today);
-    case 'month':     return tripList.filter(t => t.date >= getMonthStart() && t.date <= today);
+    case 'today':     return tripList.filter(t => d(t) === today);
+    case 'yesterday': return tripList.filter(t => d(t) === getYesterday());
+    case 'week':      return tripList.filter(t => d(t) >= getWeekStart() && d(t) <= today);
+    case 'month':     return tripList.filter(t => d(t) >= getMonthStart() && d(t) <= today);
     case 'all':       return tripList;
     case 'custom':
       const from = dateFilterFrom || '2000-01-01';
       const to   = dateFilterTo   || today;
-      return tripList.filter(t => t.date >= from && t.date <= to);
+      return tripList.filter(t => d(t) >= from && d(t) <= to);
     default: return tripList;
   }
 }
