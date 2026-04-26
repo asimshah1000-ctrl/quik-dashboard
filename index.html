@@ -3433,27 +3433,39 @@ function renderMain(){
   // ── LIVE CHECK-INS ──
   else if(currentTab==='live'){
     const today = new Date().toISOString().split('T')[0];
-    const todayCheckins = liveCheckins.filter(c => c.date === today);
-    const allCheckins = (() => {
+
+    // Build tripId → category map
+    const tripCatMap = {};
+    trips.forEach(t => { if(t._id) tripCatMap[t._id] = t.category||''; });
+
+    // Helper: apply date filter to checkins
+    const dateFilterCks = (list) => {
       switch(dateFilterMode) {
-        case 'today':     return liveCheckins.filter(c => c.date === today);
-        case 'yesterday': return liveCheckins.filter(c => c.date === getYesterday());
-        case 'week':      return liveCheckins.filter(c => c.date >= getWeekStart() && c.date <= today);
-        case 'month':     return liveCheckins.filter(c => c.date >= getMonthStart() && c.date <= today);
-        case 'all':       return liveCheckins;
+        case 'today':     return list.filter(c => c.date === today);
+        case 'yesterday': return list.filter(c => c.date === getYesterday());
+        case 'week':      return list.filter(c => c.date >= getWeekStart() && c.date <= today);
+        case 'month':     return list.filter(c => c.date >= getMonthStart() && c.date <= today);
+        case 'all':       return list;
         case 'custom': {
           const from = dateFilterFrom||'2000-01-01', to = dateFilterTo||today;
-          return liveCheckins.filter(c => c.date >= from && c.date <= to);
+          return list.filter(c => c.date >= from && c.date <= to);
         }
-        default: return liveCheckins.filter(c => c.date === today);
+        default: return list.filter(c => c.date === today);
       }
-    })();
+    };
+
+    // Category filter on checkins
+    const catFilterCks = (list) => catFilter==='all' ? list
+      : list.filter(c => (tripCatMap[c.tripId]||'') === catFilter);
+
+    const allCheckins = catFilterCks(dateFilterCks(liveCheckins));
+    const todayCheckins = catFilterCks(liveCheckins.filter(c => c.date === today));
 
     const actionColor = { arrived:'#3B82F6', departed:'#F97316', completed:'#22C55E' };
     const actionIcon  = { arrived:'📍', departed:'🚛', completed:'✅' };
     const actionLabel = { arrived:'Arrived', departed:'Departed', completed:'Completed' };
 
-    // Store summary from today
+    // Store summary (category-filtered)
     const storeSummary = {};
     todayCheckins.forEach(c => {
       if(!storeSummary[c.store]) storeSummary[c.store] = { arrived:null, departed:null, driver:'' };
@@ -3462,8 +3474,8 @@ function renderMain(){
       if(c.driver) storeSummary[c.store].driver = c.driver;
     });
 
-    // Transit times
-    const transitRows = applyDateFilter(trips).flatMap(t => buildTransitLegs(t));
+    // Transit times (category-filtered)
+    const transitRows = applyCatFilter(applyDateFilter(trips)).flatMap(t => buildTransitLegs(t));
 
     m.innerHTML = `<div>
 
@@ -3479,8 +3491,8 @@ function renderMain(){
           ${tabExportBar('live')}
         </div>
       </div>
-
       ${dateFilterBar()}
+      ${catFilterBar()}
 
       <!-- ── KPI ROW ── -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
@@ -3682,8 +3694,12 @@ function renderWHActivity() {
   const actionIcon  = { arrived:'🏭', loaded:'📦', departed:'🚛' };
   const actionLabel = { arrived:'Arrived at WH', loaded:'Vehicle Loaded', departed:'Departed WH' };
 
-  // Apply date filter to WH checkins
-  const filteredWH = (() => {
+  // Build tripId → category map
+  const tripCatMap = {};
+  trips.forEach(t => { if(t._id) tripCatMap[t._id] = t.category||''; });
+
+  // Apply date filter
+  const dateFilteredWH = (() => {
     switch(dateFilterMode) {
       case 'today':     return whCheckins.filter(c => c.date === today);
       case 'yesterday': return whCheckins.filter(c => c.date === getYesterday());
@@ -3691,15 +3707,20 @@ function renderWHActivity() {
       case 'month':     return whCheckins.filter(c => c.date >= getMonthStart() && c.date <= today);
       case 'all':       return whCheckins;
       case 'custom': {
-        const from = dateFilterFrom || '2000-01-01';
-        const to   = dateFilterTo   || today;
+        const from = dateFilterFrom || '2000-01-01', to = dateFilterTo || today;
         return whCheckins.filter(c => c.date >= from && c.date <= to);
       }
       default: return whCheckins.filter(c => c.date === today);
     }
   })();
 
-  const todayWH = whCheckins.filter(c => c.date === today);
+  // Apply category filter
+  const filteredWH = catFilter === 'all' ? dateFilteredWH
+    : dateFilteredWH.filter(c => (tripCatMap[c.tripId]||'') === catFilter);
+
+  const todayWH = catFilter === 'all'
+    ? whCheckins.filter(c => c.date === today)
+    : whCheckins.filter(c => c.date === today && (tripCatMap[c.tripId]||'') === catFilter);
 
   // Build driver summary for selected date range
   const driverMap = {};
@@ -3726,6 +3747,7 @@ function renderWHActivity() {
     </div>
 
     ${dateFilterBar()}
+    ${catFilterBar()}
 
     <!-- KPIs — always today's -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
