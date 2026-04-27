@@ -3972,29 +3972,58 @@ function renderOperationsTab() {
     trips.find(t=>t._id===c.tripId&&t.driver===opsDriverFilter));
   const dTrips = opsDriverFilter==='all' ? filteredTrips : filteredTrips.filter(t=>t.driver===opsDriverFilter);
 
-  // ── Store time at store ──
+  // Build tripId → trip info map for sequence/ID display
+  const tripInfoMap = {};
+  dTrips.forEach(t => {
+    if (t._id) tripInfoMap[t._id] = {
+      tripNum: t.tripId || t._id.slice(0,6),
+      driver:  t.driver||'—',
+      trip2:   t.trip2,
+      storeNames: t.storeNames||[],
+    };
+  });
+
+  // ── Store time at store (with tripId) ──
   const storeMap = {};
   dCks.forEach(c => {
     if (!c.store) return;
-    if (!storeMap[c.store]) storeMap[c.store] = { arr:null, dep:null, driver:'' };
-    if (c.action==='arrived'  && (!storeMap[c.store].arr||c.time>storeMap[c.store].arr)) storeMap[c.store].arr=c.time;
-    if (c.action==='departed' && (!storeMap[c.store].dep||c.time>storeMap[c.store].dep)) storeMap[c.store].dep=c.time;
+    if (!storeMap[c.store]) storeMap[c.store] = { arr:null, dep:null, driver:'', tripId:null };
+    if (c.action==='arrived'  && (!storeMap[c.store].arr||c.time>storeMap[c.store].arr)) {
+      storeMap[c.store].arr    = c.time;
+      storeMap[c.store].tripId = c.tripId||null;
+    }
+    if (c.action==='departed' && (!storeMap[c.store].dep||c.time>storeMap[c.store].dep)) storeMap[c.store].dep = c.time;
     if (c.driver) storeMap[c.store].driver = c.driver;
   });
 
-  // ── WH loading time ──
+  // ── WH loading time (with tripId) ──
   const whMap = {};
   dWHcks.forEach(c => {
     const key = c.tripId||c.driver;
-    if (!whMap[key]) whMap[key] = { driver:c.driver||'—', arrived:null, loaded:null, departed:null };
+    if (!whMap[key]) whMap[key] = { driver:c.driver||'—', arrived:null, loaded:null, departed:null, tripId:c.tripId||null };
     whMap[key][c.action] = c.time;
   });
 
   // ── Transit times ──
   const transitRows = dTrips.flatMap(t => buildTransitLegs(t));
 
-  const storeKeys = Object.keys(storeMap).sort();
-  const whRows    = Object.values(whMap).sort((a,b)=>(a.arrived||'').localeCompare(b.arrived||''));
+  // Sort stores by trip number then by arrival time
+  const storeKeys = Object.keys(storeMap).sort((a,b) => {
+    const tA = storeMap[a].tripId;
+    const tB = storeMap[b].tripId;
+    const tANum = tA ? (tripInfoMap[tA]?.tripNum||'') : '';
+    const tBNum = tB ? (tripInfoMap[tB]?.tripNum||'') : '';
+    if (tANum !== tBNum) return tANum.localeCompare(tBNum);
+    return (storeMap[a].arr||'').localeCompare(storeMap[b].arr||'');
+  });
+
+  // Sort WH by trip number then arrival time
+  const whRows = Object.values(whMap).sort((a,b) => {
+    const tANum = a.tripId ? (tripInfoMap[a.tripId]?.tripNum||'') : '';
+    const tBNum = b.tripId ? (tripInfoMap[b.tripId]?.tripNum||'') : '';
+    if (tANum !== tBNum) return tANum.localeCompare(tBNum);
+    return (a.arrived||'').localeCompare(b.arrived||'');
+  });
 
   // KPIs
   const totalStoreTime  = storeKeys.reduce((acc,s) => {
@@ -4070,7 +4099,7 @@ function renderOperationsTab() {
     <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px #0000000a;margin-bottom:20px">
       <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
         <thead><tr style="background:#F8F9FA;border-bottom:1px solid var(--border)">
-          ${['Store','Driver','Check-in','Check-out','Time at Store'].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9CA3AF">${h}</th>`).join('')}
+          ${['#','Store','Driver','Trip ID','Check-in','Check-out','Time at Store'].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9CA3AF">${h}</th>`).join('')}
         </tr></thead>
         <tbody>
         ${storeKeys.length ? storeKeys.map((store,i) => {
@@ -4078,9 +4107,13 @@ function renderOperationsTab() {
           const mins = (s.arr&&s.dep) ? (()=>{ const d=toMins(s.dep)-toMins(s.arr); return d<0?d+1440:d; })() : null;
           const isRed = mins!==null && mins>30;
           const color = mins===null?'#9CA3AF':isRed?'#EF4444':mins>15?'#F97316':'#1CE783';
+          const ti = s.tripId ? tripInfoMap[s.tripId] : null;
+          const tripLabel = ti ? `<span style="font-size:9px;font-family:'JetBrains Mono',monospace;background:#F0F9FF;color:#0369A1;border:1px solid #BAE6FD;border-radius:5px;padding:1px 6px">${ti.tripNum}${ti.trip2?' ②':''}</span>` : '—';
           return `<tr style="border-bottom:1px solid #F3F4F6;${i%2?'background:#FAFAFA':''}">
+            <td style="padding:10px 14px;font-size:11px;color:#9CA3AF;font-weight:600">${i+1}</td>
             <td style="padding:10px 14px;font-weight:700;font-size:12px">${store.replace('QUIK_','')}</td>
             <td style="padding:10px 14px;font-size:11px;color:#6B7280">${s.driver||'—'}</td>
+            <td style="padding:10px 14px">${tripLabel}</td>
             <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#1A2332">${s.arr||'—'}</td>
             <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#F97316">${s.dep||'—'}</td>
             <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;color:${color}">${mins!==null?(isRed?`🚨 ${mins} min`:`${mins} min`):'⏳ In store'}</td>
@@ -4096,7 +4129,7 @@ function renderOperationsTab() {
     <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px #0000000a;margin-bottom:20px">
       <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
         <thead><tr style="background:#F8F9FA;border-bottom:1px solid var(--border)">
-          ${['Driver','Arrived WH','Loading Done','Departed WH','Total WH Time'].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9CA3AF">${h}</th>`).join('')}
+          ${['#','Driver','Trip ID','Arrived WH','Loading Done','Departed WH','Total WH Time'].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9CA3AF">${h}</th>`).join('')}
         </tr></thead>
         <tbody>
         ${whRows.length ? whRows.map((r,i) => {
@@ -4104,8 +4137,12 @@ function renderOperationsTab() {
           if (r.arrived&&r.departed) { const d=toMins(r.departed)-toMins(r.arrived); whMins=d<0?d+1440:d; }
           const isRed = whMins!==null && whMins>30;
           const color = whMins===null?'#9CA3AF':isRed?'#EF4444':whMins>15?'#F97316':'#1CE783';
+          const ti = r.tripId ? tripInfoMap[r.tripId] : null;
+          const tripLabel = ti ? `<span style="font-size:9px;font-family:'JetBrains Mono',monospace;background:#F0F9FF;color:#0369A1;border:1px solid #BAE6FD;border-radius:5px;padding:1px 6px">${ti.tripNum}${ti.trip2?' ②':''}</span>` : '—';
           return `<tr style="border-bottom:1px solid #F3F4F6;${i%2?'background:#FAFAFA':''}">
+            <td style="padding:10px 14px;font-size:11px;color:#9CA3AF;font-weight:600">${i+1}</td>
             <td style="padding:10px 14px;font-weight:700;font-size:12px">${r.driver}</td>
+            <td style="padding:10px 14px">${tripLabel}</td>
             <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#3B82F6">${r.arrived||'—'}</td>
             <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#A855F7">${r.loaded||'—'}</td>
             <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#F97316">${r.departed||'—'}</td>
@@ -4122,16 +4159,28 @@ function renderOperationsTab() {
     <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px #0000000a;margin-bottom:20px">
       <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
         <thead><tr style="background:#F8F9FA;border-bottom:1px solid var(--border)">
-          ${['Driver','From','To','Departed','Arrived','Transit Time','Status'].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9CA3AF">${h}</th>`).join('')}
+          ${['#','Driver','Trip ID','From','To','Departed','Arrived','Transit Time','Status'].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9CA3AF">${h}</th>`).join('')}
         </tr></thead>
         <tbody>
-        ${transitRows.length ? transitRows.map((r,i) => {
+        ${transitRows.length ? (() => {
+          // Sort transit rows by trip number then by sequence
+          const sorted = [...transitRows].sort((a,b) => {
+            const tANum = a.tripId ? (tripInfoMap[a.tripId]?.tripNum||'') : '';
+            const tBNum = b.tripId ? (tripInfoMap[b.tripId]?.tripNum||'') : '';
+            if (tANum !== tBNum) return tANum.localeCompare(tBNum);
+            return (a.dep||'').localeCompare(b.dep||'');
+          });
+          return sorted.map((r,i) => {
           const color = r.mins===null?'#9CA3AF':r.mins<=30?'#1CE783':r.mins<=60?'#F97316':'#EF4444';
           const label = r.mins===null?(r.dep?'En route…':'Pending'):r.mins+' min';
           const badge = r.mins===null?(r.dep?'🚛 Moving':'⏳ Waiting'):r.mins<=30?'✅ Fast':r.mins<=60?'⚡ Normal':'🚨 Slow';
           const fromLabel = r.isWH ? '🏭 Warehouse' : r.fromLabel;
-          return `<tr style="border-bottom:1px solid #F3F4F6;${i%2?'background:#FAFAFA':''}${r.isWH?';background:#EFF6FF':''}" >
+          const ti = r.tripId ? tripInfoMap[r.tripId] : null;
+          const tripLabel = ti ? `<span style="font-size:9px;font-family:'JetBrains Mono',monospace;background:#F0F9FF;color:#0369A1;border:1px solid #BAE6FD;border-radius:5px;padding:1px 6px">${ti.tripNum}${ti.trip2?' ②':''}</span>` : '—';
+          return `<tr style="border-bottom:1px solid #F3F4F6;${i%2?'background:#FAFAFA':''}${r.isWH?';background:#EFF6FF':''}">
+            <td style="padding:10px 14px;font-size:11px;color:#9CA3AF;font-weight:600">${i+1}</td>
             <td style="padding:10px 14px;font-weight:600;font-size:12px">${r.driver}</td>
+            <td style="padding:10px 14px">${tripLabel}</td>
             <td style="padding:10px 14px;font-size:11px;color:${r.isWH?'#3B82F6':'#9CA3AF'};font-weight:${r.isWH?'600':'400'}">${fromLabel}</td>
             <td style="padding:10px 14px;font-weight:600;font-size:12px">${r.to.replace('QUIK_','')}</td>
             <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#6B7280">${r.dep||'—'}</td>
@@ -4139,7 +4188,8 @@ function renderOperationsTab() {
             <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-weight:700;color:${color}">${label}</td>
             <td style="padding:10px 14px"><span style="font-size:9px;padding:2px 8px;border-radius:8px;background:${color}15;color:${color};font-weight:700">${badge}</span></td>
           </tr>`;
-        }).join('') : `<tr><td colspan="7" style="text-align:center;padding:24px;color:#9CA3AF;font-size:12px">No transit data for selected period</td></tr>`}
+          }).join('');
+        })() : `<tr><td colspan="9" style="text-align:center;padding:24px;color:#9CA3AF;font-size:12px">No transit data for selected period</td></tr>`}
         </tbody>
       </table></div>
     </div>` : ''}
