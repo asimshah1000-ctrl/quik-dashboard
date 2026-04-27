@@ -2309,15 +2309,10 @@ async function deleteCheckin(path) {
 
       if (isWH && rec.action) {
         // Check if any OTHER wh_checkin record still has this action for this trip
-        // NOTE: We fetch ALL wh_checkins for this trip and filter in memory to avoid
-        // index dependency issues with orderByChild in Firebase rules
-        const remaining = await db.ref('wh_checkins').once('value');
-        const allRecs = remaining.val() ? Object.values(remaining.val()) : [];
-        const others = allRecs.filter(r =>
-          r.tripId === rec.tripId &&
-          r.action === rec.action &&
-          r.ts    !== rec.ts   // exclude the just-deleted record by timestamp
-        );
+        const remaining = await db.ref('wh_checkins')
+          .orderByChild('tripId').equalTo(rec.tripId).once('value');
+        const others = remaining.val() ? Object.values(remaining.val())
+          .filter(r => r.action === rec.action) : [];
 
         if (others.length === 0) {
           // No other record — safe to clear from trips
@@ -4241,6 +4236,7 @@ function renderWHActivity() {
             <td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--orange)">${c.tripId||'—'}</td>
             <td style="font-size:10px;color:var(--muted)">${tripDriver}</td>
             <td>${canEdit()?`
+              <button class="delbtn" onclick="clearTripWHStatus('${c.tripId}','${c.action}')" title="Force clear from trip" style="border-color:#F9731640;color:#F97316;margin-right:3px">🔄</button>
               <button class="delbtn" onclick="openEditCk('wh_checkins/${c._id}','wh','${actionLabel[c.action]||c.action}','${c.time||''}','${tripDriver||c.driver||''}')" style="border-color:#3B82F640;color:#60A5FA;margin-right:3px">✏️</button>
               <button class="delbtn" onclick="deleteCheckin('wh_checkins/${c._id}')">✕</button>
             `:''}</td>
