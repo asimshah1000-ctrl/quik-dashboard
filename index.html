@@ -2964,6 +2964,9 @@ function renderMain(){
       <div class="section-title">🏪 Store Arrivals — Today <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div id="store-arrivals-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px"></div>
 
+      <div class="section-title">🏭 Warehouse Activity — Today <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div id="ov-wh-activity" style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px"></div>
+
       <div class="section-title">By Warehouse <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div class="bgrid" id="bg-wh"></div>
       <div class="section-title">By Vehicle Type <div style="flex:1;height:1px;background:var(--border)"></div></div>
@@ -3027,22 +3030,79 @@ function renderMain(){
           const status   = lastDep ? 'departed' : lastComp ? 'completed' : lastArr ? 'arrived' : 'pending';
           const statusColor = {arrived:'#3B82F6', completed:'#1CE783', departed:'#F97316', pending:'#9CA3AF'}[status];
           const statusLabel = {arrived:'📍 Arrived', completed:'✅ Done', departed:'🚛 Departed', pending:'⏳'}[status];
-          return `<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;border-left:3px solid ${statusColor};box-shadow:0 1px 3px #0000000a">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+
+          // Time at store calculation
+          const depTime = lastDep?.time || lastComp?.time;
+          let minsAtStore = null;
+          if (lastArr?.time && depTime) {
+            const diff = toMins(depTime) - toMins(lastArr.time);
+            minsAtStore = diff < 0 ? diff + 1440 : diff;
+          } else if (lastArr?.time && !depTime) {
+            // Still at store — calculate from now
+            const now = new Date();
+            const nowM = now.getHours()*60 + now.getMinutes();
+            const diff = nowM - toMins(lastArr.time);
+            minsAtStore = diff < 0 ? diff + 1440 : diff;
+          }
+          const isRedFlag = minsAtStore !== null && minsAtStore > 30;
+          const borderColor = isRedFlag ? '#EF4444' : statusColor;
+          const minsLabel = minsAtStore !== null
+            ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:6px;background:${isRedFlag?'#FEF2F2':'#F0FDF4'};color:${isRedFlag?'#EF4444':'#059652'};border:1px solid ${isRedFlag?'#FCA5A5':'#BBF7D0'}">${isRedFlag?'🚨':'⏱'} ${minsAtStore}m</span>`
+            : '';
+
+          return `<div style="background:#fff;border:1px solid ${borderColor}40;border-radius:10px;padding:12px 14px;border-left:3px solid ${borderColor};box-shadow:0 1px 3px #0000000a${isRedFlag?';box-shadow:0 0 0 2px #EF444420':''}" >
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
               <div style="font-size:10px;font-weight:700;color:#1A2332;letter-spacing:.3px">${store.replace('QUIK_','')}</div>
               <span style="font-size:8px;padding:2px 6px;border-radius:8px;background:${statusColor}18;color:${statusColor};font-weight:700">${statusLabel}</span>
             </div>
-            <div style="display:flex;flex-direction:column;gap:3px">
-              ${lastArr ? `<div style="font-size:10px;color:#6B7280">📍 <span style="font-family:'JetBrains Mono',monospace;color:#1A2332;font-weight:600">${lastArr.time}</span>${dateFilterMode!=='today'?` <span style="color:#9CA3AF">${lastArr.date}</span>`:''}</div>` : ''}
-              ${lastComp? `<div style="font-size:10px;color:#6B7280">✅ <span style="font-family:'JetBrains Mono',monospace;color:#1CE783;font-weight:600">${lastComp.time}</span></div>` : ''}
-              ${lastDep ? `<div style="font-size:10px;color:#6B7280">🚛 <span style="font-family:'JetBrains Mono',monospace;color:#F97316;font-weight:600">${lastDep.time}</span></div>` : ''}
-              ${s.driver ? `<div style="font-size:9px;color:#9CA3AF;margin-top:2px">👤 ${s.driver}</div>` : ''}
+            <div style="display:flex;flex-direction:column;gap:2px">
+              ${lastArr ? `<div style="font-size:10px;color:#6B7280">📍 <span style="font-family:'JetBrains Mono',monospace;color:#1A2332;font-weight:600">${lastArr.time}</span></div>` : ''}
+              ${depTime  ? `<div style="font-size:10px;color:#6B7280">🚛 <span style="font-family:'JetBrains Mono',monospace;color:#F97316;font-weight:600">${depTime}</span></div>` : ''}
+              ${s.driver ? `<div style="font-size:9px;color:#9CA3AF">👤 ${s.driver}</div>` : ''}
             </div>
-            <div style="font-size:8px;color:#9CA3AF;margin-top:5px">${s.arrived.length} visit${s.arrived.length!==1?'s':''}</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:5px">
+              ${minsLabel}
+              <span style="font-size:8px;color:#9CA3AF">${s.arrived.length} visit${s.arrived.length!==1?'s':''}</span>
+            </div>
           </div>`;
         }).join('');
       } else {
         arrGrid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:#9CA3AF;font-size:12px">No store arrivals for selected period — try different date filter</div>`;
+      }
+    }
+
+    // WH Activity mini-summary in Overview
+    const whActEl = document.getElementById('ov-wh-activity');
+    if (whActEl) {
+      const todayWH = whCheckins.filter(c => c.date === getToday());
+      const whMap = {};
+      todayWH.forEach(c => {
+        const key = c.tripId || c.driver;
+        if (!whMap[key]) whMap[key] = { driver:c.driver||'—', arrived:null, loaded:null, departed:null };
+        whMap[key][c.action] = c.time;
+      });
+      const whRows = Object.values(whMap).sort((a,b)=>(a.arrived||'').localeCompare(b.arrived||''));
+      if (whRows.length) {
+        whActEl.innerHTML = whRows.map(r => {
+          // WH loading time (arrived to departed)
+          let whMins = null;
+          if (r.arrived && r.departed) {
+            const d = toMins(r.departed) - toMins(r.arrived);
+            whMins = d < 0 ? d+1440 : d;
+          }
+          const whFlag = whMins !== null && whMins > 30;
+          return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fff;border:1px solid ${whFlag?'#FCA5A5':'var(--border)'};border-radius:8px;border-left:3px solid ${whFlag?'#EF4444':'#3B82F6'}">
+            <div style="font-weight:700;font-size:12px;min-width:90px">${r.driver}</div>
+            <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#6B7280;display:flex;gap:6px;flex-wrap:wrap">
+              ${r.arrived ?`<span>🏭 ${r.arrived}</span>`:''}
+              ${r.loaded  ?`<span>📦 ${r.loaded}</span>`:''}
+              ${r.departed?`<span>🚛 ${r.departed}</span>`:''}
+            </div>
+            ${whMins!==null?`<span style="margin-left:auto;font-size:9px;font-weight:700;padding:2px 7px;border-radius:6px;background:${whFlag?'#FEF2F2':'#EFF6FF'};color:${whFlag?'#EF4444':'#3B82F6'};border:1px solid ${whFlag?'#FCA5A5':'#BFDBFE'}">${whFlag?'🚨':'⏱'} ${whMins}m</span>`:''}
+          </div>`;
+        }).join('');
+      } else {
+        whActEl.innerHTML = `<div style="text-align:center;padding:16px;color:#9CA3AF;font-size:12px">No warehouse activity today</div>`;
       }
     }
 
@@ -3102,6 +3162,8 @@ function renderMain(){
 
       <div class="section-title">By Vehicle Type <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div class="bgrid" id="bg-wh-vt"></div>
+      <div class="section-title">🏭 Warehouse Activity — Today <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div id="wh-tab-activity" style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px"></div>
       <div class="section-title">Trip Log <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div class="twrap"><div style="overflow-x:auto"><table>
         <thead><tr>${['Date','Warehouse','Veh Type','Driver','Category','Trip','Stores','QTY','Pallets','Util%','Sched Dispatch','WH Departed','⏱️ Status','Cost','Status',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
@@ -3148,6 +3210,43 @@ function renderMain(){
       ['Avg QTY / Pallet', aQW, aQW>=150?'#1CE783':aQW>=100?'#F97316':'#EF4444'],
       ['Trips w/ Pallets', qppW.length, '#6B7280'],
     ].map(([l,v,c])=>`<div class="kpi-card"><div class="kpi-label">${l}</div><div class="kpi-value" style="color:${c}">${v}</div></div>`).join('');
+
+    // WH Activity for warehouse tab
+    const whActTab = document.getElementById('wh-tab-activity');
+    if (whActTab) {
+      const todayWHt = whCheckins.filter(c => c.date === getToday());
+      const whMapT = {};
+      todayWHt.forEach(c => {
+        const key = c.tripId || c.driver;
+        if (!whMapT[key]) whMapT[key] = { driver:c.driver||'—', arrived:null, loaded:null, departed:null, tripId:c.tripId };
+        whMapT[key][c.action] = c.time;
+      });
+      const whRowsT = Object.values(whMapT).sort((a,b)=>(a.arrived||'').localeCompare(b.arrived||''));
+      if (whRowsT.length) {
+        whActTab.innerHTML = whRowsT.map(r => {
+          let whMins = null;
+          if (r.arrived && r.departed) {
+            const d = toMins(r.departed) - toMins(r.arrived);
+            whMins = d < 0 ? d+1440 : d;
+          }
+          const whFlag = whMins !== null && whMins > 30;
+          const trip = trips.find(t=>t._id===r.tripId);
+          const tripCat = trip?.category||'';
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border:1px solid ${whFlag?'#FCA5A5':'var(--border)'};border-radius:8px;border-left:3px solid ${whFlag?'#EF4444':'#3B82F6'}">
+            <div style="font-weight:700;font-size:12px;min-width:100px">${r.driver}</div>
+            ${tripCat?`<span style="font-size:9px;background:#F0FDF4;color:#059652;border:1px solid #BBF7D0;border-radius:5px;padding:1px 6px">${tripCat}</span>`:''}
+            <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#6B7280;display:flex;gap:8px;flex-wrap:wrap">
+              ${r.arrived ?`<span title="Arrived at WH">🏭 ${r.arrived}</span>`:'<span style="color:#D1D5DB">🏭 —</span>'}
+              ${r.loaded  ?`<span title="Loading done">📦 ${r.loaded}</span>`:'<span style="color:#D1D5DB">📦 —</span>'}
+              ${r.departed?`<span title="Departed WH">🚛 ${r.departed}</span>`:'<span style="color:#D1D5DB">🚛 —</span>'}
+            </div>
+            ${whMins!==null?`<span style="margin-left:auto;font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;background:${whFlag?'#FEF2F2':'#EFF6FF'};color:${whFlag?'#EF4444':'#3B82F6'};border:1px solid ${whFlag?'#FCA5A5':'#BFDBFE'}">${whFlag?'🚨':'⏱'} ${whMins} min</span>`:''}
+          </div>`;
+        }).join('');
+      } else {
+        whActTab.innerHTML = `<div style="text-align:center;padding:16px;color:#9CA3AF;font-size:12px">No warehouse activity today</div>`;
+      }
+    }
     const of=whTripsFiltered.filter(t=>t.vt==='Own Fleet'),tf=whTripsFiltered.filter(t=>t.vt==='3PL Fleet'),ad=whTripsFiltered.filter(t=>t.vt==='Adhoc/Rental');
     document.getElementById('bg-wh-vt').innerHTML=bcard('Own Fleet','own',of,'#22C55E')+bcard('3PL Fleet','tpl',tf,'#A855F7')+bcard('Adhoc/Rental','adhoc',ad,'#F97316');
     buildQtyPalletSummary(whTripsFiltered, 'wh-qty-pallet');
@@ -4074,6 +4173,9 @@ function timeDiffMins(t1, t2) {
 }
 
 function buildStoreTimingMap() {
+  // Get trip IDs that match date filter (using orderDate like rest of dashboard)
+  const filteredTripIds = new Set(applyDateFilter(trips).map(t=>t._id).filter(Boolean));
+
   const filtered = (() => {
     const td = getToday();
     switch(dateFilterMode) {
@@ -4089,8 +4191,14 @@ function buildStoreTimingMap() {
       default: return liveCheckins.filter(c => c.date === td);
     }
   })();
+
+  // Filter by tripId matching the order-date-filtered trips
+  const relevantCheckins = dateFilterMode === 'today' || dateFilterMode === 'all'
+    ? filtered
+    : filtered.filter(c => !c.tripId || filteredTripIds.has(c.tripId));
+
   const map = {};
-  filtered.forEach(c => {
+  relevantCheckins.forEach(c => {
     if (!c.store) return;
     if (!map[c.store]) map[c.store] = { arr:null, dep:null, comp:null, driver:'' };
     const s = map[c.store];
@@ -4150,7 +4258,7 @@ function renderRegionsContent() {
         <td><span style="font-size:9px;padding:2px 8px;border-radius:8px;background:${sc}18;color:${sc};font-weight:700">${sl}</span></td>
         <td style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#1A2332">${fmt12(arr)}</td>
         <td style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#1A2332">${fmt12(dep)}</td>
-        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${mins!==null?(mins<=30?'#1CE783':mins<=60?'#F97316':'#EF4444'):'#D1D5DB'}">${mins!==null?mins+' min':'—'}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${mins!==null?(mins>30?'#EF4444':mins<=30?'#1CE783':'#F97316'):'#D1D5DB'}">${mins!==null?(mins>30?`🚨 ${mins} min`:`${mins} min`):'—'}</td>
       </tr>`;
     }).join('');
 
