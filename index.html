@@ -2134,11 +2134,38 @@ function viewPhoto(url) {
   document.getElementById('photov').style.display = 'flex';
 }
 
-function confirmDelete(){
+async function confirmDelete(){
   if(!canEdit()){showToast('Access nahi hai','#EF4444');closeDelModal();return;}
   if(!pendingDeleteId)return;
-  db.ref('trips/'+pendingDeleteId).remove();
-  recordMeta();closeDelModal();showToast('🗑️ Trip deleted','#EF4444');
+
+  const tripId = pendingDeleteId;
+
+  // ✅ Clean up all related records before deleting trip
+  try {
+    // 1. Delete all wh_checkins for this trip
+    const whSnap = await db.ref('wh_checkins').orderByChild('tripId').equalTo(tripId).once('value');
+    if (whSnap.val()) {
+      const whUpdates = {};
+      Object.keys(whSnap.val()).forEach(k => { whUpdates[k] = null; });
+      await db.ref('wh_checkins').update(whUpdates);
+    }
+
+    // 2. Delete all store checkins for this trip
+    const ckSnap = await db.ref('checkins').orderByChild('tripId').equalTo(tripId).once('value');
+    if (ckSnap.val()) {
+      const ckUpdates = {};
+      Object.keys(ckSnap.val()).forEach(k => { ckUpdates[k] = null; });
+      await db.ref('checkins').update(ckUpdates);
+    }
+  } catch(e) {
+    console.warn('Cleanup error (non-fatal):', e);
+  }
+
+  // 3. Delete the trip itself
+  await db.ref('trips/' + tripId).remove();
+  recordMeta();
+  closeDelModal();
+  showToast('🗑️ Trip + all check-ins deleted', '#EF4444');
 }
 
 // ── EDIT TRIP ────────────────────────────────────────────────
