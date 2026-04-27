@@ -2990,22 +2990,28 @@ function renderMain(){
       ['Trips with Pallets',   qppTrips.length, '#6B7280'],
     ].map(([l,v,c])=>`<div class="kpi-card"><div class="kpi-label">${l}</div><div class="kpi-value" style="color:${c}">${v}</div></div>`).join('');
 
-    // Store arrival times — respects date filter
-    const filteredCks = (() => {
-      const today2 = getToday();
-      switch(dateFilterMode) {
-        case 'today':     return liveCheckins.filter(c => c.date === today2);
-        case 'yesterday': return liveCheckins.filter(c => c.date === getYesterday());
-        case 'week':      return liveCheckins.filter(c => c.date >= getWeekStart() && c.date <= today2);
-        case 'month':     return liveCheckins.filter(c => c.date >= getMonthStart() && c.date <= today2);
-        case 'all':       return liveCheckins;
-        case 'custom': {
-          const from = dateFilterFrom||'2000-01-01', to = dateFilterTo||today2;
-          return liveCheckins.filter(c => c.date >= from && c.date <= to);
+    // ✅ Store arrivals — filtered by orderDate AND category via tripId
+    // dateFilteredTrips already uses orderDate + catFilter
+    const filteredTripIdSet = new Set(dateFilteredTrips.map(t=>t._id).filter(Boolean));
+
+    // Also get checkin dates for today/yesterday fallback (tripId may not always be set)
+    const filteredCks = liveCheckins.filter(c => {
+      if (!c.tripId) {
+        // No tripId — fall back to checkin date filter
+        const today2 = getToday();
+        switch(dateFilterMode) {
+          case 'today':     return c.date === today2;
+          case 'yesterday': return c.date === getYesterday();
+          case 'week':      return c.date >= getWeekStart() && c.date <= today2;
+          case 'month':     return c.date >= getMonthStart() && c.date <= today2;
+          case 'all':       return true;
+          case 'custom':    return c.date >= (dateFilterFrom||'2000-01-01') && c.date <= (dateFilterTo||today2);
+          default:          return c.date === today2;
         }
-        default: return liveCheckins.filter(c => c.date === today2);
       }
-    })();
+      // Has tripId — use orderDate-based + category filtered trips
+      return filteredTripIdSet.has(c.tripId);
+    });
 
     // Per store — collect arrived/completed/departed times
     const storeDetailMap = {};
@@ -3071,12 +3077,17 @@ function renderMain(){
       }
     }
 
-    // WH Activity mini-summary in Overview
+    // WH Activity mini-summary in Overview — filtered by orderDate + category via dateFilteredTrips
     const whActEl = document.getElementById('ov-wh-activity');
     if (whActEl) {
-      const todayWH = whCheckins.filter(c => c.date === getToday());
+      const filteredWhTripIds = new Set(dateFilteredTrips.map(t=>t._id).filter(Boolean));
+      const today = getToday();
+      const filteredWHcks = whCheckins.filter(c => {
+        if (!c.tripId) return c.date === today;
+        return filteredWhTripIds.has(c.tripId);
+      });
       const whMap = {};
-      todayWH.forEach(c => {
+      filteredWHcks.forEach(c => {
         const key = c.tripId || c.driver;
         if (!whMap[key]) whMap[key] = { driver:c.driver||'—', arrived:null, loaded:null, departed:null };
         whMap[key][c.action] = c.time;
@@ -3211,12 +3222,17 @@ function renderMain(){
       ['Trips w/ Pallets', qppW.length, '#6B7280'],
     ].map(([l,v,c])=>`<div class="kpi-card"><div class="kpi-label">${l}</div><div class="kpi-value" style="color:${c}">${v}</div></div>`).join('');
 
-    // WH Activity for warehouse tab
+    // WH Activity for warehouse tab — uses whTripsFiltered (already orderDate + category filtered)
     const whActTab = document.getElementById('wh-tab-activity');
     if (whActTab) {
-      const todayWHt = whCheckins.filter(c => c.date === getToday());
+      const whTabTripIds = new Set(whTripsFiltered.map(t=>t._id).filter(Boolean));
+      const today2 = getToday();
+      const whTabCks = whCheckins.filter(c => {
+        if (!c.tripId) return c.date === today2;
+        return whTabTripIds.has(c.tripId);
+      });
       const whMapT = {};
-      todayWHt.forEach(c => {
+      whTabCks.forEach(c => {
         const key = c.tripId || c.driver;
         if (!whMapT[key]) whMapT[key] = { driver:c.driver||'—', arrived:null, loaded:null, departed:null, tripId:c.tripId };
         whMapT[key][c.action] = c.time;
@@ -3320,7 +3336,7 @@ function renderMain(){
 
   // ── DRIVER SCHEDULE ──
   else if(currentTab==='schedule'){
-    const schedTrips = applyDateFilter(trips);
+    const schedTrips = applyCatFilter(applyDateFilter(trips));
     const rows=[];
     schedTrips.forEach(t=>{
       if(schedFilter==='trip1'&&t.trip2)return;
@@ -3357,6 +3373,7 @@ function renderMain(){
     });
     m.innerHTML=`<div>
       ${dateFilterBar()}
+      ${catFilterBar()}
       <div class="syncbanner">✅ Firebase live — koi bhi edit kare sabko instantly dikhe ga &nbsp;·&nbsp; <span style="font-weight:400;color:#86EFAC">Click ✏ cell to edit inline</span></div>
 
       <!-- TRANSIT TIMES SECTION -->
@@ -3921,6 +3938,7 @@ async function renderFuelTab() {
   m.innerHTML = `<div>
     <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700;margin-bottom:16px">⛽ KMs & Fuel Cost</div>
     ${dateFilterBar()}
+    ${catFilterBar()}
     <div style="text-align:center;padding:40px;color:var(--muted)">
       <div style="font-size:28px;margin-bottom:12px">🗺️</div>
       <div style="font-size:14px;font-weight:600;margin-bottom:8px">Road distances calculate ho rahi hain…</div>
@@ -3934,7 +3952,7 @@ async function renderFuelTab() {
     </div>
   </div>`;
 
-  const filtered = applyDateFilter(trips);
+  const filtered = applyCatFilter(applyDateFilter(trips));
   const total = filtered.length || 1;
   let done = 0;
 
@@ -4062,7 +4080,7 @@ async function renderFuelTab() {
 // ── STORE-WISE VIEW ───────────────────────────────────────────
 function renderStoreView() {
   const m = document.getElementById('main');
-  const filtered = applyDateFilter(trips);
+  const filtered = applyCatFilter(applyDateFilter(trips));
 
   // Build per-store data
   const storeMap = {};
@@ -4092,6 +4110,7 @@ function renderStoreView() {
       </div>
     </div>
     ${dateFilterBar()}
+    ${catFilterBar()}
 
     <!-- Summary KPIs -->
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px">
@@ -4221,6 +4240,7 @@ function renderStoreRegionsTab() {
       ${tabExportBar('store-regions')}
     </div>
     ${dateFilterBar()}
+    ${catFilterBar()}
     <div id="regions-content"></div>
   </div>`;
   renderRegionsContent();
@@ -4230,6 +4250,15 @@ function renderRegionsContent() {
   const rc = document.getElementById('regions-content');
   if (!rc) return;
   const storeMap = buildStoreTimingMap();
+
+  // Apply catFilter — only show stores belonging to trips of selected category
+  const catStores = new Set();
+  if (catFilter !== 'all') {
+    applyCatFilter(applyDateFilter(trips)).forEach(t => {
+      (t.storeNames||[]).forEach(s => catStores.add(s));
+    });
+  }
+
   const regionColors = {
     'AUH + Al Ain':'#8B5CF6','North Dubai':'#3B82F6',
     'Center Dubai':'#1CE783','South Dubai':'#F97316',
@@ -4237,17 +4266,21 @@ function renderRegionsContent() {
 
   rc.innerHTML = Object.entries(STORE_REGIONS).map(([region, stores]) => {
     const color = regionColors[region]||'#6B7280';
+    // Apply cat filter — if category selected, dim stores not in that category
+    const activeStores = catFilter === 'all' ? stores : stores.filter(s => catStores.has(s));
+    if (catFilter !== 'all' && activeStores.length === 0) return ''; // hide empty regions
     const arrivedCount = stores.filter(s => storeMap[s]?.arr).length;
     const doneCount    = stores.filter(s => storeMap[s]?.dep || storeMap[s]?.comp).length;
 
     const rows = stores.map(store => {
+      const dimmed = catFilter !== 'all' && !catStores.has(store);
       const s = storeMap[store]||{};
       const arr  = s.arr||null, dep = s.dep||null;
       const mins = timeDiffMins(arr, dep);
       const status = dep?'departed':s.comp?'completed':arr?'arrived':'pending';
       const sc = {arrived:'#3B82F6',completed:'#1CE783',departed:'#F97316',pending:'#D1D5DB'}[status];
       const sl = {arrived:'📍 In Store',completed:'✅ Done',departed:'🚛 Left',pending:'⏳ Pending'}[status];
-      return `<tr style="${status==='pending'?'opacity:0.45':''}">
+      return `<tr style="${(status==='pending'||dimmed)?'opacity:0.35':''}">
         <td>
           <div style="display:flex;align-items:center;gap:7px">
             <div style="width:7px;height:7px;border-radius:50%;background:${sc};flex-shrink:0"></div>
