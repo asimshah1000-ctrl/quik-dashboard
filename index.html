@@ -3569,41 +3569,55 @@ function renderMain(){
   // ── LIVE CHECK-INS ──
   else if(currentTab==='live'){
     const today = new Date().toISOString().split('T')[0];
+    const yesterday = getYesterday();
 
-    // Build tripId → category map
+    // Build tripId → trip map for orderDate-based filtering
     const tripCatMap = {};
-    trips.forEach(t => { if(t._id) tripCatMap[t._id] = t.category||''; });
-
-    // Helper: apply date filter to checkins
-    const dateFilterCks = (list) => {
-      switch(dateFilterMode) {
-        case 'today':     return list.filter(c => c.date === today);
-        case 'yesterday': return list.filter(c => c.date === getYesterday());
-        case 'week':      return list.filter(c => c.date >= getWeekStart() && c.date <= today);
-        case 'month':     return list.filter(c => c.date >= getMonthStart() && c.date <= today);
-        case 'all':       return list;
-        case 'custom': {
-          const from = dateFilterFrom||'2000-01-01', to = dateFilterTo||today;
-          return list.filter(c => c.date >= from && c.date <= to);
-        }
-        default: return list.filter(c => c.date === today);
+    const tripOrderDateMap = {};
+    trips.forEach(t => {
+      if (t._id) {
+        tripCatMap[t._id] = t.category||'';
+        tripOrderDateMap[t._id] = t.orderDate || t.date || '';
       }
-    };
+    });
 
-    // Category filter on checkins
+    // Get filtered tripIds using orderDate (same as applyDateFilter)
+    const filteredLiveTripIds = new Set(applyCatFilter(applyDateFilter(trips)).map(t=>t._id).filter(Boolean));
+
+    // Helper: apply date filter to checkins — uses tripId→orderDate as primary
+    const dateFilterCks = (list) => list.filter(c => {
+      // Primary: match via tripId → orderDate
+      if (c.tripId && filteredLiveTripIds.has(c.tripId)) return true;
+      // Fallback: no tripId — use checkin date (include today+yesterday for overnight trips)
+      if (!c.tripId) {
+        switch(dateFilterMode) {
+          case 'today':     return c.date === today || c.date === yesterday;
+          case 'yesterday': return c.date === yesterday || c.date === today;
+          case 'week':      return c.date >= getWeekStart() && c.date <= today;
+          case 'month':     return c.date >= getMonthStart() && c.date <= today;
+          case 'all':       return true;
+          case 'custom':    return c.date >= (dateFilterFrom||'2000-01-01') && c.date <= (dateFilterTo||today);
+          default:          return c.date === today;
+        }
+      }
+      return false;
+    });
+
+    // Category filter on checkins — via tripId
     const catFilterCks = (list) => catFilter==='all' ? list
-      : list.filter(c => (tripCatMap[c.tripId]||'') === catFilter);
+      : list.filter(c => c.tripId ? (tripCatMap[c.tripId]||'') === catFilter : true);
 
     const allCheckins = catFilterCks(dateFilterCks(liveCheckins));
-    const todayCheckins = catFilterCks(liveCheckins.filter(c => c.date === today));
+    // storeSummary uses allCheckins (date+category filtered) not just today
+    const todayCheckins = allCheckins;
 
     const actionColor = { arrived:'#3B82F6', departed:'#F97316', completed:'#22C55E' };
     const actionIcon  = { arrived:'📍', departed:'🚛', completed:'✅' };
     const actionLabel = { arrived:'Arrived', departed:'Departed', completed:'Completed' };
 
-    // Store summary (category-filtered)
+    // Store summary — date+category filtered
     const storeSummary = {};
-    todayCheckins.forEach(c => {
+    allCheckins.forEach(c => {
       if(!storeSummary[c.store]) storeSummary[c.store] = { arrived:null, departed:null, driver:'' };
       if(c.action==='arrived')  storeSummary[c.store].arrived  = c.time;
       if(c.action==='departed') storeSummary[c.store].departed = c.time;
