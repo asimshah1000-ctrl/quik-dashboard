@@ -1441,6 +1441,7 @@ function getNavTabs() {
     ['wh','🏭 Warehouse'],
     ['trips','📋 Trip Log'],
     ['schedule','🕐 Driver Schedule'],
+    ['operations','⚡ Operations'],
     ['live','🟢 Live Check-ins'],
     ['wh-live','🏭 WH Activity'],
     ['fuel','⛽ KMs & Fuel'],
@@ -3762,6 +3763,7 @@ function renderMain(){
     </div>`;
   }
   else if(currentTab==='wh-live'){ renderWHActivity(); }
+  else if(currentTab==='operations'){ renderOperationsTab(); }
   else if(currentTab==='fuel'){ renderFuelTab(); }
   else if(currentTab==='stores'){ renderStoreView(); }
   else if(currentTab==='stores-tab'){ renderStoresTab(); }
@@ -3835,6 +3837,163 @@ function printTripQR(tripId, driver, vid) {
   </sc` + `ript>
   </body></html>`);
   win.document.close();
+}
+
+// ── OPERATIONS TAB ───────────────────────────────────────────
+function renderOperationsTab() {
+  const m = document.getElementById('main');
+
+  const today = getToday();
+  const filteredTrips = applyCatFilter(applyDateFilter(trips));
+  const filteredTripIds = new Set(filteredTrips.map(t=>t._id).filter(Boolean));
+  const tripCatMap = {};
+  trips.forEach(t => { if(t._id) tripCatMap[t._id] = t.category||''; });
+
+  // ── Live Check-ins section ──
+  const filteredCks = liveCheckins.filter(c => {
+    if (c.tripId && filteredTripIds.has(c.tripId)) return true;
+    if (!c.tripId) {
+      const yest = getYesterday();
+      if (dateFilterMode==='today')     return c.date===today||c.date===yest;
+      if (dateFilterMode==='yesterday') return c.date===yest||c.date===today;
+      if (dateFilterMode==='week')      return c.date>=getWeekStart()&&c.date<=today;
+      if (dateFilterMode==='month')     return c.date>=getMonthStart()&&c.date<=today;
+      if (dateFilterMode==='all')       return true;
+      if (dateFilterMode==='custom')    return c.date>=(dateFilterFrom||'2000-01-01')&&c.date<=(dateFilterTo||today);
+    }
+    return false;
+  });
+
+  // Store summary
+  const storeMap = {};
+  filteredCks.forEach(c => {
+    if (!c.store) return;
+    if (!storeMap[c.store]) storeMap[c.store] = { arr:null, dep:null, driver:'' };
+    if (c.action==='arrived'  && (!storeMap[c.store].arr||c.time>storeMap[c.store].arr)) storeMap[c.store].arr = c.time;
+    if (c.action==='departed' && (!storeMap[c.store].dep||c.time>storeMap[c.store].dep)) storeMap[c.store].dep = c.time;
+    if (c.driver) storeMap[c.store].driver = c.driver;
+  });
+
+  // ── WH Activity section ──
+  const filteredWHcks = whCheckins.filter(c => {
+    if (c.tripId && filteredTripIds.has(c.tripId)) return true;
+    if (!c.tripId) return c.date===today||c.date===getYesterday();
+    return false;
+  });
+  const whMap = {};
+  filteredWHcks.forEach(c => {
+    const key = c.tripId||c.driver;
+    if (!whMap[key]) whMap[key] = { driver:c.driver||'—', arrived:null, loaded:null, departed:null };
+    whMap[key][c.action] = c.time;
+  });
+
+  // ── Transit times section ──
+  const transitRows = filteredTrips.flatMap(t => buildTransitLegs(t));
+
+  const storeKeys = Object.keys(storeMap).sort();
+  const whRows = Object.values(whMap).sort((a,b)=>(a.arrived||'').localeCompare(b.arrived||''));
+  const actionColor = {arrived:'#3B82F6', departed:'#F97316', completed:'#22C55E'};
+
+  m.innerHTML = `<div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:15px;font-weight:700">⚡ Operations</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Live Check-ins · WH Activity · Transit Times</div>
+      </div>
+      <span style="font-size:11px;color:#16A34A;background:#DCFCE7;border:1px solid #BBF7D0;padding:4px 12px;border-radius:20px;font-weight:600">🔴 LIVE</span>
+    </div>
+    ${dateFilterBar()}
+    ${catFilterBar()}
+
+    <!-- KPI Row -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+      ${[
+        ['Stores Arrived',  filteredCks.filter(c=>c.action==='arrived').length,  '#3B82F6'],
+        ['Stores Departed', filteredCks.filter(c=>c.action==='departed').length, '#F97316'],
+        ['In Store Now',    storeKeys.filter(s=>storeMap[s].arr&&!storeMap[s].dep).length, '#1CE783'],
+        ['WH Departures',  filteredWHcks.filter(c=>c.action==='departed').length,'#A855F7'],
+      ].map(([l,v,color])=>`
+        <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px;box-shadow:0 1px 3px #0000000a">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#9CA3AF;margin-bottom:6px">${l}</div>
+          <div style="font-size:26px;font-weight:800;color:${color}">${v}</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- Store Check-ins Grid -->
+    <div class="section-title">🏪 Store Check-ins <div style="flex:1;height:1px;background:var(--border)"></div></div>
+    ${storeKeys.length ? `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:20px">
+      ${storeKeys.map(store => {
+        const s = storeMap[store];
+        const mins = (s.arr&&s.dep) ? (()=>{ const d=toMins(s.dep)-toMins(s.arr); return d<0?d+1440:d; })() : null;
+        const active = s.arr && !s.dep;
+        const done   = !!s.dep;
+        const bc = done?'#F97316':active?'#1CE783':'#3B82F6';
+        const isRed = mins!==null && mins>30;
+        return `<div style="background:#fff;border:1px solid ${isRed?'#FCA5A5':bc+'40'};border-radius:10px;padding:10px 12px;border-left:3px solid ${isRed?'#EF4444':bc}">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-weight:700;font-size:11px">${store.replace('QUIK_','')}</span>
+            <span style="font-size:8px;padding:1px 5px;border-radius:6px;background:${bc}18;color:${bc};font-weight:700">${done?'🚛':active?'📍':'—'}</span>
+          </div>
+          <div style="font-size:10px;color:#6B7280;font-family:'JetBrains Mono',monospace">
+            ${s.arr?`📍 ${s.arr}`:''}${s.arr&&s.dep?' → ':''}${s.dep?`🚛 ${s.dep}`:''}
+          </div>
+          ${s.driver?`<div style="font-size:9px;color:#9CA3AF">👤 ${s.driver}</div>`:''}
+          ${mins!==null?`<div style="font-size:9px;font-weight:700;color:${isRed?'#EF4444':'#1CE783'};margin-top:3px">${isRed?'🚨':'⏱'} ${mins}m</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>` : `<div style="text-align:center;padding:20px;color:#9CA3AF;font-size:12px;margin-bottom:20px">No store check-ins for selected period</div>`}
+
+    <!-- WH Activity -->
+    <div class="section-title">🏭 Warehouse Activity <div style="flex:1;height:1px;background:var(--border)"></div></div>
+    ${whRows.length ? `
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px">
+      ${whRows.map(r => {
+        let whMins = null;
+        if (r.arrived&&r.departed) { const d=toMins(r.departed)-toMins(r.arrived); whMins=d<0?d+1440:d; }
+        const whFlag = whMins!==null && whMins>30;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border:1px solid ${whFlag?'#FCA5A5':'var(--border)'};border-radius:8px;border-left:3px solid ${whFlag?'#EF4444':'#3B82F6'}">
+          <div style="font-weight:700;font-size:12px;min-width:90px">${r.driver}</div>
+          <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#6B7280;display:flex;gap:8px;flex-wrap:wrap">
+            ${r.arrived ?`<span>🏭 ${r.arrived}</span>`:'<span style="color:#D1D5DB">🏭 —</span>'}
+            ${r.loaded  ?`<span>📦 ${r.loaded}</span>`:'<span style="color:#D1D5DB">📦 —</span>'}
+            ${r.departed?`<span>🚛 ${r.departed}</span>`:'<span style="color:#D1D5DB">🚛 —</span>'}
+          </div>
+          ${whMins!==null?`<span style="margin-left:auto;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:${whFlag?'#FEF2F2':'#EFF6FF'};color:${whFlag?'#EF4444':'#3B82F6'};border:1px solid ${whFlag?'#FCA5A5':'#BFDBFE'}">${whFlag?'🚨':'⏱'} ${whMins}m</span>`:''}
+        </div>`;
+      }).join('')}
+    </div>` : `<div style="text-align:center;padding:20px;color:#9CA3AF;font-size:12px;margin-bottom:20px">No warehouse activity for selected period</div>`}
+
+    <!-- Transit Times -->
+    <div class="section-title">⏱ Transit Times <div style="flex:1;height:1px;background:var(--border)"></div></div>
+    ${transitRows.length ? `
+    <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px #0000000a;margin-bottom:20px">
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:#F8F9FA;border-bottom:1px solid var(--border)">
+          ${['Driver','Route','Departed','Arrived','Time',''].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9CA3AF">${h}</th>`).join('')}
+        </tr></thead>
+        <tbody>
+        ${transitRows.map((r,i) => {
+          const color = r.mins===null?'#9CA3AF':r.mins<=30?'#1CE783':r.mins<=60?'#F97316':'#EF4444';
+          const label = r.mins===null?(r.dep?'En route…':'Pending'):r.mins+' min';
+          const badge = r.mins===null?(r.dep?'Moving':'Waiting'):r.mins<=30?'Fast':r.mins<=60?'Normal':'Slow';
+          return `<tr style="border-bottom:1px solid #F3F4F6;${i%2?'background:#FAFAFA':''}">
+            <td style="padding:10px 14px;font-weight:600;font-size:12px">${r.driver}</td>
+            <td style="padding:10px 14px;font-size:11px">
+              <span style="color:#9CA3AF">${r.isWH?'🏭 WH':r.fromLabel}</span>
+              <span style="color:#D1D5DB;margin:0 4px">→</span>
+              <span style="font-weight:600;color:#1A2332">${r.to.replace('QUIK_','')}</span>
+            </td>
+            <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#6B7280">${r.dep||'—'}</td>
+            <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#6B7280">${r.arr||(r.dep?'<span style="color:#F97316;font-size:10px">En route ⏳</span>':'—')}</td>
+            <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-weight:700;color:${color}">${label}</td>
+            <td style="padding:10px 14px"><span style="font-size:9px;padding:2px 8px;border-radius:8px;background:${color}15;color:${color};font-weight:700">${badge}</span></td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table></div>
+    </div>` : `<div style="text-align:center;padding:20px;color:#9CA3AF;font-size:12px">No transit data for selected period</div>`}
+  </div>`;
 }
 
 // ── WH ACTIVITY TAB ──────────────────────────────────────────
