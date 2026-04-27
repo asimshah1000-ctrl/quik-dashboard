@@ -3841,6 +3841,7 @@ function printTripQR(tripId, driver, vid) {
 
 // ── OPERATIONS TAB ───────────────────────────────────────────
 let opsDriverFilter = 'all';
+let opsSectionFilter = 'all'; // 'all' | 'store-time' | 'wh-loading' | 'transit'
 
 function renderOperationsTab() {
   const m = document.getElementById('main');
@@ -3934,12 +3935,27 @@ function renderOperationsTab() {
     ${catFilterBar()}
 
     <!-- Driver Filter -->
-    <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;box-shadow:0 1px 3px #0000000a">
+    <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px;box-shadow:0 1px 3px #0000000a">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#9CA3AF;margin-bottom:8px">👤 Filter by Driver</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         <button onclick="opsDriverFilter='all';renderMain()" style="padding:5px 14px;border-radius:20px;border:1.5px solid ${opsDriverFilter==='all'?'#1CE783':'#E5E7EB'};background:${opsDriverFilter==='all'?'#F0FDF4':'#fff'};color:${opsDriverFilter==='all'?'#059652':'#6B7280'};font-size:11px;font-weight:600;cursor:pointer">All</button>
         ${activeDrivers.map(d=>`
           <button onclick="opsDriverFilter='${d}';renderMain()" style="padding:5px 14px;border-radius:20px;border:1.5px solid ${opsDriverFilter===d?'#1CE783':'#E5E7EB'};background:${opsDriverFilter===d?'#F0FDF4':'#fff'};color:${opsDriverFilter===d?'#059652':'#6B7280'};font-size:11px;font-weight:600;cursor:pointer">${d}</button>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- Section Filter -->
+    <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;box-shadow:0 1px 3px #0000000a">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#9CA3AF;margin-bottom:8px">📊 View</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${[
+          ['all',        '📊 All Sections'],
+          ['store-time', '🏪 Time at Store'],
+          ['wh-loading', '🏭 WH Loading'],
+          ['transit',    '🚛 Transit Times'],
+        ].map(([val,label])=>`
+          <button onclick="opsSectionFilter='${val}';renderMain()" style="padding:6px 16px;border-radius:20px;border:1.5px solid ${opsSectionFilter===val?'#3B82F6':'#E5E7EB'};background:${opsSectionFilter===val?'#EFF6FF':'#fff'};color:${opsSectionFilter===val?'#1D4ED8':'#6B7280'};font-size:11px;font-weight:600;cursor:pointer">${label}</button>
         `).join('')}
       </div>
     </div>
@@ -3958,7 +3974,8 @@ function renderOperationsTab() {
         </div>`).join('')}
     </div>
 
-    <!-- Time at Store table -->
+    <!-- Time at Store section -->
+    ${(opsSectionFilter==='all'||opsSectionFilter==='store-time') ? `
     <div class="section-title">🏪 Time at Each Store <div style="flex:1;height:1px;background:var(--border)"></div></div>
     <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px #0000000a;margin-bottom:20px">
       <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
@@ -3981,9 +3998,10 @@ function renderOperationsTab() {
         }).join('') : `<tr><td colspan="5" style="text-align:center;padding:24px;color:#9CA3AF;font-size:12px">No store check-ins for selected period</td></tr>`}
         </tbody>
       </table></div>
-    </div>
+    </div>` : ''}
 
-    <!-- WH Loading Time -->
+    <!-- WH Loading Time section -->
+    ${(opsSectionFilter==='all'||opsSectionFilter==='wh-loading') ? `
     <div class="section-title">🏭 Warehouse Loading Time <div style="flex:1;height:1px;background:var(--border)"></div></div>
     <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px #0000000a;margin-bottom:20px">
       <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
@@ -4006,10 +4024,11 @@ function renderOperationsTab() {
         }).join('') : `<tr><td colspan="5" style="text-align:center;padding:24px;color:#9CA3AF;font-size:12px">No warehouse activity for selected period</td></tr>`}
         </tbody>
       </table></div>
-    </div>
+    </div>` : ''}
 
-    <!-- Store to Store Transit -->
-    <div class="section-title">🚛 Store-to-Store Transit Time <div style="flex:1;height:1px;background:var(--border)"></div></div>
+    <!-- Transit Times section — includes WH departure as start point -->
+    ${(opsSectionFilter==='all'||opsSectionFilter==='transit') ? `
+    <div class="section-title">🚛 Transit Times (WH → Store → Store) <div style="flex:1;height:1px;background:var(--border)"></div></div>
     <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px #0000000a;margin-bottom:20px">
       <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
         <thead><tr style="background:#F8F9FA;border-bottom:1px solid var(--border)">
@@ -4020,9 +4039,10 @@ function renderOperationsTab() {
           const color = r.mins===null?'#9CA3AF':r.mins<=30?'#1CE783':r.mins<=60?'#F97316':'#EF4444';
           const label = r.mins===null?(r.dep?'En route…':'Pending'):r.mins+' min';
           const badge = r.mins===null?(r.dep?'🚛 Moving':'⏳ Waiting'):r.mins<=30?'✅ Fast':r.mins<=60?'⚡ Normal':'🚨 Slow';
-          return `<tr style="border-bottom:1px solid #F3F4F6;${i%2?'background:#FAFAFA':''}">
+          const fromLabel = r.isWH ? '🏭 Warehouse' : r.fromLabel;
+          return `<tr style="border-bottom:1px solid #F3F4F6;${i%2?'background:#FAFAFA':''}${r.isWH?';background:#EFF6FF':''}" >
             <td style="padding:10px 14px;font-weight:600;font-size:12px">${r.driver}</td>
-            <td style="padding:10px 14px;font-size:11px;color:#9CA3AF">${r.isWH?'🏭 Warehouse':r.fromLabel}</td>
+            <td style="padding:10px 14px;font-size:11px;color:${r.isWH?'#3B82F6':'#9CA3AF'};font-weight:${r.isWH?'600':'400'}">${fromLabel}</td>
             <td style="padding:10px 14px;font-weight:600;font-size:12px">${r.to.replace('QUIK_','')}</td>
             <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#6B7280">${r.dep||'—'}</td>
             <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#6B7280">${r.arr||'—'}</td>
@@ -4032,7 +4052,7 @@ function renderOperationsTab() {
         }).join('') : `<tr><td colspan="7" style="text-align:center;padding:24px;color:#9CA3AF;font-size:12px">No transit data for selected period</td></tr>`}
         </tbody>
       </table></div>
-    </div>
+    </div>` : ''}
   </div>`;
 }
 
