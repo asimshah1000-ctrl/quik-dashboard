@@ -2309,10 +2309,15 @@ async function deleteCheckin(path) {
 
       if (isWH && rec.action) {
         // Check if any OTHER wh_checkin record still has this action for this trip
-        const remaining = await db.ref('wh_checkins')
-          .orderByChild('tripId').equalTo(rec.tripId).once('value');
-        const others = remaining.val() ? Object.values(remaining.val())
-          .filter(r => r.action === rec.action) : [];
+        // NOTE: We fetch ALL wh_checkins for this trip and filter in memory to avoid
+        // index dependency issues with orderByChild in Firebase rules
+        const remaining = await db.ref('wh_checkins').once('value');
+        const allRecs = remaining.val() ? Object.values(remaining.val()) : [];
+        const others = allRecs.filter(r =>
+          r.tripId === rec.tripId &&
+          r.action === rec.action &&
+          r.ts    !== rec.ts   // exclude the just-deleted record by timestamp
+        );
 
         if (others.length === 0) {
           // No other record — safe to clear from trips
