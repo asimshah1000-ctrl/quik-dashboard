@@ -1126,20 +1126,19 @@ function startDBListeners() {
     if (data) {
       storesDB = data;
       // ✅ Auto-sync: update any store whose lat/lng/radius differs from STORE_COORDS
-      // This ensures code-level coordinate updates reflect in Firebase & Stores tab
       const updates = {};
       Object.entries(STORE_COORDS).forEach(([name, c]) => {
         const existing = data[name];
         if (!existing) {
-          // New store in code — add to Firebase
-          updates[name] = { name, lat:c.lat, lng:c.lng, radius:c.radius||100, active:true };
+          updates[name] = { name, lat:c.lat, lng:c.lng, radius:c.radius||500, active:true };
         } else {
-          // Update coords if changed (keep active/custom fields intact)
-          const latChanged  = Math.abs((existing.lat||0) - c.lat) > 0.000001;
-          const lngChanged  = Math.abs((existing.lng||0) - c.lng) > 0.000001;
-          if (latChanged || lngChanged) {
-            updates[name+'/lat'] = c.lat;
-            updates[name+'/lng'] = c.lng;
+          const latChanged    = Math.abs((existing.lat||0) - c.lat) > 0.000001;
+          const lngChanged    = Math.abs((existing.lng||0) - c.lng) > 0.000001;
+          const radiusChanged = (existing.radius||0) !== (c.radius||500);
+          if (latChanged || lngChanged || radiusChanged) {
+            updates[name+'/lat']    = c.lat;
+            updates[name+'/lng']    = c.lng;
+            updates[name+'/radius'] = c.radius||500;
           }
         }
       });
@@ -5065,14 +5064,18 @@ async function syncAllCoords() {
   const updates = {};
   let count = 0;
   Object.entries(STORE_COORDS).forEach(([name, c]) => {
-    updates[name+'/lat'] = c.lat;
-    updates[name+'/lng'] = c.lng;
-    if (!storesDB[name]) updates[name+'/active'] = true;
-    if (!storesDB[name]) updates[name+'/name'] = name;
+    updates[name+'/lat']    = c.lat;
+    updates[name+'/lng']    = c.lng;
+    updates[name+'/radius'] = c.radius || 500;
+    if (!storesDB[name]) {
+      updates[name+'/active'] = true;
+      updates[name+'/name']   = name;
+    }
     count++;
   });
   await db.ref('stores_config').update(updates);
-  showToast(`✅ ${count} stores ke coordinates sync ho gaye!`);
+  showToast(`✅ ${count} stores — lat, lng aur radius sync ho gaye!`);
+  renderMain();
 }
 
 function openAddStore() {
