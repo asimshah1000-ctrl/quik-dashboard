@@ -2961,7 +2961,7 @@ function renderMain(){
       </div>
 
       <!-- Store Arrival Times from Live Check-ins -->
-      <div class="section-title">🏪 Store Arrivals — Today <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div class="section-title" id="store-arrivals-title">🏪 Store Arrivals — Today <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div id="store-arrivals-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px"></div>
 
       <div class="section-title">🏭 Warehouse Activity — Today <div style="flex:1;height:1px;background:var(--border)"></div></div>
@@ -2991,27 +2991,30 @@ function renderMain(){
     ].map(([l,v,c])=>`<div class="kpi-card"><div class="kpi-label">${l}</div><div class="kpi-value" style="color:${c}">${v}</div></div>`).join('');
 
     // ✅ Store arrivals — filtered by orderDate AND category via tripId
-    // dateFilteredTrips already uses orderDate + catFilter
     const filteredTripIdSet = new Set(dateFilteredTrips.map(t=>t._id).filter(Boolean));
+    const today3 = getToday();
+    const yesterday3 = getYesterday();
 
-    // Also get checkin dates for today/yesterday fallback (tripId may not always be set)
     const filteredCks = liveCheckins.filter(c => {
+      // Primary: match by tripId (orderDate + category aware)
+      if (c.tripId && filteredTripIdSet.has(c.tripId)) return true;
+      // Fallback: no tripId — include checkins from today OR yesterday
+      // (overnight trips: orderDate=yesterday, checkin=today)
       if (!c.tripId) {
-        // No tripId — fall back to checkin date filter
-        const today2 = getToday();
-        switch(dateFilterMode) {
-          case 'today':     return c.date === today2;
-          case 'yesterday': return c.date === getYesterday();
-          case 'week':      return c.date >= getWeekStart() && c.date <= today2;
-          case 'month':     return c.date >= getMonthStart() && c.date <= today2;
-          case 'all':       return true;
-          case 'custom':    return c.date >= (dateFilterFrom||'2000-01-01') && c.date <= (dateFilterTo||today2);
-          default:          return c.date === today2;
-        }
+        if (dateFilterMode === 'all') return true;
+        if (dateFilterMode === 'today')     return c.date === today3 || c.date === yesterday3;
+        if (dateFilterMode === 'yesterday') return c.date === yesterday3 || c.date === today3;
+        if (dateFilterMode === 'week')      return c.date >= getWeekStart() && c.date <= today3;
+        if (dateFilterMode === 'month')     return c.date >= getMonthStart() && c.date <= today3;
+        if (dateFilterMode === 'custom')    return c.date >= (dateFilterFrom||'2000-01-01') && c.date <= (dateFilterTo||today3);
       }
-      // Has tripId — use orderDate-based + category filtered trips
-      return filteredTripIdSet.has(c.tripId);
+      return false;
     });
+
+    // Dynamic title based on filter
+    const arrTitle = {today:'Today', yesterday:'Yesterday', week:'Last 7 Days', month:'This Month', all:'All Time', custom:'Custom Range'}[dateFilterMode]||'Today';
+    const arrTitleEl = document.getElementById('store-arrivals-title');
+    if (arrTitleEl) arrTitleEl.textContent = `🏪 Store Arrivals — ${arrTitle}`;
 
     // Per store — collect arrived/completed/departed times
     const storeDetailMap = {};
@@ -3082,9 +3085,18 @@ function renderMain(){
     if (whActEl) {
       const filteredWhTripIds = new Set(dateFilteredTrips.map(t=>t._id).filter(Boolean));
       const today = getToday();
+      const yesterday = getYesterday();
       const filteredWHcks = whCheckins.filter(c => {
-        if (!c.tripId) return c.date === today;
-        return filteredWhTripIds.has(c.tripId);
+        if (c.tripId && filteredWhTripIds.has(c.tripId)) return true;
+        if (!c.tripId) {
+          if (dateFilterMode === 'all') return true;
+          if (dateFilterMode === 'today')     return c.date === today || c.date === yesterday;
+          if (dateFilterMode === 'yesterday') return c.date === yesterday || c.date === today;
+          if (dateFilterMode === 'week')      return c.date >= getWeekStart() && c.date <= today;
+          if (dateFilterMode === 'month')     return c.date >= getMonthStart() && c.date <= today;
+          if (dateFilterMode === 'custom')    return c.date >= (dateFilterFrom||'2000-01-01') && c.date <= (dateFilterTo||today);
+        }
+        return false;
       });
       const whMap = {};
       filteredWHcks.forEach(c => {
@@ -3227,9 +3239,18 @@ function renderMain(){
     if (whActTab) {
       const whTabTripIds = new Set(whTripsFiltered.map(t=>t._id).filter(Boolean));
       const today2 = getToday();
+      const yesterday2 = getYesterday();
       const whTabCks = whCheckins.filter(c => {
-        if (!c.tripId) return c.date === today2;
-        return whTabTripIds.has(c.tripId);
+        if (c.tripId && whTabTripIds.has(c.tripId)) return true;
+        if (!c.tripId) {
+          if (dateFilterMode === 'all') return true;
+          if (dateFilterMode === 'today')     return c.date === today2 || c.date === yesterday2;
+          if (dateFilterMode === 'yesterday') return c.date === yesterday2 || c.date === today2;
+          if (dateFilterMode === 'week')      return c.date >= getWeekStart() && c.date <= today2;
+          if (dateFilterMode === 'month')     return c.date >= getMonthStart() && c.date <= today2;
+          if (dateFilterMode === 'custom')    return c.date >= (dateFilterFrom||'2000-01-01') && c.date <= (dateFilterTo||today2);
+        }
+        return false;
       });
       const whMapT = {};
       whTabCks.forEach(c => {
