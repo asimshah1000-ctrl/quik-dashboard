@@ -2288,27 +2288,39 @@ async function deleteCheckin(path) {
   if (!canEdit()) { showToast('Access nahi hai','#EF4444'); return; }
   if (!confirm('Delete this entry?')) return;
 
-  // Get the record before deleting so we can sync trips/storeTimes or whCheckin
-  const snap = await db.ref(path).once('value');
-  const rec = snap.val();
+  // Fetch record FIRST, then delete, then sync
+  try {
+    const snap = await db.ref(path).once('value');
+    const rec = snap.val();
 
-  await db.ref(path).remove();
+    // Delete the record
+    await db.ref(path).remove();
 
-  // ✅ Sync: if store checkin deleted → clear from trips/storeTimes
-  if (rec && rec.tripId && rec.store && rec.action) {
-    const isWH = path.includes('wh_checkins');
-    if (isWH) {
-      // WH checkin deleted → clear from trips/{id}/whCheckin
-      await db.ref(`trips/${rec.tripId}/whCheckin/${rec.action}`).remove();
+    // ✅ Sync to trips collection
+    if (rec && rec.tripId) {
+      const isWH = path.startsWith('wh_checkins');
+      if (isWH && rec.action) {
+        // WH checkin deleted → clear trips/{id}/whCheckin/{action}
+        await db.ref(`trips/${rec.tripId}/whCheckin/${rec.action}`).remove();
+        showToast('🗑️ WH check-in deleted & synced','#EF4444');
+      } else if (!isWH && rec.store && rec.action) {
+        // Store checkin deleted → clear trips/{id}/storeTimes/{store}/{field}
+        const fieldMap = { arrived:'arr', departed:'dep', completed:'completed' };
+        const field = fieldMap[rec.action];
+        if (field) await db.ref(`trips/${rec.tripId}/storeTimes/${rec.store}/${field}`).remove();
+        showToast('🗑️ Check-in deleted & synced','#EF4444');
+      } else {
+        showToast('🗑️ Deleted','#EF4444');
+      }
     } else {
-      // Store checkin deleted → clear from trips/{id}/storeTimes
-      const field = rec.action === 'arrived' ? 'arr' : rec.action === 'departed' ? 'dep' : 'completed';
-      await db.ref(`trips/${rec.tripId}/storeTimes/${rec.store}/${field}`).remove();
+      showToast('🗑️ Deleted','#EF4444');
     }
+  } catch(e) {
+    console.error('Delete error:', e);
+    showToast('🗑️ Deleted (sync may need refresh)','#F97316');
   }
 
   recordMeta();
-  showToast('🗑️ Deleted & synced','#EF4444');
 }
 
 // ── EDIT DRIVER SCHEDULE ENTRY ────────────────────────────────
