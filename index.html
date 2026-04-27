@@ -2277,6 +2277,7 @@ async function forceDepart(ckId, store, tripId, driver) {
   // Also update storeTimes if tripId available
   if (tripId && store) {
     updates[`trips/${tripId}/storeTimes/${store}/dep`] = time;
+    updates[`trips/${tripId}/storeTimes/${store}/completed`] = time;
   }
   await db.ref().update(updates);
   showToast(`✅ ${driver} — ${store.replace('QUIK_','')} force departed at ${time}`);
@@ -2286,9 +2287,28 @@ async function forceDepart(ckId, store, tripId, driver) {
 async function deleteCheckin(path) {
   if (!canEdit()) { showToast('Access nahi hai','#EF4444'); return; }
   if (!confirm('Delete this entry?')) return;
+
+  // Get the record before deleting so we can sync trips/storeTimes or whCheckin
+  const snap = await db.ref(path).once('value');
+  const rec = snap.val();
+
   await db.ref(path).remove();
+
+  // ✅ Sync: if store checkin deleted → clear from trips/storeTimes
+  if (rec && rec.tripId && rec.store && rec.action) {
+    const isWH = path.includes('wh_checkins');
+    if (isWH) {
+      // WH checkin deleted → clear from trips/{id}/whCheckin
+      await db.ref(`trips/${rec.tripId}/whCheckin/${rec.action}`).remove();
+    } else {
+      // Store checkin deleted → clear from trips/{id}/storeTimes
+      const field = rec.action === 'arrived' ? 'arr' : rec.action === 'departed' ? 'dep' : 'completed';
+      await db.ref(`trips/${rec.tripId}/storeTimes/${rec.store}/${field}`).remove();
+    }
+  }
+
   recordMeta();
-  showToast('🗑️ Deleted','#EF4444');
+  showToast('🗑️ Deleted & synced','#EF4444');
 }
 
 // ── EDIT DRIVER SCHEDULE ENTRY ────────────────────────────────
