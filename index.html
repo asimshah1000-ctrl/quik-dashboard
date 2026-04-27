@@ -2284,42 +2284,73 @@ async function forceDepart(ckId, store, tripId, driver) {
   renderMain();
 }
 
+// Force clear a trip's whCheckin field directly — useful when records are out of sync
+async function clearTripWHStatus(tripId, action) {
+  if (!canEdit()) return;
+  if (!confirm(`Force clear "${action}" from trip ${tripId}?\nWarehouse checkin page pe immediately reflect hoga.`)) return;
+  if (!tripId || !action) { showToast('Trip ID ya action missing', '#EF4444'); return; }
+  await db.ref(`trips/${tripId}/whCheckin/${action}`).remove();
+  showToast(`✅ trips/${tripId}/whCheckin/${action} cleared`, '#1CE783');
+}
+
 async function deleteCheckin(path) {
   if (!canEdit()) { showToast('Access nahi hai','#EF4444'); return; }
   if (!confirm('Delete this entry?')) return;
 
-  // Fetch record FIRST, then delete, then sync
   try {
     const snap = await db.ref(path).once('value');
     const rec = snap.val();
 
-    // Delete the record
+    // Delete the record first
     await db.ref(path).remove();
 
-    // ✅ Sync to trips collection
     if (rec && rec.tripId) {
       const isWH = path.startsWith('wh_checkins');
+
       if (isWH && rec.action) {
-        // WH checkin deleted → clear trips/{id}/whCheckin/{action}
-        await db.ref(`trips/${rec.tripId}/whCheckin/${rec.action}`).remove();
-        showToast('🗑️ WH check-in deleted & synced','#EF4444');
+        // Check if any OTHER wh_checkin record still has this action for this trip
+        const remaining = await db.ref('wh_checkins')
+          .orderByChild('tripId').equalTo(rec.tripId).once('value');
+        const others = remaining.val() ? Object.values(remaining.val())
+          .filter(r => r.action === rec.action) : [];
+
+        if (others.length === 0) {
+          // No other record — safe to clear from trips
+          await db.ref(`trips/${rec.tripId}/whCheckin/${rec.action}`).remove();
+          showToast(`🗑️ WH ${rec.action} deleted & synced`, '#EF4444');
+        } else {
+          // Keep latest in trips path
+          const latest = others.sort((a,b)=>(b.ts||0)-(a.ts||0))[0];
+          await db.ref(`trips/${rec.tripId}/whCheckin/${rec.action}`).set(latest.time);
+          showToast(`🗑️ Deleted — latest record kept`, '#F97316');
+        }
+
       } else if (!isWH && rec.store && rec.action) {
-        // Store checkin deleted → clear trips/{id}/storeTimes/{store}/{field}
+        // Store checkin — check if other records exist
+        const remaining = await db.ref('checkins')
+          .orderByChild('tripId').equalTo(rec.tripId).once('value');
+        const others = remaining.val() ? Object.values(remaining.val())
+          .filter(r => r.store === rec.store && r.action === rec.action) : [];
+
         const fieldMap = { arrived:'arr', departed:'dep', completed:'completed' };
         const field = fieldMap[rec.action];
-        if (field) await db.ref(`trips/${rec.tripId}/storeTimes/${rec.store}/${field}`).remove();
-        showToast('🗑️ Check-in deleted & synced','#EF4444');
-      } else {
-        showToast('🗑️ Deleted','#EF4444');
+        if (field) {
+          if (others.length === 0) {
+            await db.ref(`trips/${rec.tripId}/storeTimes/${rec.store}/${field}`).remove();
+          } else {
+            const latest = others.sort((a,b)=>(b.ts||0)-(a.ts||0))[0];
+            await db.ref(`trips/${rec.tripId}/storeTimes/${rec.store}/${field}`).set(latest.time);
+          }
+        }
+        showToast('🗑️ Check-in deleted & synced', '#EF4444');
       }
     } else {
-      showToast('🗑️ Deleted','#EF4444');
+      showToast('🗑️ Deleted', '#EF4444');
     }
   } catch(e) {
     console.error('Delete error:', e);
-    showToast('🗑️ Deleted (sync may need refresh)','#F97316');
+    showToast('🗑️ Deleted (sync error — refresh)', '#F97316');
   }
-
   recordMeta();
 }
 
