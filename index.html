@@ -1696,8 +1696,20 @@ function renderDispInfo(n){
   box.classList.add('show');
   rows.innerHTML=selectedStores[n].map(s=>{
     const sch=storeSchedule[s]||{};
-    return `<div class="drow"><div class="dsn">${s}</div><div class="dtime">🕐 ${sch.dispatch||'—'}</div><div class="dwin">Window: ${sch.ws||'—'} – ${sch.we||'—'}</div></div>`;
+    return `<div class="drow"><div class="dsn">${s.replace('QUIK_','')}</div><div class="dtime">🕐 ${sch.dispatch||'—'}</div><div class="dwin">Window: ${sch.ws||'—'} – ${sch.we||'—'}</div></div>`;
   }).join('');
+
+  // ✅ Auto-fill dispatch time from earliest store dispatch
+  const prefix = n===1 ? 'f' : 'f2';
+  const dispEl = document.getElementById(prefix+'-dispatch');
+  if (dispEl && !dispEl.value) {
+    // Get earliest dispatch time from selected stores
+    const times = selectedStores[n]
+      .map(s => storeSchedule[s]?.dispatch)
+      .filter(Boolean)
+      .sort();
+    if (times.length) dispEl.value = times[0];
+  }
 }
 function renderStoreTimeInputs(n){
   const wrap=document.getElementById('sttimes-wrap-'+n),con=document.getElementById('sttimes-'+n);
@@ -3901,9 +3913,12 @@ function renderMain(){
       const sch=storeSchedule[s]||{};
       return `<div class="schrow">
         <div class="schn">${s.replace('QUIK_','')}</div>
-        <span class="schlbl">Dispatch</span><input class="schinput" type="time" id="sd-${s}" value="${sch.dispatch||''}">
+        <span class="schlbl">Dispatch</span>
+        <input class="schinput" type="time" id="sd-${s}" value="${sch.dispatch||''}">
+        <span style="font-size:9px;padding:2px 8px;border-radius:6px;background:#F0FDF4;color:#059652;border:1px solid #BBF7D0;font-weight:700;font-family:'JetBrains Mono',monospace">${sch.dispatch||'—'}</span>
         <span style="font-size:9px;color:var(--muted)">|</span>
-        <span class="schlbl">Window</span><input class="schinput" type="time" id="sw-${s}" value="${sch.ws||''}">
+        <span class="schlbl">Window</span>
+        <input class="schinput" type="time" id="sw-${s}" value="${sch.ws||''}">
         <span style="font-size:9px;color:var(--muted)">–</span>
         <input class="schinput" type="time" id="se-${s}" value="${sch.we||''}">
       </div>`;
