@@ -633,21 +633,23 @@ const storage = firebase.storage();
 
 // ── DRIVER MASTER LIST ────────────────────────────────────────
 const DRIVERS = [
-  { name:'Awais',        vid:'22210',   vt:'Own Fleet', wh:'DIP Warehouse' },
-  { name:'Ali Hasan',    vid:'',        vt:'Own Fleet', wh:'DIP Warehouse' },
-  { name:'Haroon',       vid:'31824',   vt:'Own Fleet', wh:'DIP Warehouse' },
-  { name:'Iftikhar',     vid:'29594',   vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Awais',        vid:'1',  vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Usman',        vid:'2',  vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Ali Hasan',    vid:'3',  vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Haroon',       vid:'4',  vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Zaman',        vid:'5',  vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Shahid',       vid:'6',  vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Tahir',        vid:'7',  vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Iftikhar',     vid:'8',  vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Ishtiaq',      vid:'9',  vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Ishtiaq Shah', vid:'10', vt:'Own Fleet', wh:'DIP Warehouse' },
+  // Legacy
   { name:'Ijaz Ali',     vid:'23983',   vt:'Own Fleet', wh:'DIP Warehouse' },
-  { name:'Ishtiaq',      vid:'22209',   vt:'Own Fleet', wh:'DIP Warehouse' },
-  { name:'Ishtiaq Shah', vid:'33209',   vt:'Own Fleet', wh:'DIP Warehouse' },
-  { name:'Tahir',        vid:'80095',   vt:'Own Fleet', wh:'DIP Warehouse' },
-  { name:'Usman',        vid:'20194',   vt:'Own Fleet', wh:'DIP Warehouse' },
-  { name:'Zaman',        vid:'70612',   vt:'Own Fleet', wh:'DIP Warehouse' },
-  // Legacy drivers (kept for historical trip records)
   { name:'Azeem',        vid:'98744',   vt:'Own Fleet', wh:'DIP Warehouse' },
   { name:'Umair',        vid:'98745',   vt:'Own Fleet', wh:'DIP Warehouse' },
   { name:'Ahmed',        vid:'13041',   vt:'Own Fleet', wh:'DIP Warehouse' },
   { name:'Ateeq',        vid:'31824-1', vt:'Own Fleet', wh:'DIP Warehouse' },
+  { name:'Qasim',        vid:'',        vt:'Own Fleet', wh:'DIP Warehouse' },
 ];
 
 // ═══════════════════════════════════════════════════════
@@ -837,51 +839,61 @@ async function addUser() {
 //  STORE SCHEDULE
 // ═══════════════════════════════════════════════════════
 let storeSchedule = {
-  QUIK_ALQUOZ:    {dispatch:"00:30",ws:"00:30",we:"02:30"},
-  QUIK_ALQUSAIS:  {dispatch:"22:00",ws:"22:00",we:"00:00"},
-  QUIK_ARJAN:     {dispatch:"18:00",ws:"18:00",we:"20:00"},
-  QUIK_BANIYAS:   {dispatch:"02:30",ws:"02:30",we:"04:30"},
-  QUIK_BARSHA:    {dispatch:"22:00",ws:"22:00",we:"00:00"},
-  QUIK_BB:        {dispatch:"22:00",ws:"22:00",we:"00:00"},
-  QUIK_BB2:       {dispatch:"22:00",ws:"22:00",we:"00:00"},
-  QUIK_BB3:       {dispatch:"22:00",ws:"22:00",we:"00:00"},
-  QUIK_CITYLAND:  {dispatch:"23:30",ws:"23:30",we:"01:30"},
-  QUIK_DEIRA:     {dispatch:"22:00",ws:"22:00",we:"00:00"},
-  QUIK_DFC:       {dispatch:"00:30",ws:"00:30",we:"02:30"},
-  QUIK_DFP:       {dispatch:"01:00",ws:"01:00",we:"03:00"},
-  QUIK_DIP1:      {dispatch:"23:30",ws:"23:30",we:"01:30"},
-  QUIK_DSO:       {dispatch:"23:30",ws:"23:30",we:"01:30"},
-  QUIK_DUBAILAND: {dispatch:"01:30",ws:"01:30",we:"03:30"},
-  QUIK_DWTC:      {dispatch:"00:30",ws:"00:30",we:"02:30"},
-  QUIK_ETISALAT:  {dispatch:"02:30",ws:"02:30",we:"04:30"},
-  QUIK_INTERNETC: {dispatch:"23:00",ws:"23:00",we:"01:00"},
-  QUIK_JADDAF:    {dispatch:"00:00",ws:"00:00",we:"02:00"},
-  QUIK_JLT:       {dispatch:"00:30",ws:"00:30",we:"02:30"},
-  QUIK_JVC:       {dispatch:"23:30",ws:"23:30",we:"01:30"},
-  QUIK_JVC_PLAZA: {dispatch:"00:30",ws:"00:30",we:"02:30"},
-  QUIK_JVT:       {dispatch:"18:00",ws:"18:00",we:"20:00"},
-  QUIK_MAJAN:     {dispatch:"00:30",ws:"00:30",we:"02:30"},
-  QUIK_MARINA:    {dispatch:"02:00",ws:"02:00",we:"04:00"},
-  QUIK_MARINA2:   {dispatch:"02:00",ws:"02:00",we:"04:00"},
-  QUIK_MBZ:       {dispatch:"10:30",ws:"10:30",we:"12:30"},
-  QUIK_MEYDAN:    {dispatch:"18:00",ws:"18:00",we:"20:00"},
-  QUIK_MIRDIFF:   {dispatch:"00:00",ws:"00:00",we:"02:00"},
-  QUIK_MOTORC:    {dispatch:"22:00",ws:"22:00",we:"00:00"},
-  QUIK_MURJAN:    {dispatch:"10:30",ws:"10:30",we:"12:30"},
-  QUIK_RAFFA:     {dispatch:"22:00",ws:"22:00",we:"00:00"},
-  QUIK_RAHA:      {dispatch:"10:30",ws:"10:30",we:"12:30"},
-  QUIK_REEM:      {dispatch:"10:30",ws:"10:30",we:"12:30"},
-  QUIK_SAFA:      {dispatch:"18:00",ws:"18:00",we:"20:00"},
-  QUIK_SHAMKHA:   {dispatch:"02:30",ws:"02:30",we:"04:30"},
-  QUIK_SPORTSCITY:{dispatch:"22:00",ws:"22:00",we:"00:00"},
-  QUIK_UMS:       {dispatch:"18:00",ws:"18:00",we:"20:00"},
-  QUIK_WAHA:      {dispatch:"02:30",ws:"02:30",we:"04:30"},
-  QUIK_WASL:      {dispatch:"00:30",ws:"00:30",we:"02:30"},
-  // 2nd trip stores
-  QUIK_MEYDAN_2:  {dispatch:"11:30",ws:"11:30",we:"13:30"},
-  QUIK_BB_2:      {dispatch:"11:30",ws:"11:30",we:"13:30"},
-  QUIK_WASL_2:    {dispatch:"11:30",ws:"11:30",we:"13:30"},
-  QUIK_JVC_2:     {dispatch:"11:30",ws:"11:30",we:"13:30"},
+  // ── Awais T0001 / T0009 ──
+  QUIK_UMS:       {dispatch:"18:00",ws:"18:00",we:"18:30"},
+  QUIK_MEYDAN:    {dispatch:"18:00",ws:"18:00",we:"18:30"},
+  QUIK_DSO:       {dispatch:"21:30",ws:"21:30",we:"22:00"},
+  QUIK_CITYLAND:  {dispatch:"21:30",ws:"21:30",we:"22:00"},
+  QUIK_DUBAILAND: {dispatch:"21:30",ws:"21:30",we:"22:00"},
+  // ── Usman T0002 / T0011 ──
+  QUIK_ARJAN:     {dispatch:"18:00",ws:"18:00",we:"18:30"},
+  QUIK_JVT:       {dispatch:"18:00",ws:"18:00",we:"18:30"},
+  QUIK_JVC:       {dispatch:"23:30",ws:"23:30",we:"00:00"},
+  QUIK_DIP1:      {dispatch:"23:30",ws:"23:30",we:"00:00"},
+  // ── Ali Hasan T0003 / T0010 ──
+  QUIK_BB2:       {dispatch:"22:00",ws:"22:00",we:"22:30"},
+  QUIK_WASL:      {dispatch:"22:00",ws:"22:00",we:"22:30"},
+  QUIK_ALQUOZ:    {dispatch:"00:30",ws:"00:30",we:"01:00"},
+  QUIK_JLT:       {dispatch:"00:30",ws:"00:30",we:"01:00"},
+  // ── Haroon T0004 / T0014 ──
+  QUIK_BARSHA:    {dispatch:"22:00",ws:"22:00",we:"22:30"},
+  QUIK_BB:        {dispatch:"22:00",ws:"22:00",we:"22:30"},
+  QUIK_BB3:       {dispatch:"22:00",ws:"22:00",we:"22:30"},
+  QUIK_DFC:       {dispatch:"00:30",ws:"00:30",we:"01:00"},
+  QUIK_JVC_PLAZA: {dispatch:"00:30",ws:"00:30",we:"01:00"},
+  QUIK_JADDAF:    {dispatch:"00:00",ws:"00:00",we:"00:30"},
+  // ── Zaman T0005 / T0012 ──
+  QUIK_MOTORC:    {dispatch:"22:00",ws:"22:00",we:"22:30"},
+  QUIK_SPORTSCITY:{dispatch:"22:00",ws:"22:00",we:"22:30"},
+  QUIK_DWTC:      {dispatch:"00:30",ws:"00:30",we:"01:00"},
+  QUIK_INTERNETC: {dispatch:"00:30",ws:"00:30",we:"01:00"},
+  // ── Shahid T0006 / T0013 ──
+  QUIK_FURJAN:    {dispatch:"22:00",ws:"22:00",we:"22:30"},
+  QUIK_DEIRA:     {dispatch:"22:00",ws:"22:00",we:"22:30"},
+  QUIK_RAFFA:     {dispatch:"22:00",ws:"22:00",we:"22:30"},
+  QUIK_ALQUSAIS:  {dispatch:"22:00",ws:"22:00",we:"22:30"},
+  QUIK_MARINA2:   {dispatch:"02:00",ws:"02:00",we:"02:30"},
+  QUIK_MARINA:    {dispatch:"02:00",ws:"02:00",we:"02:30"},
+  // ── Ishtiaq T0008 ──
+  QUIK_WAHA:      {dispatch:"02:30",ws:"02:30",we:"03:00"},
+  QUIK_SHAMKHA:   {dispatch:"02:30",ws:"02:30",we:"03:00"},
+  QUIK_BANIYAS:   {dispatch:"02:30",ws:"02:30",we:"03:00"},
+  QUIK_ETISALAT:  {dispatch:"02:30",ws:"02:30",we:"03:00"},
+  // ── Ishtiaq Shah T0007 ──
+  QUIK_RAHA:      {dispatch:"02:30",ws:"02:30",we:"03:00"},
+  QUIK_MURJAN:    {dispatch:"02:30",ws:"02:30",we:"03:00"},
+  QUIK_REEM:      {dispatch:"02:30",ws:"02:30",we:"03:00"},
+  QUIK_MBZ:       {dispatch:"02:30",ws:"02:30",we:"03:00"},
+  // ── Tahir / Iftikhar T0015 / T0016 ──
+  QUIK_MEYDAN_2:  {dispatch:"11:30",ws:"11:30",we:"12:00"},
+  QUIK_BB_2:      {dispatch:"11:30",ws:"11:30",we:"12:00"},
+  QUIK_WASL_2:    {dispatch:"11:30",ws:"11:30",we:"12:00"},
+  QUIK_JVC_2:     {dispatch:"11:30",ws:"11:30",we:"12:00"},
+  // ── Other stores ──
+  QUIK_DFP:       {dispatch:"01:00",ws:"01:00",we:"01:30"},
+  QUIK_MAJAN:     {dispatch:"00:30",ws:"00:30",we:"01:00"},
+  QUIK_MIRDIFF:   {dispatch:"00:00",ws:"00:00",we:"00:30"},
+  QUIK_SAFA:      {dispatch:"18:00",ws:"18:00",we:"18:30"},
 };
 const STORE_NAMES = Object.keys(storeSchedule);
 
@@ -1251,16 +1263,18 @@ const STORE_COORDS = {
 // ═══════════════════════════════════════════════════════
 const VEHICLE_EFFICIENCY = {
   'Awais':        5.5,
-  'Ali Hasan':    5.5,
-  'Ijaz Ali':     5.5,
-  'Haroon':       5.5,
   'Usman':        5.5,
+  'Ali Hasan':    5.5,
+  'Haroon':       5.5,
+  'Zaman':        4.0,
+  'Shahid':       5.5,
+  'Tahir':        4.0,
+  'Iftikhar':     4.0,
   'Ishtiaq':      5.5,
   'Ishtiaq Shah': 5.5,
-  'Zaman':        4.0,
-  'Iftikhar':     4.0,
-  'Tahir':        4.0,
+  'Qasim':        5.5,
   // Legacy
+  'Ijaz Ali':     5.5,
   'Azeem':        5.0,
   'Umair':        4.0,
   'Ahmed':        5.5,
@@ -1277,14 +1291,14 @@ const TRIP_MASTER = [
   { id:'T0003', driver:'Ali Hasan',    stores:['QUIK_BB2','QUIK_WASL'] },
   { id:'T0004', driver:'Haroon',       stores:['QUIK_BARSHA','QUIK_BB','QUIK_BB3'] },
   { id:'T0005', driver:'Zaman',        stores:['QUIK_MOTORC','QUIK_SPORTSCITY'] },
-  { id:'T0006', driver:'Ijaz Ali',     stores:['QUIK_DEIRA','QUIK_RAFFA','QUIK_ALQUSAIS'] },
+  { id:'T0006', driver:'Shahid',       stores:['QUIK_FURJAN','QUIK_DEIRA','QUIK_RAFFA','QUIK_ALQUSAIS'] },
   { id:'T0007', driver:'Ishtiaq Shah', stores:['QUIK_RAHA','QUIK_MURJAN','QUIK_REEM','QUIK_MBZ'] },
-  { id:'T0008', driver:'Ishtiaq',      stores:['QUIK_WAHA','QUIK_SHAMKA','QUIK_BANIYAS','QUIK_ETISALAT'] },
+  { id:'T0008', driver:'Ishtiaq',      stores:['QUIK_WAHA','QUIK_SHAMKHA','QUIK_BANIYAS','QUIK_ETISALAT'] },
   { id:'T0009', driver:'Awais',        stores:['QUIK_DSO','QUIK_CITYLAND','QUIK_DUBAILAND'] },
   { id:'T0010', driver:'Ali Hasan',    stores:['QUIK_ALQUOZ','QUIK_JLT'] },
   { id:'T0011', driver:'Usman',        stores:['QUIK_JVC','QUIK_DIP1'] },
-  { id:'T0012', driver:'Zaman',        stores:['QUIK_DWTC','QUIK_INTERNETC','QUIK_FURJAN'] },
-  { id:'T0013', driver:'Ijaz Ali',     stores:['QUIK_MARINA2','QUIK_MARINA'] },
+  { id:'T0012', driver:'Zaman',        stores:['QUIK_DWTC','QUIK_INTERNETC'] },
+  { id:'T0013', driver:'Shahid',       stores:['QUIK_MARINA2','QUIK_MARINA'] },
   { id:'T0014', driver:'Haroon',       stores:['QUIK_DFC','QUIK_JVC_PLAZA','QUIK_JADDAF'] },
   { id:'T0015', driver:'Iftikhar',     stores:['QUIK_WASL_2','QUIK_BB_2','QUIK_JVC_2'] },
   { id:'T0016', driver:'Tahir',        stores:['QUIK_MEYDAN_2'] },
@@ -3563,10 +3577,8 @@ function renderMain(){
           <div><label class="flabel">Driver Name</label>
             <select class="fselect" id="f-driver" onchange="driverSelected(1)">
               <option value="">Select driver…</option>
-              ${(Object.values(driversDB).length ? Object.values(driversDB) : DRIVERS)
-                .filter(d=>d.active!==false)
-                .sort((a,b)=>(a.name||'').localeCompare(b.name||''))
-                .map(d=>`<option value="${d.name}" data-vid="${d.vid}" data-vt="${d.vt||'Own Fleet'}" data-wh="${d.wh||'DIP Warehouse'}">${d.name} — ${d.vid}</option>`).join('')}
+              ${Object.values(driversDB).filter(d=>d.active!==false).sort((a,b)=>(a.name||'').localeCompare(b.name||''))
+                .map(d=>`<option value="${d.name}" data-vid="${d.vid||''}" data-vt="${d.vt||'Own Fleet'}" data-wh="${d.wh||'DIP Warehouse'}">${d.name} — ${d.vid||'—'}</option>`).join('')}
               <option value="__custom">Other (type manually)</option>
             </select>
           </div>
@@ -3862,18 +3874,33 @@ function renderMain(){
   else if(currentTab==='store-regions'){ renderStoreRegionsTab(); }
   else if(currentTab==='qty-pallet'){ renderQtyPalletTab(); }
   else if(currentTab==='store-times'){
+    // Auto-sync: add any stores missing from Firebase
+    const missing = STORE_NAMES.filter(s => !storeSchedule[s] || !storeSchedule[s].dispatch);
+    if (missing.length === 0) {
+      // Also push default storeSchedule to Firebase for any missing keys
+      const updates = {};
+      STORE_NAMES.forEach(s => {
+        const def = storeSchedule[s];
+        if (def && def.dispatch) updates[s] = def;
+      });
+      if (Object.keys(updates).length) db.ref('schedule').update(updates);
+    }
+
     m.innerHTML=`<div class="fsec">
-      <div class="section-title">Store Dispatch Schedule — Edit Times <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+        <div class="section-title" style="margin:0">Store Dispatch Schedule — Edit Times <div style="flex:1;height:1px;background:var(--border)"></div></div>
+        <button onclick="syncScheduleFromCode()" class="btn-s" style="font-size:11px">🔄 Sync All to Firebase</button>
+      </div>
       <p style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.7">Sab users ke liye times update honge Firebase ke through — team ko instantly naye times dikhengy.</p>
       <div class="schgrid" id="sch-grid"></div>
-      <div style="display:flex;justify-content:flex-end">
+      <div style="display:flex;justify-content:flex-end;margin-top:12px">
         <button onclick="saveScheduleAll()" class="btn-p">💾 Save All Times (All Users)</button>
       </div>
     </div>`;
     document.getElementById('sch-grid').innerHTML=STORE_NAMES.map(s=>{
       const sch=storeSchedule[s]||{};
       return `<div class="schrow">
-        <div class="schn">${s}</div>
+        <div class="schn">${s.replace('QUIK_','')}</div>
         <span class="schlbl">Dispatch</span><input class="schinput" type="time" id="sd-${s}" value="${sch.dispatch||''}">
         <span style="font-size:9px;color:var(--muted)">|</span>
         <span class="schlbl">Window</span><input class="schinput" type="time" id="sw-${s}" value="${sch.ws||''}">
@@ -5681,6 +5708,17 @@ async function toggleStore(key) {
 }
 
 document.getElementById('editstoreov').addEventListener('click',function(e){if(e.target===this)closeEditStore();});
+
+async function syncScheduleFromCode() {
+  if (!canEdit()) { showToast('Access nahi hai','#EF4444'); return; }
+  const updates = {};
+  STORE_NAMES.forEach(s => {
+    const def = storeSchedule[s];
+    if (def) updates[s] = { dispatch:def.dispatch||'', ws:def.ws||'', we:def.we||'' };
+  });
+  await db.ref('schedule').update(updates);
+  showToast(`✅ ${Object.keys(updates).length} stores ka schedule Firebase pe sync ho gaya!`);
+}
 
 function saveScheduleAll(){
   if(!canAdmin()){showToast('Sirf Admin ye change kar sakta hai','#EF4444');return;}
