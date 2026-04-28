@@ -2590,20 +2590,29 @@ function tripIdSelected(n) {
   if (!tm) return;
 
   if (n === 1) {
-    // Trip 1 — fill driver + stores
     const driverSel = document.getElementById('f-driver');
     if (driverSel) { driverSel.value = tm.driver; driverSelected(1); }
-    // Now update Trip 2 dropdown to show only this driver's trips
     updateTrip2Dropdown(tm.driver);
   }
 
-  // Auto-fill stores for both trips
+  // Auto-fill stores
   selectedStores[n] = [...tm.stores];
   renderTags(n);
   renderDispInfo(n);
   renderStoreTimeInputs(n);
 
-  showToast(`✅ Trip ${tm.id} loaded — ${n===2?'stores filled':'${tm.driver}, ${tm.stores.length} stores'}`);
+  // ✅ Auto-fill dispatch from per-trip tripDispatch
+  const prefix = n===1 ? 'f' : 'f2';
+  const dispEl = document.getElementById(prefix+'-dispatch');
+  if (dispEl) {
+    const driverKey = Object.keys(driversDB).find(k=>driversDB[k].name===tm.driver);
+    const driverData = driverKey ? driversDB[driverKey] : null;
+    // Per-trip dispatch takes priority, then driver-level, then store schedule
+    const tripDisp = driverData?.tripDispatch?.[tm.id] || driverData?.dispatch || '';
+    if (tripDisp) dispEl.value = tripDisp;
+  }
+
+  showToast(`✅ Trip ${tm.id} loaded — ${tm.driver}, ${tm.stores.length} stores`);
 }
 
 function updateTrip2Dropdown(driverName) {
@@ -4268,7 +4277,11 @@ function renderOperationsTab() {
           dTrips.forEach(t => {
             const dKey = (t.driver||'').replace(/[^a-zA-Z0-9]/g,'_');
             const dDb  = driversDB[dKey]||{};
-            const planned = t.dispatch || dDb.dispatch || '';
+            // Per-trip dispatch takes priority over driver-level dispatch
+            const planned = t.dispatch
+              || (dDb.tripDispatch?.[t.tripId||''])
+              || dDb.dispatch
+              || '';
             const actual  = t.whCheckin?.departed||'';
             let diff = null;
             if (planned && actual) {
@@ -5495,7 +5508,7 @@ function renderDriversTab() {
 
     <div class="twrap">
       <div style="overflow-x:auto"><table>
-        <thead><tr>${['Status','Driver','Van #','Eff','Type','WH','Category','Dispatch Time','PIN','Trip IDs','Stores',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['Status','Driver','Van #','Eff','Type','WH','Category','Dispatch Time','PIN','Trip IDs & Dispatch','Stores',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
         ${drivers.map(([key, d]) => {
           const isActive = d.active !== false;
@@ -5542,8 +5555,24 @@ function renderDriversTab() {
                 ${d.pin ? `<span style="background:#1CE78315;color:#059652;border:1px solid #1CE78340;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700">••••</span>` : `<span style="color:#9CA3AF;font-size:10px">Set PIN ✏</span>`}
               </span>`:(d.pin?'Set':'—')}
             </td>
-            <td style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--blue);max-width:120px">
-              ${canEdit()?`<span class="ecell" title="Edit Trip IDs" onclick="editDriverTripIds('${key}','${tripIds.join(', ')}')">${tripIds.join(', ')||'—'} <span style="font-size:8px;color:var(--muted)">✏</span></span>`:(tripIds.join(', ')||'—')}
+            <td style="font-size:10px;min-width:200px">
+              ${tripIds.length ? tripIds.map(tid => {
+                const td = (d.tripDispatch||{})[tid] || '';
+                return canEdit() ? `
+                  <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#3B82F6;font-weight:600;min-width:44px">${tid}</span>
+                    <span class="ecell" title="Set dispatch time for ${tid}" onclick="setTripDispatch('${key}','${tid}','${td}')" style="cursor:pointer">
+                      ${td
+                        ? `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#059652;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:5px;padding:1px 7px">${td}</span>`
+                        : `<span style="font-size:9px;color:#9CA3AF;border:1px dashed #D1D5DB;border-radius:5px;padding:1px 7px">Set ✏</span>`}
+                    </span>
+                  </div>` : `
+                  <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#3B82F6;font-weight:600">${tid}</span>
+                    <span style="font-size:10px;color:#6B7280">${td||'—'}</span>
+                  </div>`;
+              }).join('') : '<span style="color:#9CA3AF;font-size:10px">No trips</span>'}
+              ${canEdit() ? `<span class="ecell" style="font-size:9px;color:#9CA3AF;cursor:pointer;display:block;margin-top:2px" onclick="editDriverTripIds('${key}','${tripIds.join(', ')}')">Edit trip IDs ✏</span>` : ''}
             </td>
             <td style="max-width:220px;min-width:150px">
               <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center">
@@ -5616,7 +5645,20 @@ async function saveEditDriver() {
   showToast('✅ Driver saved!');
 }
 
-async // Driver dispatch time edit — saves to Firebase and auto-syncs Add Trip
+async // Per-trip dispatch time — saves to Firebase tripDispatch map
+function setTripDispatch(driverKey, tripId, currentVal) {
+  const newVal = prompt(`Dispatch time for ${tripId} (HH:MM):`, currentVal||'');
+  if (newVal === null) return;
+  const clean = newVal.trim();
+  if (!driversDB[driverKey]) driversDB[driverKey] = {};
+  if (!driversDB[driverKey].tripDispatch) driversDB[driverKey].tripDispatch = {};
+  driversDB[driverKey].tripDispatch[tripId] = clean;
+  db.ref(`drivers_config/${driverKey}/tripDispatch/${tripId}`).set(clean);
+  showToast(`✅ ${tripId} dispatch: ${clean}`);
+  renderMain();
+}
+
+// Driver-level dispatch (fallback for drivers with 1 trip)
 function ieDriverDispatch(key, currentVal) {
   const newVal = prompt('Set dispatch time (HH:MM):', currentVal||'');
   if (newVal === null) return;
