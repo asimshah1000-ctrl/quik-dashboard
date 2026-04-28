@@ -1519,28 +1519,34 @@ function switchTab(t){
 //  KPI BUILDER
 // ═══════════════════════════════════════════════════════
 // ── UTILIZATION CALCULATOR ───────────────────────────────────
-// Fix-Chocolate: stores-based util (stores delivered / total stores assigned)
+// Fix-Chocolate: stores-based util = stores in trip / total stores assigned to driver
 // All others: pallets-based util (pallets / capacity)
 function calcTripUtil(t) {
   if ((t.category||'').toLowerCase().includes('chocolate') || (t.category||'').toLowerCase().includes('fix')) {
-    const total  = (t.storeNames||[]).length;
-    const done   = Object.values(t.storeTimes||{}).filter(s=>s.dep||s.completed).length;
-    if (!total) return 0;
-    return Math.round(done / total * 100);
+    const storesInTrip = (t.storeNames||[]).length;
+    if (!storesInTrip) return 0;
+    // Get total stores assigned to this driver from driversDB or TRIP_MASTER
+    const driverKey = (t.driver||'').replace(/[^a-zA-Z0-9]/g,'_');
+    const driverData = driversDB[driverKey];
+    const totalAssigned = driverData?.stores?.length || storesInTrip;
+    return Math.round(storesInTrip / totalAssigned * 100);
   }
   return t.capacity ? Math.round((t.pallets||0) / t.capacity * 100) : 0;
 }
 
 function calcAvgUtil(data) {
   if (!data.length) return 0;
-  // Split by category
   const choc = data.filter(t=>(t.category||'').toLowerCase().includes('chocolate')||(t.category||'').toLowerCase().includes('fix'));
   const norm = data.filter(t=>!choc.includes(t));
   let total = 0, count = 0;
   choc.forEach(t => {
-    const tot = (t.storeNames||[]).length;
-    const done = Object.values(t.storeTimes||{}).filter(s=>s.dep||s.completed).length;
-    if (tot) { total += done/tot*100; count++; }
+    const storesInTrip = (t.storeNames||[]).length;
+    if (!storesInTrip) return;
+    const driverKey = (t.driver||'').replace(/[^a-zA-Z0-9]/g,'_');
+    const driverData = driversDB[driverKey];
+    const totalAssigned = driverData?.stores?.length || storesInTrip;
+    total += storesInTrip / totalAssigned * 100;
+    count++;
   });
   norm.forEach(t => {
     if (t.capacity) { total += (t.pallets||0)/t.capacity*100; count++; }
@@ -4089,7 +4095,10 @@ function renderOperationsTab() {
         <div style="font-size:15px;font-weight:700">⚡ Operations</div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px">Store time · WH loading · Transit times</div>
       </div>
-      <span style="font-size:11px;color:#16A34A;background:#DCFCE7;border:1px solid #BBF7D0;padding:4px 12px;border-radius:20px;font-weight:600">🔴 LIVE</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:11px;color:#16A34A;background:#DCFCE7;border:1px solid #BBF7D0;padding:4px 12px;border-radius:20px;font-weight:600">🔴 LIVE</span>
+        ${tabExportBar('operations')}
+      </div>
     </div>
 
     ${dateFilterBar()}
@@ -4963,6 +4972,7 @@ function tabExportBar(tabName) {
     'stores':        `<button onclick="exportStoreView('csv')" class="btn-s" style="font-size:11px">📄 CSV</button><button onclick="exportStoreView('excel')" class="btn-p" style="font-size:11px">📊 Excel</button>`,
     'qty-pallet':    `<button onclick="exportQtyPallet('csv')" class="btn-s" style="font-size:11px">📄 CSV</button><button onclick="exportQtyPallet('excel')" class="btn-p" style="font-size:11px">📊 Excel</button>`,
     'store-regions': `<button onclick="exportStoreRegions('csv')" class="btn-s" style="font-size:11px">📄 CSV</button><button onclick="exportStoreRegions('excel')" class="btn-p" style="font-size:11px">📊 Excel</button>`,
+    'operations':    `<button onclick="exportOperations('csv')" class="btn-s" style="font-size:11px">📄 CSV</button><button onclick="exportOperations('excel')" class="btn-p" style="font-size:11px">📊 Excel</button>`,
     'overview':      `<button onclick="exportAll()" class="btn-p" style="font-size:11px">📦 Full Export</button>`,
   };
   const btns = exportMap[tabName] || '';
@@ -5287,6 +5297,74 @@ function exportQtyPallet(fmt) {
   const label = getExportDateLabel();
   if (fmt==='csv') downloadCSV(`QUIK_QtyPerPallet_${label}.csv`, toCSV(headers,rows));
   else downloadExcel(`QUIK_QtyPerPallet_${label}.xlsx`,[{name:'QTY per Pallet',headers,rows}]);
+}
+
+function exportOperations(fmt) {
+  const label = getExportDateLabel();
+  const filteredTrips = applyCatFilter(applyDateFilter(trips));
+  const filteredTripIds = new Set(filteredTrips.map(t=>t._id).filter(Boolean));
+  const today = getToday();
+
+  // Store time sheet
+  const filteredCks = liveCheckins.filter(c => c.tripId ? filteredTripIds.has(c.tripId) : (c.date===today||c.date===getYesterday()));
+  const dCks = opsDriverFilter==='all' ? filteredCks : filteredCks.filter(c=>c.driver===opsDriverFilter);
+  const storeMap = {};
+  dCks.forEach(c => {
+    if (!c.store) return;
+    if (!storeMap[c.store]) storeMap[c.store] = { arr:null, dep:null, driver:'', tripId:null };
+    if (c.action==='arrived'  && (!storeMap[c.store].arr||c.time>storeMap[c.store].arr)) { storeMap[c.store].arr=c.time; storeMap[c.store].tripId=c.tripId; }
+    if (c.action==='departed' && (!storeMap[c.store].dep||c.time>storeMap[c.store].dep)) storeMap[c.store].dep=c.time;
+    if (c.driver) storeMap[c.store].driver=c.driver;
+  });
+  const tripInfoMap = {};
+  filteredTrips.forEach(t => { if(t._id) tripInfoMap[t._id]={ tripNum:t.tripId||t._id.slice(0,6), trip2:t.trip2 }; });
+  const storeHeaders = ['#','Store','Driver','Trip ID','Check-in','Check-out','Time at Store (min)'];
+  const storeRows = Object.keys(storeMap).map((store,i) => {
+    const s = storeMap[store];
+    const mins = (s.arr&&s.dep)?(()=>{const d=toMins(s.dep)-toMins(s.arr);return d<0?d+1440:d;})():null;
+    const ti = s.tripId?tripInfoMap[s.tripId]:null;
+    return [i+1, store.replace('QUIK_',''), s.driver||'—', ti?(ti.tripNum+(ti.trip2?' T2':'')):'-', s.arr||'', s.dep||'', mins!==null?mins:''];
+  });
+
+  // WH loading sheet
+  const filteredWHcks = whCheckins.filter(c => c.tripId?filteredTripIds.has(c.tripId):(c.date===today||c.date===getYesterday()));
+  const dWHcks = opsDriverFilter==='all'?filteredWHcks:filteredWHcks.filter(c=>c.driver===opsDriverFilter||trips.find(t=>t._id===c.tripId&&t.driver===opsDriverFilter));
+  const whMap = {};
+  dWHcks.forEach(c => {
+    const key=c.tripId||c.driver;
+    if(!whMap[key])whMap[key]={driver:c.driver||'—',arrived:null,loaded:null,departed:null,tripId:c.tripId};
+    whMap[key][c.action]=c.time;
+  });
+  const whHeaders = ['#','Driver','Trip ID','Arrived WH','Loading Done','Departed WH','Total WH Time (min)'];
+  const whRows = Object.values(whMap).map((r,i) => {
+    let m=null; if(r.arrived&&r.departed){const d=toMins(r.departed)-toMins(r.arrived);m=d<0?d+1440:d;}
+    const ti=r.tripId?tripInfoMap[r.tripId]:null;
+    return [i+1,r.driver,ti?(ti.tripNum+(ti.trip2?' T2':'')):'-',r.arrived||'',r.loaded||'',r.departed||'',m!==null?m:''];
+  });
+
+  // Transit sheet
+  const dTrips = opsDriverFilter==='all'?filteredTrips:filteredTrips.filter(t=>t.driver===opsDriverFilter);
+  const transitRows = dTrips.flatMap(t=>buildTransitLegs(t));
+  const trHeaders = ['#','Driver','Trip ID','From','To','Departed','Arrived','Transit Time (min)','Status'];
+  const trRows = transitRows.map((r,i) => {
+    const ti=r.tripId?tripInfoMap[r.tripId]:null;
+    return [i+1,r.driver,ti?(ti.tripNum+(ti.trip2?' T2':'')):'-',r.isWH?'Warehouse':r.fromLabel,r.to.replace('QUIK_',''),r.dep||'',r.arr||'',r.mins!==null?r.mins:'',r.mins===null?(r.dep?'Moving':'Waiting'):r.mins<=30?'Fast':r.mins<=60?'Normal':'Slow'];
+  });
+
+  if (fmt==='csv') {
+    const csv = [
+      '--- Time at Store ---', toCSV(storeHeaders, storeRows),
+      '--- WH Loading ---', toCSV(whHeaders, whRows),
+      '--- Transit Times ---', toCSV(trHeaders, trRows)
+    ].join('\n\n');
+    downloadCSV(`QUIK_Operations_${label}.csv`, csv);
+  } else {
+    downloadExcel(`QUIK_Operations_${label}.xlsx`, [
+      {name:'Time at Store', headers:storeHeaders, rows:storeRows},
+      {name:'WH Loading',    headers:whHeaders,    rows:whRows},
+      {name:'Transit Times', headers:trHeaders,    rows:trRows},
+    ]);
+  }
 }
 
 function exportStoreRegions(fmt) {
