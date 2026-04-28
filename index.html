@@ -2661,6 +2661,14 @@ function driverSelected(n) {
       if (vt2 && !vt2.value) vt2.value = vt==='Own Fleet'?'Own Fleet':vt;
       if (wh2 && !wh2.value) wh2.value = wh;
     }
+
+    // ✅ Auto-fill dispatch time from driversDB
+    const prefix2 = n===1 ? 'f' : 'f2';
+    const dispEl2 = document.getElementById(prefix2+'-dispatch');
+    if (dispEl2 && driver?.dispatch) {
+      dispEl2.value = driver.dispatch;
+    }
+
     if (n===1) syncDriver();
   }
 }
@@ -4124,6 +4132,7 @@ function renderOperationsTab() {
           ['store-time', '🏪 Time at Store'],
           ['wh-loading', '🏭 WH Loading'],
           ['transit',    '🚛 Transit Times'],
+          ['wh-dispatch','⏱ WH Dispatch'],
         ].map(([val,label])=>`
           <button onclick="opsSectionFilter='${val}';renderMain()" style="padding:6px 16px;border-radius:20px;border:1.5px solid ${opsSectionFilter===val?'#3B82F6':'#E5E7EB'};background:${opsSectionFilter===val?'#EFF6FF':'#fff'};color:${opsSectionFilter===val?'#1D4ED8':'#6B7280'};font-size:11px;font-weight:600;cursor:pointer">${label}</button>
         `).join('')}
@@ -4241,6 +4250,45 @@ function renderOperationsTab() {
           </tr>`;
           }).join('');
         })() : `<tr><td colspan="9" style="text-align:center;padding:24px;color:#9CA3AF;font-size:12px">No transit data for selected period</td></tr>`}
+        </tbody>
+      </table></div>
+    </div>` : ''}
+
+    <!-- WH Dispatch — Planned vs Actual -->
+    ${(opsSectionFilter==='all'||opsSectionFilter==='wh-dispatch') ? `
+    <div class="section-title">⏱ WH Dispatch — Planned vs Actual <div style="flex:1;height:1px;background:var(--border)"></div></div>
+    <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px #0000000a;margin-bottom:20px">
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:#F8F9FA;border-bottom:1px solid var(--border)">
+          ${['Driver','Van #','Trip ID','Planned Dispatch','Actual Departed WH','Diff','Status'].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9CA3AF">${h}</th>`).join('')}
+        </tr></thead>
+        <tbody>
+        ${(() => {
+          const rows = [];
+          dTrips.forEach(t => {
+            const dKey = (t.driver||'').replace(/[^a-zA-Z0-9]/g,'_');
+            const dDb  = driversDB[dKey]||{};
+            const planned = t.dispatch || dDb.dispatch || '';
+            const actual  = t.whCheckin?.departed||'';
+            let diff = null;
+            if (planned && actual) {
+              diff = toMins(actual) - toMins(planned);
+              if (diff < -600) diff += 1440;
+            }
+            const ti = t._id ? tripInfoMap[t._id] : null;
+            const color = diff===null?'#9CA3AF':diff<=0?'#1CE783':diff<=15?'#F97316':'#EF4444';
+            rows.push(`<tr style="border-bottom:1px solid #F3F4F6">
+              <td style="padding:10px 14px;font-weight:700;font-size:12px">${t.driver||'—'}</td>
+              <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#F97316">${dDb.vid||t.vid||'—'}</td>
+              <td style="padding:10px 14px">${ti?`<span style="font-size:9px;font-family:'JetBrains Mono',monospace;background:#F0F9FF;color:#0369A1;border:1px solid #BAE6FD;border-radius:5px;padding:1px 6px">${ti.tripNum}${ti.trip2?' ②':''}</span>`:'—'}</td>
+              <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#1A2332">${planned||'<span style="color:#D1D5DB;font-size:10px">Not set</span>'}</td>
+              <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#F97316">${actual||'<span style="color:#D1D5DB;font-size:10px">No WH scan</span>'}</td>
+              <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-weight:700;color:${color}">${diff!==null?(diff<=0?`✅ ${Math.abs(diff)}m early`:`🚨 +${diff}m late`):'—'}</td>
+              <td style="padding:10px 14px"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:${color}15;color:${color}">${diff===null?'⏳ Pending':diff<=0?'On Time':`+${diff} min`}</span></td>
+            </tr>`);
+          });
+          return rows.length?rows.join(''):`<tr><td colspan="7" style="text-align:center;padding:24px;color:#9CA3AF;font-size:12px">No dispatch data for selected period</td></tr>`;
+        })()}
         </tbody>
       </table></div>
     </div>` : ''}
@@ -5447,7 +5495,7 @@ function renderDriversTab() {
 
     <div class="twrap">
       <div style="overflow-x:auto"><table>
-        <thead><tr>${['Status','Driver','Plate','Eff','Type','WH','Category','PIN','Trip IDs','Stores',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['Status','Driver','Van #','Eff','Type','WH','Category','Dispatch Time','PIN','Trip IDs','Stores',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
         ${drivers.map(([key, d]) => {
           const isActive = d.active !== false;
@@ -5456,7 +5504,17 @@ function renderDriversTab() {
             ?`<span class="ecell" title="Click to edit" onclick="ie(this,'drivers_config/${key}/${field}','${String(val||'').replace(/'/g,"\\'")}','${type}'${opts?`,[${opts.map(o=>`'${o}'`).join(',')}]`:''})">${val||'<span style=color:var(--muted);font-size:9px>—</span>'}</span>`
             :(val||'—');
 
-          // Get stores: from drivers_config/stores (user-edited) or from TRIP_MASTER
+          // Dispatch time — editable, syncs to Add Trip
+          const dispVal = d.dispatch||'';
+          const dispCell = canEdit()
+            ? `<span class="ecell" title="Click to set dispatch time" onclick="ieDriverDispatch('${key}','${dispVal}')">
+                ${dispVal
+                  ? `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:#059652;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:6px;padding:2px 8px">${dispVal}</span>`
+                  : `<span style="color:#9CA3AF;font-size:10px">Set time ✏</span>`}
+              </span>`
+            : (dispVal||'—');
+
+          // Get stores
           const driverStores = d.stores && d.stores.length
             ? d.stores
             : tripIds.flatMap(tid => tripStoresMap[tid]||[]);
@@ -5478,6 +5536,7 @@ function renderDriversTab() {
             <td style="font-size:11px">${ied('vt',d.vt||'Own Fleet','select',['Own Fleet','3PL Fleet','Adhoc/Rental'])}</td>
             <td style="font-size:11px">${ied('wh',d.wh||'DIP Warehouse','select',['DIP Warehouse','RSA - DC','FNV Warehouse'])}</td>
             <td style="font-size:11px">${ied('category',d.category||'','select',CATEGORIES)}</td>
+            <td style="font-size:11px">${dispCell}</td>
             <td style="font-family:'JetBrains Mono',monospace;font-size:11px">
               ${canEdit()?`<span class="ecell" title="Click to set PIN" onclick="ie(this,'drivers_config/${key}/pin','${d.pin||''}','number')" style="display:inline-flex;align-items:center;gap:4px">
                 ${d.pin ? `<span style="background:#1CE78315;color:#059652;border:1px solid #1CE78340;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700">••••</span>` : `<span style="color:#9CA3AF;font-size:10px">Set PIN ✏</span>`}
@@ -5555,6 +5614,26 @@ async function saveEditDriver() {
   recordMeta();
   closeEditDriver();
   showToast('✅ Driver saved!');
+}
+
+async // Driver dispatch time edit — saves to Firebase and auto-syncs Add Trip
+function ieDriverDispatch(key, currentVal) {
+  const newVal = prompt('Set dispatch time (HH:MM):', currentVal||'');
+  if (newVal === null) return;
+  const clean = newVal.trim();
+  db.ref(`drivers_config/${key}/dispatch`).set(clean);
+  if (driversDB[key]) driversDB[key].dispatch = clean;
+  // If Add Trip is open and this driver is selected, auto-fill dispatch
+  const fDriver = document.getElementById('f-driver');
+  if (fDriver && driversDB[key]) {
+    const driverName = driversDB[key].name||'';
+    if (fDriver.value === driverName) {
+      const dispEl = document.getElementById('f-dispatch');
+      if (dispEl) dispEl.value = clean;
+    }
+  }
+  showToast(`✅ Dispatch time updated: ${clean}`);
+  renderMain();
 }
 
 async function toggleDriver(key) {
