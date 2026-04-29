@@ -2671,6 +2671,7 @@ function tripIdSelected(n) {
 
   // Auto-fill stores
   selectedStores[n] = [...tm.stores];
+  spRender(n);       // ✅ update dropdown checkboxes
   renderTags(n);
   renderDispInfo(n);
   renderStoreTimeInputs(n);
