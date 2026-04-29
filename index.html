@@ -1070,6 +1070,11 @@ function startDBListeners() {
   db.ref('schedule').on('value', snap => {
     const d = snap.val();
     if (d) storeSchedule = {...storeSchedule, ...d};
+    // ✅ FIX: Har jagah refresh karo jab schedule change ho
+    if (currentTab === 'schedule-tab') renderMain();
+    if (currentTab === 'add') {
+      [1,2].forEach(n => { if ((selectedStores[n]||[]).length) renderDispInfo(n); });
+    }
   });
 
   db.ref('checkins').orderByChild('ts').limitToLast(100).on('value', snap => {
@@ -1125,11 +1130,11 @@ function startDBListeners() {
       db.ref('drivers_config').set(seed);
       driversDB = seed;
     }
-    // ✅ Always refresh driver dropdowns across all tabs when driversDB changes
+    // ✅ FIX: Always refresh driver dropdowns + relevant tab when driversDB changes
     refreshDriverDropdowns();
     if (currentTab === 'drivers-tab') renderMain();
-    else if (currentTab === 'add') renderMain();
-    if (currentTab === 'drivers-tab') renderMain();
+    // Refresh dispatch time + store info in Add Trip if that tab is open
+    if (currentTab === 'add') refreshAddTripFromDrivers();
   });
 
   // Stores — init from STORE_COORDS if not in Firebase yet
@@ -3676,6 +3681,12 @@ function renderMain(){
     const cf=n=>`<select class="fselect" id="${n===1?'f':'f2'}-cat"><option value="">Select Category…</option>${CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select>`;
     m.innerHTML=`<div>
       <div class="fsec">
+        <!-- ✅ SYNC BANNER -->
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 13px;background:#0F172A;border:1px solid #1CE78340;border-radius:8px;margin-bottom:14px;flex-wrap:wrap">
+          <span style="font-size:11px;color:#4ADE80;font-weight:600">🔄 Driver info ya Schedule galat lag rahi hai?</span>
+          <button onclick="syncScheduleFromCode()" style="padding:4px 12px;background:var(--blue);border:none;border-radius:6px;color:#fff;font-size:10px;font-weight:700;cursor:pointer">📅 Sync Schedule</button>
+          <button onclick="refreshAddTripFromDrivers()" style="padding:4px 12px;background:transparent;border:1px solid #1CE78340;border-radius:6px;color:#4ADE80;font-size:10px;font-weight:600;cursor:pointer">👤 Refresh Driver Info</button>
+        </div>
         <div class="section-title">Add New Trip Entry <div style="flex:1;height:1px;background:var(--border)"></div></div>
         <div class="ttogwrap">
           <div><div class="ttog-lbl">Driver doing 2 trips today?</div><div class="ttog-sub">Enable to log Trip 1 and Trip 2 for same driver</div></div>
@@ -4010,7 +4021,7 @@ function renderMain(){
     m.innerHTML=`<div class="fsec">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
         <div class="section-title" style="margin:0">Store Dispatch Schedule — Edit Times <div style="flex:1;height:1px;background:var(--border)"></div></div>
-        <button onclick="syncScheduleFromCode()" class="btn-s" style="font-size:11px">🔄 Sync All to Firebase</button>
+        <button onclick="syncScheduleFromCode()" class="btn-p" style="font-size:11px;background:#8B5CF6">🔄 Sync All from Code → Firebase</button>
       </div>
       <p style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.7">Sab users ke liye times update honge Firebase ke through — team ko instantly naye times dikhengy.</p>
       <div class="schgrid" id="sch-grid"></div>
@@ -5574,6 +5585,38 @@ function refreshDriverDropdowns() {
   }
 }
 
+// ✅ NEW: Jab Drivers tab mein koi change ho, Add Trip form silently update ho jaye
+function refreshAddTripFromDrivers() {
+  [1,2].forEach(n => {
+    const prefix = n===1 ? 'f' : 'f2';
+    const driverSel = document.getElementById(prefix+'-driver');
+    if (!driverSel || !driverSel.value || driverSel.value === '__custom') return;
+    const driverName = driverSel.value;
+    const driverKey  = Object.keys(driversDB).find(k => driversDB[k].name === driverName);
+    const driverData = driverKey ? driversDB[driverKey] : null;
+    if (!driverData) return;
+
+    // Vehicle ID, Type, WH update
+    const vidEl = document.getElementById(prefix+'-vid');
+    const vtEl  = document.getElementById(prefix+'-vt');
+    const whEl  = document.getElementById(prefix+'-wh');
+    if (vidEl && driverData.vid)                    vidEl.value = driverData.vid;
+    if (vtEl  && driverData.vt)                     vtEl.value  = driverData.vt;
+    if (whEl  && driverData.wh)                     whEl.value  = driverData.wh;
+
+    // Dispatch time — per-trip takes priority, otherwise driver-level
+    const dispEl    = document.getElementById(prefix+'-dispatch');
+    const tripIdSel = document.getElementById(prefix+'-tripid');
+    const tripId    = tripIdSel?.value;
+    const tripDisp  = tripId ? driverData?.tripDispatch?.[tripId] : null;
+    if (dispEl) dispEl.value = tripDisp || driverData.dispatch || dispEl.value;
+
+    // Re-render scheduled dispatch times box
+    if ((selectedStores[n]||[]).length) renderDispInfo(n);
+  });
+  showToast('🔄 Driver info updated — Add Trip form refresh ho gaya!');
+}
+
 function renderDriversTab() {
   const m = document.getElementById('main');
   const drivers = Object.entries(driversDB).sort((a,b)=>a[1].name?.localeCompare(b[1].name)||0);
@@ -5589,7 +5632,10 @@ function renderDriversTab() {
         <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700">🚗 Drivers & Vehicles</div>
         <div style="font-size:11px;color:var(--muted);margin-top:3px">${active} active · ${drivers.length - active} inactive</div>
       </div>
-      ${canEdit()?`<button onclick="openAddDriver()" class="btn-p" style="font-size:12px">+ Add Driver</button>`:''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button onclick="syncScheduleFromCode()" style="padding:6px 12px;background:#8B5CF6;border:none;border-radius:7px;color:#fff;font-size:10px;font-weight:700;cursor:pointer">🔄 Sync Schedule</button>
+        ${canEdit()?`<button onclick="openAddDriver()" class="btn-p" style="font-size:12px">+ Add Driver</button>`:''}
+      </div>
     </div>
 
     <div class="twrap">
@@ -6016,7 +6062,12 @@ async function syncScheduleFromCode() {
     if (def) updates[s] = { dispatch:def.dispatch||'', ws:def.ws||'', we:def.we||'' };
   });
   await db.ref('schedule').update(updates);
+  // ✅ FIX: Firebase listener trigger karega — but force local merge bhi karo
+  STORE_NAMES.forEach(s => {
+    if (updates[s]) storeSchedule[s] = { ...storeSchedule[s], ...updates[s] };
+  });
   showToast(`✅ ${Object.keys(updates).length} stores ka schedule Firebase pe sync ho gaya!`);
+  renderMain();
 }
 
 function saveScheduleAll(){
