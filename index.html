@@ -2663,31 +2663,33 @@ function tripIdSelected(n) {
   const tm = TRIP_MASTER.find(t=>t.id===sel.value);
   if (!tm) return;
 
+  // ✅ Set stores FIRST before calling driverSelected
+  selectedStores[n] = [...tm.stores];
+
   if (n === 1) {
     const driverSel = document.getElementById('f-driver');
     if (driverSel) { driverSel.value = tm.driver; driverSelected(1); }
     updateTrip2Dropdown(tm.driver);
   }
 
-  // Auto-fill stores
+  // Re-apply stores after driverSelected (it may have changed them)
   selectedStores[n] = [...tm.stores];
-  spRender(n);       // ✅ update dropdown checkboxes
+  spRender(n);
   renderTags(n);
   renderDispInfo(n);
   renderStoreTimeInputs(n);
 
-  // ✅ Auto-fill dispatch from per-trip tripDispatch
+  // ✅ Per-trip dispatch takes priority over driver-level dispatch
   const prefix = n===1 ? 'f' : 'f2';
   const dispEl = document.getElementById(prefix+'-dispatch');
   if (dispEl) {
     const driverKey = Object.keys(driversDB).find(k=>driversDB[k].name===tm.driver);
     const driverData = driverKey ? driversDB[driverKey] : null;
-    // Per-trip dispatch takes priority, then driver-level, then store schedule
     const tripDisp = driverData?.tripDispatch?.[tm.id] || driverData?.dispatch || '';
     if (tripDisp) dispEl.value = tripDisp;
   }
 
-  showToast(`✅ Trip ${tm.id} loaded — ${tm.driver}, ${tm.stores.length} stores`);
+  showToast(`✅ ${tm.id} — ${tm.driver}, ${tm.stores.length} stores`);
 }
 
 function updateTrip2Dropdown(driverName) {
@@ -2749,8 +2751,10 @@ function driverSelected(n) {
     // ✅ Auto-fill dispatch time from driversDB
     const prefix2 = n===1 ? 'f' : 'f2';
     const dispEl2 = document.getElementById(prefix2+'-dispatch');
-    if (dispEl2 && driver?.dispatch) {
-      dispEl2.value = driver.dispatch;
+    if (dispEl2) {
+      const driverKey2 = Object.keys(driversDB).find(k=>driversDB[k].name===val);
+      const driverData2 = driverKey2 ? driversDB[driverKey2] : null;
+      if (driverData2?.dispatch) dispEl2.value = driverData2.dispatch;
     }
 
     if (n===1) syncDriver();
