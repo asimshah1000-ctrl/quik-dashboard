@@ -1554,6 +1554,80 @@ function calcAvgUtil(data) {
   return count ? (total/count).toFixed(1) : 0;
 }
 
+// ── DRIVER PERFORMANCE TABLE ─────────────────────────────────
+function renderDriverPerf(tripData, targetId) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+
+  // Build per-driver stats
+  const driverMap = {};
+  tripData.forEach(t => {
+    const d = t.driver || '—';
+    if (!driverMap[d]) driverMap[d] = { trips:0, onTime:0, late:0, utilSum:0, utilCount:0 };
+    driverMap[d].trips++;
+
+    // On-time check
+    const planned = t.dispatch || (() => {
+      const dk = d.replace(/[^a-zA-Z0-9]/g,'_');
+      const db2 = driversDB[dk]||{};
+      return db2.tripDispatch?.[t.tripId||''] || db2.dispatch || '';
+    })();
+    const actual = t.whCheckin?.departed || '';
+    if (planned && actual) {
+      const diff = (() => { let d2 = toMins(actual)-toMins(planned); if(d2<-600)d2+=1440; return d2; })();
+      if (diff <= 0) driverMap[d].onTime++;
+      else driverMap[d].late++;
+    }
+
+    // Utilization
+    const u = calcTripUtil(t);
+    if (u > 0) { driverMap[d].utilSum += u; driverMap[d].utilCount++; }
+  });
+
+  const rows = Object.entries(driverMap)
+    .sort((a,b) => b[1].trips - a[1].trips);
+
+  if (!rows.length) {
+    el.innerHTML = `<div style="text-align:center;padding:20px;color:#9CA3AF;font-size:12px">No data for selected period</div>`;
+    return;
+  }
+
+  el.innerHTML = `
+  <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px #0000000a">
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:#F8F9FA;border-bottom:1px solid var(--border)">
+        ${['Driver','Total Trips','Avg Util%','On-Time','Late','On-Time %'].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9CA3AF">${h}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+      ${rows.map(([driver, s], i) => {
+        const tracked = s.onTime + s.late;
+        const otPct = tracked ? Math.round(s.onTime / tracked * 100) : null;
+        const avgUtil = s.utilCount ? Math.round(s.utilSum / s.utilCount) : null;
+        const otColor = otPct===null?'#9CA3AF':otPct>=90?'#1CE783':otPct>=70?'#F97316':'#EF4444';
+        const utColor = avgUtil===null?'#9CA3AF':avgUtil>=90?'#1CE783':avgUtil>=70?'#F97316':'#EF4444';
+        return `<tr style="border-bottom:1px solid #F3F4F6;${i%2?'background:#FAFAFA':''}">
+          <td style="padding:10px 14px;font-weight:700;font-size:13px">${driver}</td>
+          <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#3B82F6">${s.trips}</td>
+          <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-weight:700;color:${utColor}">${avgUtil!==null?avgUtil+'%':'—'}</td>
+          <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-weight:700;color:#1CE783">${s.onTime||'—'}</td>
+          <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;font-weight:700;color:${s.late?'#EF4444':'#9CA3AF'}">${s.late||'—'}</td>
+          <td style="padding:10px 14px">
+            ${otPct!==null
+              ? `<div style="display:flex;align-items:center;gap:8px">
+                  <div style="flex:1;height:6px;background:#F3F4F6;border-radius:3px;min-width:60px">
+                    <div style="height:100%;width:${otPct}%;background:${otColor};border-radius:3px;transition:width .3s"></div>
+                  </div>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${otColor}">${otPct}%</span>
+                </div>`
+              : '<span style="color:#9CA3AF;font-size:11px">No WH data</span>'}
+          </td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
 function buildKpis(data,cid){
   const n=data.length,u=data.reduce((a,t)=>a+(t.qty||0),0),p=data.reduce((a,t)=>a+(t.pallets||0),0);
   const tripCost=data.reduce((a,t)=>a+(t.cost||0),0);
@@ -3107,6 +3181,9 @@ function renderMain(){
       <div class="section-title">🏭 Warehouse Activity — Today <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div id="ov-wh-activity" style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px"></div>
 
+      <div class="section-title">👤 Driver Performance <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div id="ov-driver-perf" style="margin-bottom:20px"></div>
+
       <div class="section-title">By Warehouse <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div class="bgrid" id="bg-wh"></div>
       <div class="section-title">By Vehicle Type <div style="flex:1;height:1px;background:var(--border)"></div></div>
@@ -3222,6 +3299,7 @@ function renderMain(){
 
     // WH Activity mini-summary in Overview — filtered by orderDate + category via dateFilteredTrips
     const whActEl = document.getElementById('ov-wh-activity');
+    renderDriverPerf(dateFilteredTrips, 'ov-driver-perf');
     if (whActEl) {
       const filteredWhTripIds = new Set(dateFilteredTrips.map(t=>t._id).filter(Boolean));
       const today = getToday();
@@ -3325,6 +3403,8 @@ function renderMain(){
 
       <div class="section-title">By Vehicle Type <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div class="bgrid" id="bg-wh-vt"></div>
+      <div class="section-title">👤 Driver Performance <div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <div id="wh-driver-perf" style="margin-bottom:20px"></div>
       <div class="section-title">🏭 Warehouse Activity — Today <div style="flex:1;height:1px;background:var(--border)"></div></div>
       <div id="wh-tab-activity" style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px"></div>
       <div class="section-title">Trip Log <div style="flex:1;height:1px;background:var(--border)"></div></div>
@@ -3426,6 +3506,7 @@ function renderMain(){
     }
     const of=whTripsFiltered.filter(t=>t.vt==='Own Fleet'),tf=whTripsFiltered.filter(t=>t.vt==='3PL Fleet'),ad=whTripsFiltered.filter(t=>t.vt==='Adhoc/Rental');
     document.getElementById('bg-wh-vt').innerHTML=bcard('Own Fleet','own',of,'#22C55E')+bcard('3PL Fleet','tpl',tf,'#A855F7')+bcard('Adhoc/Rental','adhoc',ad,'#F97316');
+    renderDriverPerf(whTripsFiltered, 'wh-driver-perf');
     buildQtyPalletSummary(whTripsFiltered, 'wh-qty-pallet');
   }
 
